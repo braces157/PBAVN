@@ -237,6 +237,9 @@ scripts/
 - Near-black baize background, a single electric-lime accent, and one tint per circuit
   (PBA / LPBA / Dream / Challenge / Team League) so a glance is enough.
 - Archivo for display, Inter for text, tabular numerals everywhere a column of figures appears.
+- Vendored fonts. Both families are committed as latin variable subsets (81 KB) and loaded with
+  `next/font/local`. `next/font/google` fetches at build time, which fails on a firewall or when
+  Google throttles CI; it broke the second CI run before this changed.
 - All filtering is URL state, so every view is shareable, cacheable and server-rendered.
 - Responsive down to 390px; dense tables tighten their padding rather than clipping.
 

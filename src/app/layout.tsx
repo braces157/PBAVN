@@ -1,18 +1,24 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
 
-const archivo = Archivo({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+/**
+ * Fonts are vendored rather than fetched from Google at build time. `next/font/google`
+ * reaches out during `next build`, which fails on a firewall or when Google throttles
+ * CI. These two files are the latin variable subsets (81 KB together).
+ */
+const archivo = localFont({
+  src: "./fonts/archivo-latin.woff2",
+  weight: "400 800",
   variable: "--font-archivo",
   display: "swap",
 });
 
-const inter = Inter({
-  subsets: ["latin"],
+const inter = localFont({
+  src: "./fonts/inter-latin.woff2",
+  weight: "400 700",
   variable: "--font-inter",
   display: "swap",
 });
