@@ -9,8 +9,8 @@
     "start": "next start -p 3100",
     "lint": "tsc --noEmit",
     "test": "npm run test:parsers && npm run test:match",
-    "test:parsers": "node scripts/test-parsers.mjs",
-    "test:match": "node scripts/test-match.mjs",
+    "test:parsers": "node --experimental-strip-types scripts/test-parsers.mjs",
+    "test:match": "node --experimental-strip-types scripts/test-match.mjs",
     "verify": "node scripts/verify-interactions.mjs",
     "refresh-data": "node scripts/refresh-data.mjs"
   },
