@@ -19,8 +19,9 @@ import {
   getPlayerTourStats,
   type RankingKind,
 } from "./api";
-import { byStart, eventStatus, normalizeEvent, type Event } from "../normalize";
+import { byStart, eventStatus, normalizeEvent, normalizeTeam, type Event } from "../normalize";
 import { getPlayerSeasonMatches, searchNameOf, type TourMatch } from "./match-search";
+import { FIXTURES_ARCHIVE_TTL, FIXTURES_IN_PLAY_TTL, getRoundFixtures } from "./team-matches";
 import type { RawLeague, RawSeason } from "./types";
 
 export const getSeasonList = cache(async (): Promise<RawSeason[]> => {
@@ -102,6 +103,47 @@ export const getTeamBoard = cache(
       getTeamPlayerStats({ seasonCode, leagueCode, roundCode }),
     ]);
     return { standings, players };
+  },
+);
+
+/**
+ * A team-league event page has no bracket on the scoring terminal: the
+ * schedule feed publishes the team-league round code as its MATCH_CODE, and
+ * the same number over there is some finished tour from years ago. The
+ * matches therefore come from the team terminal as round fixtures, and the
+ * club display joins to the round's standings, where the English names live.
+ */
+export const getEventTeamFixtures = cache(
+  async (params: { matchCode: string; seasonCode: string }) => {
+    const seasons = await getTeamLeagueSeasons();
+    const season = seasons.find((s) => s.시즌코드 === params.seasonCode) ?? null;
+    if (!season) return null;
+
+    const rounds = await getTeamLeagueRounds(season.리그코드);
+    const round = rounds.find((r) => String(r.라운드코드) === params.matchCode) ?? null;
+    if (!round) return null;
+
+    const roundCode = String(round.라운드코드);
+    const [fixtures, standingsRaw] = await Promise.all([
+      getRoundFixtures(
+        roundCode,
+        round.라운드,
+        round.진행상황 === "진행중" ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
+      ),
+      getTeamStandings({
+        seasonCode: season.시즌코드,
+        leagueCode: String(season.리그코드),
+        roundCode,
+      }),
+    ]);
+
+    const clubs = new Map<string, { name: string; logo: string | null }>();
+    for (const raw of standingsRaw) {
+      const team = normalizeTeam(raw);
+      clubs.set(team.code, { name: team.name, logo: team.logo });
+    }
+
+    return { fixtures, clubs, round, seasonCode: season.시즌코드 };
   },
 );
 
