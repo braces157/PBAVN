@@ -88,7 +88,7 @@ jobs:
           echo "reviewing $base..HEAD"
 
           set +e
-          coderabbit review --plain --base-commit "$base" 2>&1 | tee review-raw.txt
+          coderabbit review --api-key "$CODERABBIT_API_KEY" --plain --base-commit "$base" 2>&1 | tee review-raw.txt
           status=${PIPESTATUS[0]}
           set -e
 
