@@ -40,6 +40,11 @@ const ENDPOINTS = [
   { path: "/{lang}/media/press/ajax/list", what: "Press releases" },
   { path: "/{lang}/media/video/ajax/list", what: "Video feed" },
   { path: "app.pbatour.org/mob/contest_new/code_behind/live_info.asp", what: "Live scoreboard fragment" },
+  { path: "app.pbatour.org/mob/contest_new/code_behind/contest_result_sur.asp", what: "Every match of an event; with a name search, one player's matches" },
+  { path: "team.pbatour.org/mob/code_behind/getPlanDetailEnd_new2.asp", what: "Team-league round fixtures (plain-HTTP POST)" },
+  { path: "team.pbatour.org/mob/code_behind/getPlanResult_new.asp", what: "One fixture's score board and bouts" },
+  { path: "team.pbatour.org/mob/ko/planResultDetail.asp", what: "One bout's record-sheet codes" },
+  { path: "team.pbatour.org/mob/code_behind/getPlanResultDetail.asp", what: "One bout's per-inning chain as JSON" },
 ];
 
 export default function AboutPage() {
@@ -63,7 +68,7 @@ export default function AboutPage() {
             <Stat label="Players indexed" value="1,700+" />
           </div>
           <div className="bg-ink-900 p-5">
-            <Stat label="Upstream endpoints" value="22" accent />
+            <Stat label="Upstream endpoints" value={String(ENDPOINTS.length)} accent />
           </div>
         </div>
 
