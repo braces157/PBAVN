@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import tls from "node:tls";
 import { request as httpsRequest } from "node:https";
@@ -83,11 +84,31 @@ export interface PbaEnvelope<T> {
 /* ------------------------------------------------------------------- TLS */
 
 /**
- * Node's bundled roots plus the intermediate the upstream omits. A `ca` list
- * replaces the default trust store rather than adding to it, so the roots
- * ride along.
+ * Every root `node:https` should trust here: Node's bundled store, any roots a
+ * deployment adds through NODE_EXTRA_CA_CERTS (a TLS-inspecting proxy wires
+ * its own root in that way), and the intermediate the upstream omits. A `ca`
+ * list replaces the default trust store rather than adding to it, so the
+ * other two groups have to ride along explicitly.
  */
-const TRUSTED_CA = [...tls.rootCertificates, GLOBALSIGN_GCCR46_ALPHASSLCA2025_PEM];
+const TRUSTED_CA = [
+  ...tls.rootCertificates,
+  ...extraCaRoots(),
+  GLOBALSIGN_GCCR46_ALPHASSLCA2025_PEM,
+];
+
+/** PEM blocks from a `NODE_EXTRA_CA_CERTS` file, or none when it is absent. */
+function extraCaRoots(): string[] {
+  const path = process.env.NODE_EXTRA_CA_CERTS;
+  if (!path) return [];
+  try {
+    return readFileSync(path, "utf8")
+      .split("-----END CERTIFICATE-----")
+      .filter((block) => block.includes("-----BEGIN CERTIFICATE-----"))
+      .map((block) => `${block}-----END CERTIFICATE-----`);
+  } catch {
+    return [];
+  }
+}
 
 interface RawResponse {
   status: number;
@@ -188,10 +209,12 @@ function requestPlain(
 /**
  * One cached upstream read, shared by every text transport. Plain-HTTP targets
  * (the team terminal) ride `node:http`; everything else rides `node:https`
- * with `TRUSTED_CA`. The cached body throws on any failure, so an outage or a
- * placeholder status is never stored, and the catch turns that into the null
- * contract callers already handle. `recordFailure` stays outside the cached
- * closure because it needs the render context.
+ * with `TRUSTED_CA`. Next keys the store on the callback's arguments, so the
+ * method and body ride as arguments — the same team-terminal endpoint means
+ * something different for every form posting. The cached body throws on any
+ * failure, so an outage or a placeholder status is never stored, and the catch
+ * turns that into the null contract callers already handle. `recordFailure`
+ * stays outside the cached closure because it needs the render context.
  */
 async function cachedText(
   url: string,
@@ -205,10 +228,10 @@ async function cachedText(
   },
 ): Promise<string | null> {
   const request = unstable_cache(
-    async (target: string) => {
+    async (target: string, cacheMethod: "GET" | "POST", cacheBody: string | undefined) => {
       const result = target.startsWith("http://")
-        ? await requestPlain(target, options)
-        : await requestUpstream(target, options);
+        ? await requestPlain(target, { ...options, method: cacheMethod, body: cacheBody })
+        : await requestUpstream(target, { ...options, method: cacheMethod, body: cacheBody });
       if (
         result.status < 200 ||
         result.status >= 300 ||
@@ -223,7 +246,7 @@ async function cachedText(
   );
 
   try {
-    return await request(url);
+    return await request(url, options.method, options.body);
   } catch {
     recordFailure(url);
     return null;
