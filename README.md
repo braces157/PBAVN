@@ -26,15 +26,17 @@ npm run build
 npm start          # http://localhost:3100
 ```
 
-Requires Node 20.9+ (built and tested on Node 22 and Node 25).
+Requires Node 20.9+ to run the site, and Node 22.6+ for `npm test`, which runs its TypeScript
+sources directly through Node's type stripping (built and tested on Node 22 and Node 25).
 
 To check the site the way CI does, with a browser driving the real pages:
 
 ```bash
 npm run lint       # tsc --noEmit
+npm test           # parser and analytics suites, no network
 npm run build
 npm start &        # in another terminal
-npm run verify     # launches headless Chrome, asserts 12 interactions
+npm run verify     # launches headless Chrome, asserts 19 interactions
 ```
 
 `npm run refresh-data` rebuilds the two committed translation lookups described under
