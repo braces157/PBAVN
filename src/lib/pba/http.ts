@@ -99,8 +99,8 @@ interface CacheEntry {
 }
 
 const fallbackCache = new Map<string, CacheEntry>();
-/** Primary cache for the plain-HTTP team host; POSTs never hit Next's data cache. */
-const teamCache = new Map<string, CacheEntry>();
+/** Next's data cache never reuses a POST, so POSTs cache here on the primary path. */
+const postCache = new Map<string, CacheEntry>();
 
 function readCache(cache: Map<string, CacheEntry>, key: string): string | null {
   const hit = cache.get(key);
@@ -259,6 +259,15 @@ async function getText(
     ...headers,
   };
 
+  // POST responses are never reused by Next's data cache, so their in-process
+  // cache is the primary path; GET keeps native fetch with the fallback below.
+  const post = method === "POST";
+  const cacheKey = `${method} ${url} ${body ?? ""}`;
+  if (post) {
+    const reserved = readCache(postCache, cacheKey);
+    if (reserved !== null) return reserved;
+  }
+
   // 1. Native fetch — the path Next can cache across requests.
   try {
     const response = await fetch(url, {
@@ -274,6 +283,7 @@ async function getText(
         recordFailure(url);
         return null;
       }
+      if (post) writeCache(postCache, cacheKey, text, revalidate);
       return text;
     }
     recordFailure(url);
@@ -286,9 +296,8 @@ async function getText(
   }
 
   // 2. Chain-broken fallback.
-  const cacheKey = `${method} ${url} ${body ?? ""}`;
-  const cached = readCache(fallbackCache, cacheKey);
-  if (cached) return cached;
+  const cached = readCache(post ? postCache : fallbackCache, cacheKey);
+  if (cached !== null) return cached;
 
   try {
     const result = await requestInsecure(url, { method, headers: mergedHeaders, body, timeoutMs });
@@ -297,7 +306,7 @@ async function getText(
       return null;
     }
     const text = result.body.toString("utf8");
-    writeCache(fallbackCache, cacheKey, text, Math.min(revalidate, 300));
+    writeCache(post ? postCache : fallbackCache, cacheKey, text, post ? revalidate : Math.min(revalidate, 300));
     return text;
   } catch {
     recordFailure(url);
@@ -430,7 +439,7 @@ export async function fetchTeamFragment(
   }
 
   const cacheKey = `${method} ${url} ${body ?? ""}`;
-  const cached = readCache(teamCache, cacheKey);
+  const cached = readCache(postCache, cacheKey);
   if (cached !== null) return cached;
 
   const teamHeaders: Record<string, string> = {
@@ -457,7 +466,7 @@ export async function fetchTeamFragment(
         recordFailure(url);
         return null;
       }
-      writeCache(teamCache, cacheKey, text, revalidate);
+      writeCache(postCache, cacheKey, text, revalidate);
       return text;
     }
     recordFailure(url);
@@ -474,7 +483,7 @@ export async function fetchTeamFragment(
       return null;
     }
     const text = result.body.toString("utf8");
-    writeCache(teamCache, cacheKey, text, revalidate);
+    writeCache(postCache, cacheKey, text, revalidate);
     return text;
   } catch {
     recordFailure(url);

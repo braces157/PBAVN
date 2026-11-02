@@ -4,7 +4,7 @@ import { getTeamLeagueRounds, getTeamLeagueSeasons, getTeamPlayerStats, getTeamR
 import { englishSponsor, englishVenue, teamLeagueTitle } from "@/lib/pba/service";
 import { trackFailures } from "@/lib/pba/api";
 import { getRequestFailures } from "@/lib/pba/failures";
-import { getRoundFixtures } from "@/lib/pba/team-matches";
+import { FIXTURES_ARCHIVE_TTL, FIXTURES_IN_PLAY_TTL, getRoundFixtures } from "@/lib/pba/team-matches";
 import { normalizeTeam, normalizeTeamPlayer, normalizeTeamProfile } from "@/lib/normalize";
 import { grouped, percent, wonCompact } from "@/lib/format";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
@@ -64,7 +64,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
         ? getRoundFixtures(
             String(selectedRound.라운드코드),
             selectedRound.라운드,
-            selectedRound.진행상황 === "진행중" ? 60 : 1800,
+            selectedRound.진행상황 === "진행중" ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
           )
         : Promise.resolve([]),
     ]);

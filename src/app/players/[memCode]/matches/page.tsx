@@ -94,6 +94,11 @@ export default async function PlayerMatchesPage({ params, searchParams }: PagePr
             title="The scoring terminal did not answer"
             description="None of the season's tours could be searched, so there is nothing to show. This is a transport failure, not an empty record — try again."
           />
+        ) : matches.length === 0 && failures.length > 0 ? (
+          <EmptyState
+            title="This season could not be read completely"
+            description="The data service did not answer for every read, so an empty table here is not proof the player has no recorded matches. The notice above names what failed; try again."
+          />
         ) : matches.length === 0 ? (
           <EmptyState
             title={

@@ -11,7 +11,7 @@ import {
   trackFailures,
 } from "@/lib/pba/api";
 import { getRequestFailures } from "@/lib/pba/failures";
-import { getRoundFixtures, type TeamFixture } from "@/lib/pba/team-matches";
+import { FIXTURES_ARCHIVE_TTL, FIXTURES_IN_PLAY_TTL, getRoundFixtures, type TeamFixture } from "@/lib/pba/team-matches";
 import {
   matchMatrix,
   normalizeTeam,
@@ -59,7 +59,7 @@ async function resolveTeam(code: string, seasonParam?: string, roundParam?: stri
           ? getRoundFixtures(
               String(round.라운드코드),
               round.라운드,
-              round.진행상황 === "진행중" ? 60 : 1800,
+              round.진행상황 === "진행중" ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
             )
           : Promise.resolve([] as TeamFixture[]),
       ]);

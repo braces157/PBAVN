@@ -288,10 +288,10 @@ scripts/
   table is active, and the association's `ended_matches` and `next_game` fragments time out under
   query. The wire is built and polls, but it has never been observed carrying an actual match.
   When idle the page says so rather than inventing a result.
-- **The partial-data notice covers six pages.** `/rankings`, `/records`, `/teams`, the club pages
-  and both new match-history pages record transport failures and say so. `/players`, `/live` and
-  `/schedule` still render an ordinary empty state when the upstream is unreachable. Threading the
-  same signal through them is mechanical work, not a design question.
+- **The partial-data notice covers seven pages.** `/rankings`, `/records`, `/teams`, the club
+  pages, both match-history pages and the bout page record transport failures and say so.
+  `/players`, `/live` and `/schedule` still render an ordinary empty state when the upstream is
+  unreachable. Threading the same signal through them is mechanical work, not a design question.
 - **Thirteen hand-built filter parameter bags.** Each `FilterRow` call site restates every other
   parameter on its page. Adding a filter means touching all of them or silently dropping state.
   This works today; it is a maintenance hazard, not a user-visible bug.

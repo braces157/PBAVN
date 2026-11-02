@@ -410,7 +410,7 @@ check("a row without its own heading inherits the round above it", () => {
 /* ------------------------------------------------------------ team league */
 
 const playedRound = parseRoundFixtures(fixture("team-fixtures-93.html"));
-const mixedRound = parseRoundFixtures(fixture("team-fixtures-94-scheduled.html"));
+const scheduledRound = parseRoundFixtures(fixture("team-fixtures-94-scheduled.html"));
 
 check("a played round listing yields every fixture", () => {
   assert.equal(playedRound.length, 45);
@@ -444,7 +444,7 @@ check("a played round keeps every club code pair", () => {
 });
 
 check("the team column heading row is never a side", () => {
-  for (const fixture of [...playedRound, ...mixedRound]) {
+  for (const fixture of [...playedRound, ...scheduledRound]) {
     assert.notEqual(fixture.home.name, "Team");
     assert.notEqual(fixture.away.name, "Team");
     assert.ok(fixture.home.name.length > 0, JSON.stringify(fixture));
@@ -453,9 +453,9 @@ check("the team column heading row is never a side", () => {
 });
 
 check("a scheduled block parses with a date, a game number and no score", () => {
-  assert.equal(mixedRound.length, 34);
-  assert.ok(mixedRound.every((fixture) => !fixture.played));
-  const first = mixedRound[0];
+  assert.equal(scheduledRound.length, 34);
+  assert.ok(scheduledRound.every((fixture) => !fixture.played));
+  const first = scheduledRound[0];
   assert.equal(first.gameNo, "6");
   assert.equal(first.playedAt, "2026-11-02 15:00");
   assert.equal(first.home.sets, null);
@@ -468,11 +468,11 @@ check("a scheduled block accepts Korean club names and the no_order round label"
   // `no_order` reads "4 Round" where a match number would sit on a played
   // block; the game number still comes from viewResult. Club names arrive in
   // Korean on scheduled blocks — display resolves them through club codes.
-  assert.ok(mixedRound.every((fixture) => /^\d+$/.test(fixture.gameNo ?? "")));
-  assert.equal(mixedRound[0].home.name, "에스와이");
-  assert.equal(mixedRound[0].away.name, "웰컴저축은행");
-  assert.equal(mixedRound[0].home.clubCode, "T00021");
-  assert.equal(mixedRound[0].away.clubCode, "T00002");
+  assert.ok(scheduledRound.every((fixture) => /^\d+$/.test(fixture.gameNo ?? "")));
+  assert.equal(scheduledRound[0].home.name, "에스와이");
+  assert.equal(scheduledRound[0].away.name, "웰컴저축은행");
+  assert.equal(scheduledRound[0].home.clubCode, "T00021");
+  assert.equal(scheduledRound[0].away.clubCode, "T00002");
 });
 
 check("an unrecognised round listing yields no fixtures", () => {

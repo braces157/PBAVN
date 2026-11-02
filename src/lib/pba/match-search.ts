@@ -119,13 +119,15 @@ async function searchTour(
       break;
     }
 
+    // Reserve the slot before the await, so concurrent workers cannot slip
+    // past the cap between the check and the reservation.
+    state.issued += 1;
     const html = await fetchHtmlFragment(
       `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(tour.code)}&iBLCode=128&iPage=${page}&txt_Search=${encodeURIComponent(query.searchName)}&LangCode=en`,
       // A tour the player did not enter answers with a 0-byte body — a real
       // "no rows", not a failure. The flag keeps the failure log honest.
       { revalidate: REVALIDATE, timeoutMs: 12_000, allowEmpty: true },
     );
-    state.issued += 1;
     searched = true;
 
     if (html === null) {

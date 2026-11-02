@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTeamLeagueRounds, getTeamLeagueSeasons, trackFailures } from "@/lib/pba/api";
 import { getRequestFailures } from "@/lib/pba/failures";
-import { getBoutInnings, getFixtureBouts } from "@/lib/pba/team-matches";
+import { FIXTURES_ARCHIVE_TTL, FIXTURES_IN_PLAY_TTL, getBoutInnings, getFixtureBouts } from "@/lib/pba/team-matches";
 import { average } from "@/lib/format";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
 import { TeamLogo } from "@/components/ui/media";
@@ -55,7 +55,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
       roundCode,
       selectedRound.라운드,
       gameNo,
-      inProgress ? 60 : 1800,
+      inProgress ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
     );
 
     // One bout's innings chain per render, and only for a bout upstream has
@@ -231,7 +231,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
                     <span className="flex-1" />
                     {bout.tgCode ? (
                       <Link
-                        href={`/teams/matches/${gameNo}?season=${season?.시즌코드 ?? ""}&round=${roundCode}&set=${bout.setNo}`}
+                        href={`/teams/matches/${gameNo}?season=${encodeURIComponent(season?.시즌코드 ?? "")}&round=${encodeURIComponent(roundCode)}&set=${bout.setNo}`}
                         className={cn(
                           "text-[11.5px] font-semibold underline-offset-2 hover:underline",
                           expanded ? "text-lime-300" : "text-fog-400",
@@ -340,7 +340,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
 
         <p className="mt-4 text-[11.5px] leading-relaxed text-fog-600">
           <Link
-            href={`/teams/matches?season=${season?.시즌코드 ?? ""}&round=${roundCode}`}
+            href={`/teams/matches?season=${encodeURIComponent(season?.시즌코드 ?? "")}&round=${encodeURIComponent(roundCode)}`}
             className="text-fog-400 underline-offset-2 hover:underline"
           >
             Back to the round&apos;s fixtures
