@@ -1,22 +1,33 @@
 import { request as httpRequest } from "node:http";
+import tls from "node:tls";
 import { request as httpsRequest } from "node:https";
+import { unstable_cache } from "next/cache";
 import { recordFailure } from "./failures";
+import { GLOBALSIGN_GCCR46_ALPHASSLCA2025_PEM } from "./certs";
 
 /**
  * Transport for the pbatour.org data API.
  *
- * Two quirks shape this module:
+ * The quirks that shape it:
  *
  *  1. The upstream service sends no CORS headers, so every call happens on the
  *     server.
  *  2. Its TLS chain omits the intermediate certificate. Browsers paper over
  *     that by fetching the missing link; Node does not, so a plain `fetch`
- *     fails with `UNABLE_TO_VERIFY_LEAF_SIGNATURE`.
- *
- * We therefore try the normal `fetch` first — which is what Next caches — and
- * fall back to a `node:https` request that trusts the chain only for the
- * association's own hosts. The fallback keeps a short in-process cache so a
- * request storm does not turn into an upstream storm.
+ *     fails with `UNABLE_TO_VERIFY_LEAF_SIGNATURE`. Every HTTPS call therefore
+ *     goes over `node:https` with the missing intermediate pinned from
+ *     ./certs, which verifies the chain fully instead of disabling
+ *     verification. Trying `fetch` first only ever paid a doomed round trip,
+ *     so it is gone.
+ *  3. The upstream can be very slow on large queries — the full 2000-player
+ *     directory answers in about eight seconds. `unstable_cache` stores each
+ *     response for the endpoint's revalidate window. Unlike an in-process
+ *     map, it survives restarts and, on a serverless host, is shared by every
+ *     instance, so an expensive query is paid once per window, not once per
+ *     visitor. It also reuses POST responses, which Next's fetch cache never
+ *     does.
+ *  4. The team-league terminal is plain HTTP and answers form posts; it
+ *     shares the same cached path over `node:http`.
  */
 
 
@@ -49,7 +60,7 @@ const BASE_HEADERS: Record<string, string> = {
 };
 
 export interface FetchOptions {
-  /** Seconds the Next.js data cache may reuse this response. */
+  /** Seconds the response may be served before a background refresh. */
   revalidate?: number;
   timeoutMs?: number;
   method?: "GET" | "POST";
@@ -69,57 +80,14 @@ export interface PbaEnvelope<T> {
   [key: string]: unknown;
 }
 
-/* ------------------------------------------------------------- TLS fallback */
+/* ------------------------------------------------------------------- TLS */
 
-const TLS_MARKERS = [
-  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
-  "UNABLE_TO_GET_ISSUER_CERT",
-  "SELF_SIGNED_CERT_IN_CHAIN",
-  "ERR_TLS_CERT_ALTNAME_INVALID",
-  "CERT_HAS_EXPIRED",
-  "DEPTH_ZERO_SELF_SIGNED_CERT",
-];
-
-function isTlsFailure(error: unknown): boolean {
-  const seen = new Set<unknown>();
-  let current: unknown = error;
-  while (current && !seen.has(current)) {
-    seen.add(current);
-    const code = (current as { code?: string }).code ?? "";
-    const message = (current as { message?: string }).message ?? "";
-    if (TLS_MARKERS.some((marker) => code.includes(marker) || message.includes(marker))) return true;
-    current = (current as { cause?: unknown }).cause;
-  }
-  return false;
-}
-
-interface CacheEntry {
-  expires: number;
-  body: string;
-}
-
-const fallbackCache = new Map<string, CacheEntry>();
-/** Next's data cache never reuses a POST, so POSTs cache here on the primary path. */
-const postCache = new Map<string, CacheEntry>();
-
-function readCache(cache: Map<string, CacheEntry>, key: string): string | null {
-  const hit = cache.get(key);
-  if (!hit) return null;
-  if (hit.expires < Date.now()) {
-    cache.delete(key);
-    return null;
-  }
-  return hit.body;
-}
-
-function writeCache(cache: Map<string, CacheEntry>, key: string, body: string, ttlSeconds: number): void {
-  if (cache.size > 400) {
-    // Cheap eviction: drop the oldest insertion order entries.
-    const keys = [...cache.keys()].slice(0, 120);
-    for (const stale of keys) cache.delete(stale);
-  }
-  cache.set(key, { expires: Date.now() + Math.max(1, ttlSeconds) * 1000, body });
-}
+/**
+ * Node's bundled roots plus the intermediate the upstream omits. A `ca` list
+ * replaces the default trust store rather than adding to it, so the roots
+ * ride along.
+ */
+const TRUSTED_CA = [...tls.rootCertificates, GLOBALSIGN_GCCR46_ALPHASSLCA2025_PEM];
 
 interface RawResponse {
   status: number;
@@ -127,7 +95,7 @@ interface RawResponse {
   contentType: string;
 }
 
-function requestInsecure(
+function requestUpstream(
   url: string,
   options: { method: string; headers: Record<string, string>; body?: string; timeoutMs: number },
 ): Promise<RawResponse> {
@@ -146,8 +114,10 @@ function requestInsecure(
           "Accept-Encoding": "identity",
           ...(options.body ? { "Content-Length": Buffer.byteLength(options.body) } : {}),
         },
-        // The missing intermediate is the whole reason we are here.
-        rejectUnauthorized: false,
+        // Full verification; TRUSTED_CA carries the intermediate the upstream
+        // leaves out of its chain.
+        ca: TRUSTED_CA,
+        rejectUnauthorized: true,
         servername: target.hostname,
       },
       (response) => {
@@ -172,7 +142,7 @@ function requestInsecure(
   });
 }
 
-/** Same shape as `requestInsecure`, for the team host that never had TLS. */
+/** Same shape as `requestUpstream`, for the team host that never had TLS. */
 function requestPlain(
   url: string,
   options: { method: string; headers: Record<string, string>; body?: string; timeoutMs: number },
@@ -213,6 +183,51 @@ function requestPlain(
     if (options.body) request.write(options.body);
     request.end();
   });
+}
+
+/**
+ * One cached upstream read, shared by every text transport. Plain-HTTP targets
+ * (the team terminal) ride `node:http`; everything else rides `node:https`
+ * with `TRUSTED_CA`. The cached body throws on any failure, so an outage or a
+ * placeholder status is never stored, and the catch turns that into the null
+ * contract callers already handle. `recordFailure` stays outside the cached
+ * closure because it needs the render context.
+ */
+async function cachedText(
+  url: string,
+  options: {
+    method: "GET" | "POST";
+    headers: Record<string, string>;
+    body?: string;
+    timeoutMs: number;
+    allowEmpty: boolean;
+    revalidate: number;
+  },
+): Promise<string | null> {
+  const request = unstable_cache(
+    async (target: string) => {
+      const result = target.startsWith("http://")
+        ? await requestPlain(target, options)
+        : await requestUpstream(target, options);
+      if (
+        result.status < 200 ||
+        result.status >= 300 ||
+        (result.body.length === 0 && !options.allowEmpty)
+      ) {
+        throw new Error(`PBA_UPSTREAM_STATUS_${result.status}`);
+      }
+      return result.body.toString("utf8");
+    },
+    ["pba-upstream"],
+    { revalidate: options.revalidate },
+  );
+
+  try {
+    return await request(url);
+  } catch {
+    recordFailure(url);
+    return null;
+  }
 }
 
 /* ----------------------------------------------------------- failure signal */
@@ -259,59 +274,14 @@ async function getText(
     ...headers,
   };
 
-  // POST responses are never reused by Next's data cache, so their in-process
-  // cache is the primary path; GET keeps native fetch with the fallback below.
-  const post = method === "POST";
-  const cacheKey = `${method} ${url} ${body ?? ""}`;
-  if (post) {
-    const reserved = readCache(postCache, cacheKey);
-    if (reserved !== null) return reserved;
-  }
-
-  // 1. Native fetch — the path Next can cache across requests.
-  try {
-    const response = await fetch(url, {
-      method,
-      headers: mergedHeaders,
-      body,
-      signal: AbortSignal.timeout(timeoutMs),
-      next: { revalidate },
-    });
-    if (response.ok) {
-      const text = await response.text();
-      if (!text && !allowEmpty) {
-        recordFailure(url);
-        return null;
-      }
-      if (post) writeCache(postCache, cacheKey, text, revalidate);
-      return text;
-    }
-    recordFailure(url);
-    return null;
-  } catch (error) {
-    if (!isTlsFailure(error)) {
-      recordFailure(url);
-      return null;
-    }
-  }
-
-  // 2. Chain-broken fallback.
-  const cached = readCache(post ? postCache : fallbackCache, cacheKey);
-  if (cached !== null) return cached;
-
-  try {
-    const result = await requestInsecure(url, { method, headers: mergedHeaders, body, timeoutMs });
-    if (result.status < 200 || result.status >= 300 || (result.body.length === 0 && !allowEmpty)) {
-      recordFailure(url);
-      return null;
-    }
-    const text = result.body.toString("utf8");
-    writeCache(post ? postCache : fallbackCache, cacheKey, text, post ? revalidate : Math.min(revalidate, 300));
-    return text;
-  } catch {
-    recordFailure(url);
-    return null;
-  }
+  return cachedText(url, {
+    method,
+    headers: mergedHeaders,
+    body,
+    timeoutMs,
+    allowEmpty,
+    revalidate,
+  });
 }
 
 /* ---------------------------------------------------------------- binary */
@@ -345,7 +315,7 @@ export async function fetchBinary(
   if (cached && cached.expires > Date.now()) return cached.asset;
 
   try {
-    const result = await requestInsecure(url, {
+    const result = await requestUpstream(url, {
       method: "GET",
       headers: {
         "User-Agent": BASE_HEADERS["User-Agent"],
@@ -405,13 +375,12 @@ export async function fetchHtmlFragment(
 /**
  * Fragment transport for the team-league terminal at `team.pbatour.org`.
  *
- * That host is plain HTTP and answers only POST form bodies, so Next's data
- * cache never sees a reusable response — the in-process cache below is the
- * primary path, not a fallback, and it is keyed by method, URL and body because
- * the same endpoint means something different for every form posting. Native
- * `fetch` still runs beneath it (it may gain GET caching later), and a
- * `node:http` request is the last resort. Failure recording, the offline flag
- * and the timeout policy are the ones every other transport shares.
+ * That host is plain HTTP and answers form posts, so Next's fetch cache never
+ * sees a reusable response; `cachedText` stores these reads in the same
+ * persistent store as everything else, POSTs included, keyed by method, URL
+ * and body because the same endpoint means something different for every form
+ * posting. Failure recording, the offline flag and the timeout policy are the
+ * ones every other transport shares.
  */
 export async function fetchTeamFragment(
   path: string,
@@ -438,10 +407,6 @@ export async function fetchTeamFragment(
     return null;
   }
 
-  const cacheKey = `${method} ${url} ${body ?? ""}`;
-  const cached = readCache(postCache, cacheKey);
-  if (cached !== null) return cached;
-
   const teamHeaders: Record<string, string> = {
     "User-Agent": BASE_HEADERS["User-Agent"],
     Accept: "*/*",
@@ -451,44 +416,14 @@ export async function fetchTeamFragment(
     ...(body ? { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" } : {}),
   };
 
-  // 1. Native fetch.
-  try {
-    const response = await fetch(url, {
-      method,
-      headers: teamHeaders,
-      body,
-      signal: AbortSignal.timeout(timeoutMs),
-      next: { revalidate },
-    });
-    if (response.ok) {
-      const text = await response.text();
-      if (!text && !allowEmpty) {
-        recordFailure(url);
-        return null;
-      }
-      writeCache(postCache, cacheKey, text, revalidate);
-      return text;
-    }
-    recordFailure(url);
-    return null;
-  } catch {
-    // Plain HTTP has no certificate failure mode; every error falls through.
-  }
-
-  // 2. node:http fallback.
-  try {
-    const result = await requestPlain(url, { method, headers: teamHeaders, body, timeoutMs });
-    if (result.status < 200 || result.status >= 300 || (result.body.length === 0 && !allowEmpty)) {
-      recordFailure(url);
-      return null;
-    }
-    const text = result.body.toString("utf8");
-    writeCache(postCache, cacheKey, text, revalidate);
-    return text;
-  } catch {
-    recordFailure(url);
-    return null;
-  }
+  return cachedText(url, {
+    method,
+    headers: teamHeaders,
+    body,
+    timeoutMs,
+    allowEmpty,
+    revalidate,
+  });
 }
 
 /** Prefix an upstream relative asset path with the asset CDN origin. */
