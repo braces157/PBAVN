@@ -20,6 +20,7 @@ import {
   parseLiveBoard,
 } from "../src/lib/pba/scoreboard-parse.ts";
 import { bracketRound, parseBracketRows } from "../src/lib/pba/bracket-parse.ts";
+import { parseSearchRows } from "../src/lib/pba/search-parse.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(join(here, "..", "tests", "fixtures", name), "utf8");
@@ -293,6 +294,111 @@ check("a round is named from the bracket depth, not the Korean label", () => {
 check("a bracket that did not answer yields no matches", () => {
   assert.deepEqual(parseBracketRows(null, 8), []);
   assert.deepEqual(parseBracketRows("<html><body>maintenance</body></html>", 8), []);
+});
+
+/* ------------------------------------------------------------ name search */
+
+const searchRows = parseSearchRows(fixture("search-tour271-cho.html"));
+
+check("a name search yields every drawn match of the tour", () => {
+  assert.equal(searchRows.length, 16);
+});
+
+check("search rows resolve their round from the tit_round headings", () => {
+  assert.deepEqual(
+    [...new Set(searchRows.map((row) => row.round))],
+    ["Final", "Semifinal", "Round 8", "Round 16", "Round 32", "Round 64", "Round 128"],
+  );
+  assert.equal(searchRows[0].round, "Final");
+  assert.equal(searchRows[3].round, "Round 16");
+  assert.equal(searchRows[15].round, "Round 128");
+});
+
+check("search rows carry both member codes in row order", () => {
+  assert.equal(searchRows[0].sides[0].memCode, "M0017111");
+  assert.equal(searchRows[0].sides[1].memCode, "M0017113");
+  for (const row of searchRows) {
+    assert.equal(row.sides.length, 2, `match ${row.matchNo} has ${row.sides.length} sides`);
+    for (const side of row.sides) {
+      assert.match(side.memCode ?? "", /^M\d+$/, `${row.matchNo}: ${side.name} has no MemCode`);
+    }
+  }
+});
+
+check("every searched match records exactly one winner", () => {
+  for (const row of searchRows) {
+    assert.equal(
+      row.sides.filter((side) => side.won).length,
+      1,
+      `match ${row.matchNo} has ${row.sides.filter((side) => side.won).length} winners`,
+    );
+  }
+});
+
+check("search rows keep the English names the terminal published", () => {
+  for (const row of searchRows) {
+    for (const side of row.sides) {
+      assert.match(side.name, /^[\x20-\x7E]+$/, row.pstCode);
+      assert.ok(side.name.length > 0);
+    }
+  }
+});
+
+check("a search row keeps its card code, match number and kickoff", () => {
+  const first = searchRows[0];
+  assert.equal(first.pstCode, "98885");
+  assert.equal(first.matchNo, "127");
+  assert.equal(first.scheduledAt, "00:08");
+  const [winner, loser] = first.sides;
+  assert.equal(winner.name, "KH Cho");
+  assert.equal(winner.sets, 4);
+  assert.equal(winner.average, 1.276);
+  assert.equal(winner.highRun, 7);
+  assert.equal(winner.won, true);
+  assert.equal(loser.name, "Martinez");
+  assert.equal(loser.sets, 3);
+  assert.equal(loser.average, 1.316);
+  assert.equal(loser.highRun, 11);
+  assert.equal(loser.won, false);
+});
+
+check("an empty search body is zero rows, not a crash", () => {
+  assert.deepEqual(parseSearchRows(""), []);
+  assert.deepEqual(parseSearchRows(null), []);
+  assert.deepEqual(parseSearchRows("<html><body>maintenance</body></html>"), []);
+});
+
+check("a row without its own heading inherits the round above it", () => {
+  const fragment = `
+    <div class="set_box">
+      <div class="tit_round"><strong class="t18 number0">Quarter-final</strong></div>
+      <div class="content_block_set">
+        <span class="no_order">No 9</span>
+        <a href="#" onclick="javascript:setview(101);">set</a>
+        <a href="#" onclick="javascript:matchlayer('M01','M02');">h2h</a>
+        <ul class="win_lost_block01_set">
+          <li><span class="t_name">Player</span><span class="t_set">Set</span></li>
+          <li><span class="t_name">A</span><span class="t_set">4</span><span class="icon_win">W</span></li>
+          <li><span class="t_name">B</span><span class="t_set">2</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="set_box">
+      <div class="content_block_set">
+        <span class="no_order">No 8</span>
+        <a href="#" onclick="javascript:setview(102);">set</a>
+        <a href="#" onclick="javascript:matchlayer('M03','M04');">h2h</a>
+        <ul class="win_lost_block01_set">
+          <li><span class="t_name">C</span><span class="t_set">4</span><span class="icon_win">W</span></li>
+          <li><span class="t_name">D</span><span class="t_set">1</span></li>
+        </ul>
+      </div>
+    </div>`;
+  const rows = parseSearchRows(fragment);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].round, "Quarter-final");
+  assert.equal(rows[1].round, "Quarter-final");
+  assert.equal(rows[1].pstCode, "102");
 });
 
 console.log(`\n${passed}/${passed + failures.length} parser checks passed`);
