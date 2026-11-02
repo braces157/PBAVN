@@ -8,7 +8,9 @@ import { EventLogo } from "@/components/ui/media";
 import { Chip, EmptyState, KeyValue, StatusPill, TextLink } from "@/components/ui/primitives";
 import { EventRow } from "@/components/domain/event-card";
 import { EventMatches } from "@/components/domain/event-matches";
+import { FixtureList } from "@/components/domain/fixture-list";
 import { getEventMatches } from "@/lib/pba/bracket";
+import { getEventTeamFixtures } from "@/lib/pba/service";
 
 export const revalidate = 900;
 
@@ -42,12 +44,21 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
 
   const event = normalizeEvent(detail);
 
-  // The bracket lives on the scoring terminal, keyed by the tour code the
-  // schedule feed publishes as MATCH_CODE. An event that has not been drawn
-  // has no matches, so it is not asked for.
-  const tourCode = /^\d+$/.test(detail.MATCH_CODE ?? "") ? detail.MATCH_CODE : "";
+  // On a tour event the bracket lives on the scoring terminal, keyed by the
+  // tour code the schedule feed publishes as MATCH_CODE. An event that has
+  // not been drawn has no matches, so it is not asked for. On a team-league
+  // event that number is the round code instead, and the matches live on the
+  // team terminal as round fixtures.
+  const isTeamLeague = event.league === "TLG";
+  const matchCode = /^\d+$/.test(detail.MATCH_CODE ?? "") ? detail.MATCH_CODE : "";
+  const teamEvent =
+    isTeamLeague && matchCode
+      ? await getEventTeamFixtures({ matchCode, seasonCode: event.season })
+      : null;
   const matches =
-    tourCode && event.status !== "upcoming" ? await getEventMatches(tourCode) : [];
+    !isTeamLeague && matchCode && event.status !== "upcoming"
+      ? await getEventMatches(matchCode)
+      : [];
   const league = leagueByCode(event.league);
   const days = dayCount(event.start, event.end);
   const until = daysUntil(event.start);
@@ -217,29 +228,52 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
               </div>
             )}
 
-            {matches.length > 0 && (
-              <section className="mt-10">
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                  <div>
-                    <p className="eyebrow">Results</p>
-                    <h2 className="display-md mt-1.5 text-fog-100">Match cards</h2>
-                  </div>
-                  <p className="text-[11.5px] text-fog-600">
-                    {shown.length} of {matches.length} matches · set scores and every turn at the table
-                  </p>
-                </div>
-                <div className="mt-5">
-                  <EventMatches matches={shown} tourCode={tourCode} eventSeq={seq} />
-                </div>
-                {matches.length > shown.length && (
-                  <div className="mt-5">
-                    <TextLink href={`/schedule/${seq}?all=1`}>
-                      Show all {matches.length} matches
-                    </TextLink>
-                  </div>
+            {isTeamLeague
+              ? teamEvent && teamEvent.fixtures.length > 0 && (
+                  <section className="mt-10">
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                      <div>
+                        <p className="eyebrow">Results</p>
+                        <h2 className="display-md mt-1.5 text-fog-100">Round fixtures</h2>
+                      </div>
+                      <p className="text-[11.5px] text-fog-600">
+                        {teamEvent.fixtures.length} fixtures · bout records open on played fixtures
+                      </p>
+                    </div>
+                    <div className="mt-5">
+                      <FixtureList
+                        fixtures={teamEvent.fixtures}
+                        clubs={teamEvent.clubs}
+                        season={teamEvent.seasonCode}
+                        round={String(teamEvent.round.라운드코드)}
+                      />
+                    </div>
+                  </section>
+                )
+              : matches.length > 0 && (
+                  <section className="mt-10">
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                      <div>
+                        <p className="eyebrow">Results</p>
+                        <h2 className="display-md mt-1.5 text-fog-100">Match cards</h2>
+                      </div>
+                      <p className="text-[11.5px] text-fog-600">
+                        {shown.length} of {matches.length} matches · set scores and every turn at
+                        the table
+                      </p>
+                    </div>
+                    <div className="mt-5">
+                      <EventMatches matches={shown} tourCode={matchCode} eventSeq={seq} />
+                    </div>
+                    {matches.length > shown.length && (
+                      <div className="mt-5">
+                        <TextLink href={`/schedule/${seq}?all=1`}>
+                          Show all {matches.length} matches
+                        </TextLink>
+                      </div>
+                    )}
+                  </section>
                 )}
-              </section>
-            )}
           </div>
 
           <aside>
