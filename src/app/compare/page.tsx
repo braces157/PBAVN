@@ -56,12 +56,18 @@ export default async function ComparePage({ searchParams }: PageProps) {
   const playerA = rawA ? normalizePlayer(rawA) : null;
   const playerB = rawB ? normalizePlayer(rawB) : null;
 
-  const pbaType = playerA?.league?.startsWith("LPBA") ? "LPBA1" : playerA?.league || "PBA1";
+  // The stats service keys on the circuit, so each player is read with their
+  // own. A head-to-head record only exists when both play the same circuit.
+  const pbaTypeA = playerA?.league || "PBA1";
+  const pbaTypeB = playerB?.league || "PBA1";
+  const sharedType = pbaTypeA === pbaTypeB ? pbaTypeA : null;
 
   const [statA, statB, h2h] = await Promise.all([
-    codeA ? getPlayerSeasonStats({ memCode: codeA, seasonCode, pbaType }) : null,
-    codeB ? getPlayerSeasonStats({ memCode: codeB, seasonCode, pbaType }) : null,
-    codeA && codeB ? getHeadToHead({ memberCode1: codeA, memberCode2: codeB, seasonCode, pbaType }) : null,
+    codeA ? getPlayerSeasonStats({ memCode: codeA, seasonCode, pbaType: pbaTypeA }) : null,
+    codeB ? getPlayerSeasonStats({ memCode: codeB, seasonCode, pbaType: pbaTypeB }) : null,
+    codeA && codeB && sharedType
+      ? getHeadToHead({ memberCode1: codeA, memberCode2: codeB, seasonCode, pbaType: sharedType })
+      : null,
   ]);
 
   const lineA = normalizePlayerStat(statA);
@@ -162,10 +168,16 @@ export default async function ComparePage({ searchParams }: PageProps) {
                         ["High run", h2h.player1_hr, h2h.player2_hr, "int"],
                         ["Innings", h2h.player1_inn, h2h.player2_inn, "int"],
                         ["Points", h2h.player1_total_score, h2h.player2_total_score, "int"],
-                        ["Success rate", h2h.player1_success_rate, h2h.player2_success_rate, "pct"],
+                        // Closing probability is the clutch stat the tour
+                        // publishes and almost nobody shows.
+                        ["Closing rate", h2h.player1_closing_rate, h2h.player2_closing_rate, "pct"],
+                        ["Attack success", h2h.player1_success_rate, h2h.player2_success_rate, "pct"],
+                        ["1-pointers", h2h.player1_1point, h2h.player2_1point, "int"],
+                        ["2-pointers", h2h.player1_2point, h2h.player2_2point, "int"],
+                        ["2-point rate", h2h.player1_2point_rate, h2h.player2_2point_rate, "pct"],
+                        ["Long runs", h2h.player1_long_cnt, h2h.player2_long_cnt, "int"],
                         ["Long run rate", h2h.player1_long_rate, h2h.player2_long_rate, "pct"],
                         ["First shot", h2h.player1_first_shot_rate, h2h.player2_first_shot_rate, "pct"],
-                        ["Bank shot", h2h.player1_2point_rate, h2h.player2_2point_rate, "pct"],
                         ["Sets won", h2h.player1_set_wins, h2h.player2_set_wins, "int"],
                       ] as [string, number, number, "avg" | "int" | "pct"][]
                     ).map(([label, left, right, unit]) => {

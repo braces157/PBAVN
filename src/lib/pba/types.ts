@@ -268,6 +268,75 @@ export interface RawTop5Row {
   PBAType?: string;
 }
 
+/**
+ * `/stats/service/period` — one row per player for a date window.
+ *
+ * This is the widest row the association publishes. Keys are the Korean SQL
+ * column aliases from the reporting view, so they are mirrored verbatim and
+ * normalised in `../period.ts`.
+ */
+export interface RawPeriodStat {
+  MemCode: string;
+  NameFull?: string;
+  NameShort?: string;
+  PBAType?: string;
+  /** wins */
+  승수: number;
+  /** losses */
+  패수: number;
+  /** sets won */
+  "세트 승": number;
+  /** sets lost */
+  "세트 패": number;
+  /** set difference */
+  "세트 득실": number;
+  /** points scored */
+  점수: number;
+  /** innings played */
+  이닝: number;
+  /** average points per inning, as published */
+  에버리지?: number;
+  /** high run */
+  하이런: number;
+  /** average innings per match */
+  "평균 이닝"?: number;
+  /** attack attempts */
+  공격시도횟수: number;
+  /** attack conversions */
+  공격성공횟수: number;
+  /** attack success rate, percent */
+  "공격 성공율"?: number;
+  /** single-point conversions */
+  "1득점 횟수": number;
+  /** long runs */
+  장타: number;
+  /** long-run rate, percent */
+  장타율?: number;
+  /** bank shots made */
+  "뱅크샷 횟수": number;
+  /** bank-shot rate, percent */
+  "뱅크샷 비율"?: number;
+  /** first-shot success rate, percent */
+  "초구 성공율"?: number;
+  /** expected points per visit */
+  "기대 득점"?: number;
+  /** closing probability, percent */
+  "끝내기 확률"?: number;
+  /** tiebreak wins */
+  "승부치기 승": number;
+  /** tiebreak losses */
+  "승부치기 패": number;
+  /** tiebreak win rate, percent */
+  "승부치기 승률"?: number;
+  /** tiebreak: billed first */
+  "승부치기 선공 횟수": number;
+  "승부치기 선공 승률"?: number;
+  /** tiebreak: billed second */
+  "승부치기 후공 횟수": number;
+  "승부치기 후공 승률"?: number;
+  "승부치기 하이런": number;
+}
+
 /* ------------------------------------------------------------- team league */
 
 export interface RawTeamSeason {

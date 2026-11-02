@@ -1,0 +1,146 @@
+name: CodeRabbit review
+
+# Reviews a pull request with the CodeRabbit CLI when it opens and again on every push,
+# and keeps one comment on the PR, so the review is where the review belongs instead of
+# in an Actions log nobody opens.
+#
+# The CLI is what does the reviewing here. The CodeRabbit GitHub App is installed, but on
+# every commit of this repository's first pull request its check run ended `skipped` or
+# `cancelled` and it delivered no review, so nothing else covers a new commit.
+#
+# Each run reviews the whole diff from the merge base, not just the last push: a review
+# of the increment alone cannot see a fix that broke an earlier hunk. Runs are serialised
+# per pull request and a new push cancels the run it supersedes.
+#
+# It is advisory, not a gate. The gates stay in ci.yml: tsc, the parser tests, the
+# build and the browser run.
+#
+# One repository secret is required: CODERABBIT_API_KEY. Without it the job reports a
+# notice and skips, rather than failing every pull request until someone remembers why.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Branch to review against
+        required: true
+        default: main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: coderabbit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # A fork's pull request cannot read secrets, and a draft is not ready for a review
+    # that costs a model run. `ready_for_review` brings the drafts back in.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Look for the API key
+        id: key
+        env:
+          CODERABBIT_API_KEY: ${{ secrets.CODERABBIT_API_KEY }}
+        run: |
+          if [ -z "$CODERABBIT_API_KEY" ]; then
+            echo "::notice::CODERABBIT_API_KEY is unset, so there is nothing to review. Add it under Settings > Secrets and variables > Actions to turn this on."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out the pull request head with full history
+        if: steps.key.outputs.present == 'true'
+        uses: actions/checkout@v5
+        with:
+          # The head, not the merge commit: the diff to review is the author's.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Install the CodeRabbit CLI
+        if: steps.key.outputs.present == 'true'
+        run: |
+          curl -fsSL https://cli.coderabbit.ai/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Review the diff since the merge base
+        id: review
+        if: steps.key.outputs.present == 'true'
+        env:
+          CODERABBIT_API_KEY: ${{ secrets.CODERABBIT_API_KEY }}
+          BASE_REF: ${{ github.event.pull_request.base.ref || inputs.base }}
+        run: |
+          PATH="$HOME/.local/bin:$PATH"
+          git fetch --no-tags origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          # The merge base, so commits that landed on the base branch after this one
+          # forked are not reviewed as if the author had written them.
+          base=$(git merge-base "origin/$BASE_REF" HEAD)
+          echo "reviewing $base..HEAD"
+
+          set +e
+          coderabbit review --plain --base-commit "$base" 2>&1 | tee review-raw.txt
+          status=${PIPESTATUS[0]}
+          set -e
+
+          # A non-zero exit means the review was incomplete; the output is still worth
+          # showing. Failing the job here would only make the PR red for a tool outage.
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::coderabbit review exited $status; the comment below may be partial."
+          fi
+
+          sed -r "s/\x1B\[[0-9;]*[mK]//g" review-raw.txt > review.txt
+
+          if [ ! -s review.txt ]; then
+            echo "::warning::coderabbit produced no output."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Add the review to the job summary
+        if: steps.key.outputs.present == 'true' && steps.review.outputs.found == 'true'
+        run: |
+          {
+            echo "## CodeRabbit review"
+            echo
+            echo '```'
+            head -c 60000 review.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post the review on the pull request
+        if: github.event_name == 'pull_request' && steps.key.outputs.present == 'true' && steps.review.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          marker='<!-- coderabbit-cli-review -->'
+          {
+            echo "$marker"
+            echo
+            echo "### CodeRabbit review"
+            echo
+            echo "_Reviewed \`$(git rev-parse --short HEAD)\` against the merge base by the CodeRabbit CLI. Rewritten on every push to this branch. Advisory: CI's gates are separate._"
+            echo
+            echo '```'
+            head -c 60000 review.txt
+            echo '```'
+          } > comment.md
+
+          # One comment that is rewritten, not a new one per run.
+          id=$(gh api --paginate "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+                 --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | tail -n 1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$id" -F body=@comment.md > /dev/null
+          else
+            gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" -F body=@comment.md > /dev/null
+          fi

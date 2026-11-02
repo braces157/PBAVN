@@ -8,7 +8,9 @@
 // Launches its own headless Chrome, so nothing needs to be running beforehand.
 
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const BASE = process.env.VERIFY_BASE_URL ?? "http://127.0.0.1:3100";
 const CDP_PORT = 9222;
@@ -39,19 +41,49 @@ if (!reachable) {
   process.exit(1);
 }
 
+// A fresh profile per run. A reused one holds a SingletonLock from any previous
+// browser that did not shut down cleanly, and a new Chrome can then hand the
+// launch to the stale instance, or give up, without ever opening the port. The
+// directory is removed on the way out so repeated local runs start clean too.
+//
+// `tmpdir()` and not `process.env.TEMP`: TEMP and TMPDIR are unset on a GitHub
+// ubuntu runner, so TEMP alone resolved every run to the same /tmp path on every
+// machine.
+const profileDir = mkdtempSync(join(tmpdir(), "pba-verify-"));
+
 const browser = spawn(
   browserPath,
   [
     "--headless=new",
     "--disable-gpu",
+    // Not every runner gives /dev/shm its full size, and a browser that runs out
+    // of it dies without saying so. Costs nothing where it is not the problem.
+    "--disable-dev-shm-usage",
     "--no-first-run",
     "--no-default-browser-check",
     `--remote-debugging-port=${CDP_PORT}`,
-    `--user-data-dir=${process.env.TEMP ?? "/tmp"}/pba-verify-profile`,
+    `--user-data-dir=${profileDir}`,
     "about:blank",
   ],
-  { stdio: "ignore", detached: false },
+  // Chrome's own output is the only evidence there is when it never opens the
+  // port, so it is kept. Ignoring it made an earlier failure here unreadable.
+  { stdio: ["ignore", "pipe", "pipe"], detached: false },
 );
+
+// Kept in memory, not echoed: on Linux the useful lines are short, but a Windows
+// Chrome repeats a dozen updater warnings a second and drowns the check results.
+// Everything is still printed if the browser fails to start, which is the only
+// time it is read.
+const browserOutput = [];
+for (const stream of [browser.stdout, browser.stderr]) {
+  stream.setEncoding("utf8");
+  stream.on("data", (chunk) => browserOutput.push(chunk));
+}
+
+let exited = null;
+browser.on("exit", (code, signal) => {
+  exited = signal ?? code;
+});
 
 const stopBrowser = () => {
   try {
@@ -59,11 +91,30 @@ const stopBrowser = () => {
   } catch {
     /* already gone */
   }
+  // Best effort. The kill is asynchronous, so on Windows the profile's files are
+  // still held open at this point and the removal fails with EPERM. Clearing it
+  // is housekeeping; letting it throw from an exit handler would turn a run whose
+  // checks all passed into exit code 1, which is the opposite of what this
+  // reports.
+  try {
+    rmSync(profileDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+  } catch {
+    /* the OS will get to it */
+  }
 };
 process.on("exit", stopBrowser);
 
 async function waitForCdp() {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+  // 60 s, not 10: the second a busy runner takes to start the graphics stack is
+  // not a property of the site, and a launch that is merely slow is not a
+  // failure. A browser that dies is reported immediately rather than waited out.
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    if (exited !== null) {
+      throw new Error(
+        `Chrome exited (${exited}) before opening a debugging port.\n${browserOutput.join("").slice(-4000)}`,
+      );
+    }
     try {
       const version = await fetch(`${CDP}/json/version`);
       if (version.ok) return version.json();
@@ -72,7 +123,9 @@ async function waitForCdp() {
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  throw new Error("Chrome did not expose a debugging port");
+  throw new Error(
+    `Chrome did not expose a debugging port within 60 s.\n${browserOutput.join("").slice(-4000)}`,
+  );
 }
 
 await waitForCdp();
@@ -111,6 +164,26 @@ const navigate = async (path, settle = 3500) => {
   await new Promise((resolve) => setTimeout(resolve, settle));
 };
 
+/**
+ * Poll a page expression until it is truthy, or give up.
+ *
+ * Every page here reads a live upstream API, so a fixed sleep measures how fast
+ * the association's server answered, not whether the page works. A runner in
+ * Virginia took longer than 3.5 s to fill the team-league table and the check
+ * failed on a page that renders correctly. The assertion is unchanged; only the
+ * moment it is read moved.
+ */
+const waitFor = async (expression, timeout = 25_000) => {
+  const deadline = Date.now() + timeout;
+  let last = null;
+  while (Date.now() < deadline) {
+    last = await evaluate(expression);
+    if (last) return last;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return last;
+};
+
 const viewport = (width, height, mobile) =>
   send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile });
 
@@ -125,7 +198,7 @@ await send("Runtime.enable");
 await viewport(1440, 1000, false);
 
 await navigate("/rankings");
-const before = await evaluate(`
+const before = await waitFor(`
   [...document.querySelectorAll('table.stat-table tbody tr')].slice(0, 3)
     .map(row => row.querySelectorAll('td')[1]?.textContent.trim())
 `);
@@ -179,12 +252,51 @@ check("header search suggests players", Array.isArray(options) && options.length
 check("search ignores the hyphen in a name", /Ga-young KIM/i.test(options?.[0] ?? ""), options?.[0]);
 
 await navigate("/teams/players");
-const teamLinks = await evaluate(`document.querySelectorAll('table.stat-table tbody tr a[href^="/players/"]').length`);
+const teamLinks = await waitFor(
+  `document.querySelectorAll('table.stat-table tbody tr a[href^="/players/"]').length || 0`,
+);
 check("team league rows link to player profiles", teamLinks > 0, `${teamLinks} links`);
 
+// A match card is the deepest view on the site: sets, then every turn.
+await navigate("/matches/98885?tour=271&seq=tour2026051210390860&round=Final", 6000);
+const setPanels = await waitFor(`document.querySelectorAll('section[id^="set-"]').length || 0`);
+check("a match card renders a panel per set", setPanels >= 5, `${setPanels} sets`);
+
+const turnRows = await waitFor(`
+  [...document.querySelectorAll('section[id^="set-"] table tbody')]
+    .reduce((total, body) => total + body.querySelectorAll('tr').length, 0)
+`);
+check("every set publishes its turn-by-turn rows", turnRows > 50, `${turnRows} turns`);
+
+const cardScore = await evaluate(`document.querySelector('dl dd .tnum')?.textContent?.trim()`);
+check("the card leads with the sets won", /\d/.test(cardScore ?? ""), cardScore);
+
+// The event page is the only route into a card that a person can find by clicking.
+await navigate("/schedule/tour2026051210390860", 8000);
+const cardLinks = await waitFor(`document.querySelectorAll('a[href^="/matches/"]').length || 0`);
+check("an event page links every drawn match to its card", cardLinks > 20, `${cardLinks} cards`);
+
+// The period-stats table is the widest stats surface on the site.
+await navigate("/records?stat=bankShotRate", 5000);
+const periodRows = await waitFor(`
+  [...document.querySelectorAll('table')]
+    .some(table => table.querySelectorAll('tbody tr').length > 10)
+`);
+check("the season form table ranks more than ten players", periodRows === true, String(periodRows));
+
 await viewport(390, 844, true);
-for (const route of ["/", "/players", "/rankings", "/teams", "/teams/players", "/players/M0017111", "/records"]) {
-  await navigate(route, 3000);
+for (const route of [
+  "/",
+  "/players",
+  "/rankings",
+  "/teams",
+  "/teams/players",
+  "/players/M0017111",
+  "/records",
+  "/matches/98885",
+  "/schedule/tour2026051210390860",
+]) {
+  await navigate(route, 5000);
   const overflow = await evaluate(`
     (() => {
       document.documentElement.style.overflowX = 'visible';

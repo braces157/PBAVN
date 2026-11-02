@@ -7,12 +7,22 @@ import { fmtRange, dayCount, daysUntil, isPlaceholder } from "@/lib/format";
 import { EventLogo } from "@/components/ui/media";
 import { Chip, EmptyState, KeyValue, StatusPill, TextLink } from "@/components/ui/primitives";
 import { EventRow } from "@/components/domain/event-card";
+import { EventMatches } from "@/components/domain/event-matches";
+import { getEventMatches } from "@/lib/pba/bracket";
 
 export const revalidate = 900;
 
 interface PageProps {
   params: Promise<{ seq: string }>;
+  searchParams: Promise<{ all?: string }>;
 }
+
+/**
+ * A 128-player draw is 127 matches. Rendering all of them makes an event page
+ * that is several megabytes on a phone, so the knockout rounds are shown in
+ * full and the deepest bracket is truncated behind a link.
+ */
+const MATCH_LIMIT = 60;
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { seq } = await params;
@@ -24,12 +34,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function EventDetailPage({ params }: PageProps) {
-  const { seq } = await params;
+export default async function EventDetailPage({ params, searchParams }: PageProps) {
+  const [{ seq }, search] = await Promise.all([params, searchParams]);
+  const showAll = search.all === "1";
   const detail = await getTournamentDetail(seq);
   if (!detail) notFound();
 
   const event = normalizeEvent(detail);
+
+  // The bracket lives on the scoring terminal, keyed by the tour code the
+  // schedule feed publishes as MATCH_CODE. An event that has not been drawn
+  // has no matches, so it is not asked for.
+  const tourCode = /^\d+$/.test(detail.MATCH_CODE ?? "") ? detail.MATCH_CODE : "";
+  const matches =
+    tourCode && event.status !== "upcoming" ? await getEventMatches(tourCode) : [];
   const league = leagueByCode(event.league);
   const days = dayCount(event.start, event.end);
   const until = daysUntil(event.start);
@@ -58,6 +76,8 @@ export default async function EventDetailPage({ params }: PageProps) {
     { label: "Ball", value: event.ball },
     { label: "Cloth", value: event.cloth },
   ].filter((fact) => !isPlaceholder(fact.value));
+
+  const shown = showAll ? matches : matches.slice(0, MATCH_LIMIT);
 
   return (
     <>
@@ -182,8 +202,7 @@ export default async function EventDetailPage({ params }: PageProps) {
       <div className="mx-auto max-w-[1440px] px-4 py-12 sm:px-6 lg:px-10">
         <div className="grid gap-10 lg:grid-cols-[1.35fr_0.65fr] lg:gap-14">
           <div>
-            <h2 className="display-md text-fog-100">Event facts</h2>
-            <dl className="mt-5 grid gap-x-10 sm:grid-cols-2">
+            <h2 className="display-md text-fog-100">Event facts</h2>            <dl className="mt-5 grid gap-x-10 sm:grid-cols-2">
               {facts.map((fact) => (
                 <KeyValue key={fact.label} label={fact.label}>
                   <span className="line-clamp-3">{fact.value}</span>
@@ -196,6 +215,30 @@ export default async function EventDetailPage({ params }: PageProps) {
                 <p className="eyebrow">Where to watch</p>
                 <p className="mt-2 text-[13.5px] leading-relaxed text-fog-300">{event.broadcast}</p>
               </div>
+            )}
+
+            {matches.length > 0 && (
+              <section className="mt-10">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="eyebrow">Results</p>
+                    <h2 className="display-md mt-1.5 text-fog-100">Match cards</h2>
+                  </div>
+                  <p className="text-[11.5px] text-fog-600">
+                    {shown.length} of {matches.length} matches · set scores and every turn at the table
+                  </p>
+                </div>
+                <div className="mt-5">
+                  <EventMatches matches={shown} tourCode={tourCode} eventSeq={seq} />
+                </div>
+                {matches.length > shown.length && (
+                  <div className="mt-5">
+                    <TextLink href={`/schedule/${seq}?all=1`}>
+                      Show all {matches.length} matches
+                    </TextLink>
+                  </div>
+                )}
+              </section>
             )}
           </div>
 
