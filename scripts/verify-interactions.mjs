@@ -111,6 +111,26 @@ const navigate = async (path, settle = 3500) => {
   await new Promise((resolve) => setTimeout(resolve, settle));
 };
 
+/**
+ * Poll a page expression until it is truthy, or give up.
+ *
+ * Every page here reads a live upstream API, so a fixed sleep measures how fast
+ * the association's server answered, not whether the page works. A runner in
+ * Virginia took longer than 3.5 s to fill the team-league table and the check
+ * failed on a page that renders correctly. The assertion is unchanged; only the
+ * moment it is read moved.
+ */
+const waitFor = async (expression, timeout = 25_000) => {
+  const deadline = Date.now() + timeout;
+  let last = null;
+  while (Date.now() < deadline) {
+    last = await evaluate(expression);
+    if (last) return last;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return last;
+};
+
 const viewport = (width, height, mobile) =>
   send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile });
 
@@ -125,7 +145,7 @@ await send("Runtime.enable");
 await viewport(1440, 1000, false);
 
 await navigate("/rankings");
-const before = await evaluate(`
+const before = await waitFor(`
   [...document.querySelectorAll('table.stat-table tbody tr')].slice(0, 3)
     .map(row => row.querySelectorAll('td')[1]?.textContent.trim())
 `);
@@ -179,15 +199,17 @@ check("header search suggests players", Array.isArray(options) && options.length
 check("search ignores the hyphen in a name", /Ga-young KIM/i.test(options?.[0] ?? ""), options?.[0]);
 
 await navigate("/teams/players");
-const teamLinks = await evaluate(`document.querySelectorAll('table.stat-table tbody tr a[href^="/players/"]').length`);
+const teamLinks = await waitFor(
+  `document.querySelectorAll('table.stat-table tbody tr a[href^="/players/"]').length || 0`,
+);
 check("team league rows link to player profiles", teamLinks > 0, `${teamLinks} links`);
 
 // A match card is the deepest view on the site: sets, then every turn.
 await navigate("/matches/98885?tour=271&seq=tour2026051210390860&round=Final", 6000);
-const setPanels = await evaluate(`document.querySelectorAll('section[id^="set-"]').length`);
+const setPanels = await waitFor(`document.querySelectorAll('section[id^="set-"]').length || 0`);
 check("a match card renders a panel per set", setPanels >= 5, `${setPanels} sets`);
 
-const turnRows = await evaluate(`
+const turnRows = await waitFor(`
   [...document.querySelectorAll('section[id^="set-"] table tbody')]
     .reduce((total, body) => total + body.querySelectorAll('tr').length, 0)
 `);
@@ -198,12 +220,12 @@ check("the card leads with the sets won", /\d/.test(cardScore ?? ""), cardScore)
 
 // The event page is the only route into a card that a person can find by clicking.
 await navigate("/schedule/tour2026051210390860", 8000);
-const cardLinks = await evaluate(`document.querySelectorAll('a[href^="/matches/"]').length`);
+const cardLinks = await waitFor(`document.querySelectorAll('a[href^="/matches/"]').length || 0`);
 check("an event page links every drawn match to its card", cardLinks > 20, `${cardLinks} cards`);
 
 // The period-stats table is the widest stats surface on the site.
 await navigate("/records?stat=bankShotRate", 5000);
-const periodRows = await evaluate(`
+const periodRows = await waitFor(`
   [...document.querySelectorAll('table')]
     .some(table => table.querySelectorAll('tbody tr').length > 10)
 `);
