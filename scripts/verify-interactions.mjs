@@ -276,6 +276,20 @@ await navigate("/schedule/tour2026051210390860", 8000);
 const cardLinks = await waitFor(`document.querySelectorAll('a[href^="/matches/"]').length || 0`);
 check("an event page links every drawn match to its card", cardLinks > 20, `${cardLinks} cards`);
 
+// A team-league event has no bracket on the scoring terminal: its MATCH_CODE is
+// the team-league round code, and the same number on the scoring terminal is a
+// finished tour from years ago. The page must show that round's fixtures.
+await navigate("/schedule/tour2026061613163363", 8000);
+const teamFixtureLinks = await waitFor(
+  `document.querySelectorAll('a[href^="/teams/matches/"]').length || 0`,
+);
+const strayCards = await evaluate(`document.querySelectorAll('a[href^="/matches/"]').length || 0`);
+check(
+  "a team-league event links its round fixtures, not tour brackets",
+  teamFixtureLinks > 0 && strayCards === 0,
+  `${teamFixtureLinks} fixtures, ${strayCards} stray cards`,
+);
+
 // The period-stats table is the widest stats surface on the site.
 await navigate("/records?stat=bankShotRate", 5000);
 const periodRows = await waitFor(`
@@ -317,6 +331,7 @@ for (const route of [
   "/records",
   "/matches/98885",
   "/schedule/tour2026051210390860",
+  "/schedule/tour2026061613163363",
 ]) {
   await navigate(route, 5000);
   const overflow = await evaluate(`
