@@ -26,6 +26,21 @@ build.
 If you touched anything under `src/lib/pba/data/`, run `npm run refresh-data` and commit
 the result. CI fails when those artefacts are stale.
 
+## Reviews
+
+Every pull request gets a CodeRabbit review on the diff. If the CodeRabbit GitHub App
+is installed on the repository, it comments on the pull request itself; either way,
+`.github/workflows/coderabbit-review.yml` runs the CodeRabbit CLI against the same diff
+and keeps one comment on the pull request, rewritten on each push.
+
+The workflow needs a `CODERABBIT_API_KEY` repository secret. Without it the job says so
+and skips rather than failing every pull request. Both reviews are advisory: they raise
+findings, they do not gate. The gates are `npm run lint`, `npm test`, `npm run build`
+and `npm run verify` in `ci.yml`, and a finding worth keeping belongs in a commit.
+
+`.coderabbit.yaml` carries the conventions from below, so a reviewer that has not read
+this file still notices when a change breaks them.
+
 ## Project shape
 
 ```
