@@ -1,8 +1,13 @@
 name: CodeRabbit review
 
-# Reviews the pull request diff with the CodeRabbit CLI and keeps one comment on the
-# PR, rewritten on every push, so the review is where the review belongs instead of in
-# an Actions log nobody opens.
+# Reviews a pull request with the CodeRabbit CLI as soon as it opens, and keeps one
+# comment on the PR, so the review is where the review belongs instead of in an Actions
+# log nobody opens.
+#
+# It runs on open, not on every push: the CodeRabbit GitHub App already reviews each new
+# commit incrementally, and a second full review of the same commit is noise and a
+# second model run. Run this one again by hand from the Actions tab when the App is
+# paused or a pull request needs a fresh full read.
 #
 # It is advisory, not a gate. The gates stay in ci.yml: tsc, the parser tests, the
 # build and the browser run.
@@ -12,7 +17,7 @@ name: CodeRabbit review
 
 on:
   pull_request:
-    types: [opened, reopened, ready_for_review, synchronize]
+    types: [opened, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       base:
@@ -77,7 +82,7 @@ jobs:
           # The merge base, so commits that landed on the base branch after this one
           # forked are not reviewed as if the author had written them.
           base=$(git merge-base "origin/$BASE_REF" HEAD)
-          echo "reviewing $base..HEAD" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "reviewing $base..HEAD"
 
           set +e
           coderabbit review --plain --base-commit "$base" 2>&1 | tee review-raw.txt
@@ -121,14 +126,14 @@ jobs:
             echo
             echo "### CodeRabbit review"
             echo
-            echo "_Reviewed \`$(git rev-parse --short HEAD)\` against the merge base by the CodeRabbit CLI. Advisory: CI's gates are separate. Pushing again rewrites this comment._"
+            echo "_Reviewed \`$(git rev-parse --short HEAD)\` against the merge base by the CodeRabbit CLI. Written when the pull request opened; run the workflow again from the Actions tab to rewrite it. Advisory: CI's gates are separate._"
             echo
             echo '```'
             head -c 60000 review.txt
             echo '```'
           } > comment.md
 
-          # One comment that is rewritten, not a new one per push.
+          # One comment that is rewritten, not a new one per run.
           id=$(gh api --paginate "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
                  --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | tail -n 1)
           if [ -n "$id" ]; then

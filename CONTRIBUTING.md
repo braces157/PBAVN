@@ -29,9 +29,10 @@ the result. CI fails when those artefacts are stale.
 ## Reviews
 
 Every pull request gets a CodeRabbit review on the diff. If the CodeRabbit GitHub App
-is installed on the repository, it comments on the pull request itself; either way,
-`.github/workflows/coderabbit-review.yml` runs the CodeRabbit CLI against the same diff
-and keeps one comment on the pull request, rewritten on each push.
+is installed on the repository, it comments on the pull request itself and follows
+later commits incrementally; either way, `.github/workflows/coderabbit-review.yml`
+runs the CodeRabbit CLI once, when the pull request opens, and leaves one comment that
+a manual re-run of the workflow rewrites.
 
 The workflow needs a `CODERABBIT_API_KEY` repository secret. Without it the job says so
 and skips rather than failing every pull request. Both reviews are advisory: they raise
