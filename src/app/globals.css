@@ -1,0 +1,511 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   PBA HUB — design tokens
+   A broadcast-first palette: near-black baize, one electric accent, and a
+   restrained set of league tints so that PBA / LPBA / Dream / Challenge /
+   Team League are legible at a glance without turning the page into a rainbow.
+   ========================================================================== */
+
+@theme {
+  --color-ink-950: #040507;
+  --color-ink-900: #080a0e;
+  --color-ink-850: #0b0e13;
+  --color-ink-800: #0f131a;
+  --color-ink-750: #131822;
+  --color-ink-700: #1a202b;
+  --color-ink-650: #212836;
+  --color-ink-600: #2a3242;
+  --color-ink-500: #3b4456;
+  --color-ink-400: #525c70;
+
+  --color-fog-100: #f4f5f1;
+  --color-fog-200: #e2e4dd;
+  --color-fog-300: #c2c6c9;
+  --color-fog-400: #9aa1a9;
+  --color-fog-500: #737b86;
+  --color-fog-600: #545c67;
+
+  --color-lime-300: #e4ff8a;
+  --color-lime-400: #d4ff4a;
+  --color-lime-500: #bdf02a;
+  --color-lime-600: #96c410;
+  --color-lime-900: #22300a;
+
+  --color-live-400: #ff6a4d;
+  --color-live-500: #ff3d1f;
+  --color-live-600: #d92a10;
+
+  --color-gold-400: #f2c96b;
+  --color-gold-500: #dfae3f;
+
+  --color-rose-450: #ff6d95;
+  --color-cyan-450: #3ad4e6;
+  --color-amber-450: #ffb33a;
+  --color-violet-450: #9a8cff;
+
+  --font-display: var(--font-archivo), "Archivo", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --font-sans: var(--font-inter), "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+
+  --radius-card: 14px;
+
+  --shadow-lift: 0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 18px 40px -24px rgb(0 0 0 / 0.9);
+  --shadow-glow: 0 0 0 1px rgb(212 255 74 / 0.22), 0 0 40px -8px rgb(212 255 74 / 0.18);
+}
+
+/* ------------------------------------------------------------------ base */
+
+* {
+  border-color: var(--color-ink-700);
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--color-ink-950);
+  color: var(--color-fog-200);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--color-lime-400);
+  color: #05070a;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+  font-family: var(--font-display);
+  letter-spacing: -0.022em;
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+/* Numerals in tables and stat blocks must align vertically. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* --------------------------------------------------------------- scrollbar */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-600) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-ink-600);
+  border-radius: 99px;
+  border: 2px solid var(--color-ink-950);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-500);
+}
+
+/* ---------------------------------------------------------------- surfaces */
+
+@utility surface {
+  background-color: color-mix(in oklab, var(--color-ink-900) 92%, white 8%);
+  border: 1px solid var(--color-ink-750);
+  border-radius: var(--radius-card);
+}
+
+@utility surface-raised {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-ink-800) 94%, white 6%) 0%,
+    var(--color-ink-900) 100%
+  );
+  border: 1px solid var(--color-ink-700);
+  border-radius: var(--radius-card);
+}
+
+@utility hairline {
+  border: 1px solid var(--color-ink-750);
+}
+
+/* Faint scoreboard grid, used behind heroes. */
+@utility grid-field {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.035) 1px, transparent 1px);
+  background-size: 72px 72px;
+}
+
+@utility noise {
+  position: relative;
+}
+.noise::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* --------------------------------------------------------------- typography */
+
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-fog-500);
+}
+
+@utility display-xl {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2.5rem, 6.2vw, 5.25rem);
+  line-height: 0.94;
+  letter-spacing: -0.035em;
+}
+
+@utility display-lg {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+@utility display-md {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.4rem, 2.2vw, 1.9rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* ----------------------------------------------------------------- effects */
+
+@utility link-underline {
+  position: relative;
+}
+.link-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  height: 1px;
+  width: 100%;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.link-underline:hover::after,
+.link-underline[data-active="true"]::after {
+  transform: scaleX(1);
+}
+
+@keyframes pba-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgb(255 61 31 / 0.55);
+  }
+  50% {
+    opacity: 0.75;
+    box-shadow: 0 0 0 5px rgb(255 61 31 / 0);
+  }
+}
+
+.live-dot {
+  animation: pba-pulse 2s ease-in-out infinite;
+}
+
+@keyframes pba-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: pba-marquee 46s linear infinite;
+}
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes pba-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise {
+  animation: pba-rise 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------------------------------------------ tables */
+
+@utility stat-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+}
+
+.stat-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-ink-900);
+  border-bottom: 1px solid var(--color-ink-700);
+  padding: 0.65rem 0.85rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-fog-500);
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* A table that scrolls inside its own box must not stick under the site header. */
+[data-sticky-table="true"] .stat-table thead th {
+  top: 0;
+}
+
+/* A linked row: the whole row navigates, one real anchor keeps it keyboard
+   reachable. The row is the click target; the anchor provides the focus ring. */
+.stat-table tbody tr[data-href] {
+  cursor: pointer;
+}
+
+.stat-table tbody tr[data-href]:hover {
+  background: color-mix(in oklab, var(--color-ink-800) 70%, transparent);
+}
+
+.stat-table tbody tr[data-href]:focus-within {
+  background: color-mix(in oklab, var(--color-ink-800) 85%, transparent);
+}
+
+.stat-table thead th:first-child {
+  text-align: left;
+}
+
+.stat-table tbody td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-ink-750) 70%, transparent);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stat-table tbody td:first-child {
+  text-align: left;
+}
+
+.stat-table tbody tr {
+  transition: background-color 160ms ease;
+}
+
+.stat-table tbody tr:hover {
+  background: color-mix(in oklab, var(--color-ink-800) 70%, transparent);
+}
+
+.stat-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* Tighten dense tables on phones so most fit without horizontal scroll. */
+@media (max-width: 640px) {
+  .stat-table {
+    font-size: 0.8125rem;
+  }
+  .stat-table thead th {
+    padding: 0.55rem 0.5rem;
+    font-size: 0.625rem;
+    letter-spacing: 0.06em;
+  }
+  .stat-table tbody td {
+    padding: 0.6rem 0.5rem;
+  }
+}
+
+/* ------------------------------------------------------------------ forms */
+
+@utility field {
+  width: 100%;
+  background: var(--color-ink-850);
+  border: 1px solid var(--color-ink-700);
+  border-radius: 9px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.875rem;
+  color: var(--color-fog-100);
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.field::placeholder {
+  color: var(--color-fog-600);
+}
+.field:focus {
+  border-color: color-mix(in oklab, var(--color-lime-400) 60%, var(--color-ink-700));
+  box-shadow: 0 0 0 3px rgb(212 255 74 / 0.12);
+}
+
+select.field {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23737b86' d='M6 8.5 1.5 4h9z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  padding-right: 1.9rem;
+}
+
+/* --------------------------------------------------------------- utilities */
+
+@utility card-hover {
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1), border-color 300ms ease,
+    background-color 300ms ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-ink-600);
+}
+
+@utility mask-fade-r {
+  mask-image: linear-gradient(to right, black 82%, transparent 100%);
+}
+
+/* --------------------------------------------------- CMS article body */
+
+.cms-body {
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  color: var(--color-fog-300);
+}
+
+.cms-body > * + * {
+  margin-top: 1.1em;
+}
+
+.cms-body p {
+  margin: 0;
+}
+
+.cms-body h1,
+.cms-body h2,
+.cms-body h3,
+.cms-body h4 {
+  font-family: var(--font-display);
+  color: var(--color-fog-100);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin-top: 1.8em;
+}
+
+.cms-body h1 {
+  font-size: 1.5rem;
+}
+.cms-body h2 {
+  font-size: 1.25rem;
+}
+.cms-body h3 {
+  font-size: 1.1rem;
+}
+
+.cms-body a {
+  color: var(--color-lime-400);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.cms-body a:hover {
+  color: var(--color-lime-300);
+}
+
+.cms-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid var(--color-ink-750);
+  margin: 1.6em auto;
+}
+
+.cms-body ul,
+.cms-body ol {
+  padding-left: 1.35em;
+  list-style: revert;
+}
+
+.cms-body li + li {
+  margin-top: 0.35em;
+}
+
+.cms-body blockquote {
+  border-left: 2px solid var(--color-lime-400);
+  padding-left: 1em;
+  color: var(--color-fog-400);
+  font-style: italic;
+}
+
+.cms-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.cms-body th,
+.cms-body td {
+  border: 1px solid var(--color-ink-700);
+  padding: 0.45rem 0.6rem;
+}
+
+.cms-body strong {
+  color: var(--color-fog-100);
+}
+
+.cms-body iframe {
+  display: none;
+}
+
+.cms-body span {
+  display: inline;
+}

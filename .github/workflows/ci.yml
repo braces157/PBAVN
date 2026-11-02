@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+        env:
+          # The build reads the association's public API. When it is unreachable
+          # the pages render their empty states, which is a valid build.
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Verify translation artefacts are current
+        run: |
+          npm run refresh-data
+          git diff --exit-code src/lib/pba/data \
+            || (echo "::error::src/lib/pba/data is stale. Run npm run refresh-data and commit the result." && exit 1)
+
+  interactions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Start server
+        run: npm start &
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Wait for the server
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:3100/ > /dev/null; then
+              echo "server is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::server did not become ready"
+          exit 1
+
+      - name: Verify interactions in a real browser
+        run: npm run verify
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
