@@ -28,11 +28,12 @@ the result. CI fails when those artefacts are stale.
 
 ## Reviews
 
-Every pull request gets a CodeRabbit review on the diff. If the CodeRabbit GitHub App
-is installed on the repository, it comments on the pull request itself and follows
-later commits incrementally; either way, `.github/workflows/coderabbit-review.yml`
-runs the CodeRabbit CLI once, when the pull request opens, and leaves one comment that
-a manual re-run of the workflow rewrites.
+Every pull request gets a CodeRabbit review on the diff, from
+`.github/workflows/coderabbit-review.yml`: it runs the CodeRabbit CLI when the pull
+request opens and again on every push, and leaves one comment that is rewritten in place
+rather than one comment per push. Each run reads the whole diff from the merge base, so a
+push that breaks an earlier hunk is caught as well as the hunk itself. The CodeRabbit
+GitHub App, if it is installed, may review alongside it.
 
 The workflow needs a `CODERABBIT_API_KEY` repository secret. Without it the job says so
 and skips rather than failing every pull request. Both reviews are advisory: they raise

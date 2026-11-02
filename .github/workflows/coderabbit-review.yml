@@ -1,13 +1,16 @@
 name: CodeRabbit review
 
-# Reviews a pull request with the CodeRabbit CLI as soon as it opens, and keeps one
-# comment on the PR, so the review is where the review belongs instead of in an Actions
-# log nobody opens.
+# Reviews a pull request with the CodeRabbit CLI when it opens and again on every push,
+# and keeps one comment on the PR, so the review is where the review belongs instead of
+# in an Actions log nobody opens.
 #
-# It runs on open, not on every push: the CodeRabbit GitHub App already reviews each new
-# commit incrementally, and a second full review of the same commit is noise and a
-# second model run. Run this one again by hand from the Actions tab when the App is
-# paused or a pull request needs a fresh full read.
+# The CLI is what does the reviewing here. The CodeRabbit GitHub App is installed, but on
+# every commit of this repository's first pull request its check run ended `skipped` or
+# `cancelled` and it delivered no review, so nothing else covers a new commit.
+#
+# Each run reviews the whole diff from the merge base, not just the last push: a review
+# of the increment alone cannot see a fix that broke an earlier hunk. Runs are serialised
+# per pull request and a new push cancels the run it supersedes.
 #
 # It is advisory, not a gate. The gates stay in ci.yml: tsc, the parser tests, the
 # build and the browser run.
@@ -17,7 +20,7 @@ name: CodeRabbit review
 
 on:
   pull_request:
-    types: [opened, reopened, ready_for_review]
+    types: [opened, reopened, ready_for_review, synchronize]
   workflow_dispatch:
     inputs:
       base:
@@ -126,7 +129,7 @@ jobs:
             echo
             echo "### CodeRabbit review"
             echo
-            echo "_Reviewed \`$(git rev-parse --short HEAD)\` against the merge base by the CodeRabbit CLI. Written when the pull request opened; run the workflow again from the Actions tab to rewrite it. Advisory: CI's gates are separate._"
+            echo "_Reviewed \`$(git rev-parse --short HEAD)\` against the merge base by the CodeRabbit CLI. Rewritten on every push to this branch. Advisory: CI's gates are separate._"
             echo
             echo '```'
             head -c 60000 review.txt
