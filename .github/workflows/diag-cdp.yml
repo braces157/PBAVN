@@ -59,17 +59,16 @@ jobs:
           echo "--- chrome2.log ---"
           cat chrome2.log
 
-      - name: Launch with --no-sandbox and RUNNER_TEMP
+      - name: Run the real script's launch path
         run: |
           pkill -f chrome || true
           sleep 1
-          profile="$RUNNER_TEMP/pba-verify-profile"
-          google-chrome --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage \
-            --no-first-run --no-default-browser-check \
-            --remote-debugging-port=9224 --user-data-dir="$profile" about:blank > chrome3.log 2>&1 &
-          for i in $(seq 1 40); do
-            if curl -sf http://127.0.0.1:9224/json/version; then echo "CDP UP after $i"; break; fi
-            sleep 0.25
-          done
-          echo "--- chrome3.log ---"
-          cat chrome3.log
+          rm -rf /tmp/pba-run4-profile
+          node scripts/_diag-cdp.mjs
+
+      - name: Run it a second time on the profile left behind
+        run: |
+          pkill -f chrome || true
+          sleep 2
+          echo "--- leftovers ---"; pgrep -af chrome | head -3 || true
+          node scripts/_diag-cdp.mjs
