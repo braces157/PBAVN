@@ -57,11 +57,26 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
   const player = normalizePlayer(raw);
   const league = leagueByCode(player.league);
   const pbaType = statLeagueCode(player.league);
-  const seasonCode =
-    seasonParam && seasons.some((s) => s.SeasonCode === seasonParam) ? seasonParam : currentSeason.SeasonCode;
 
-  const [seasonStat, tourStats, championships, seasonRank, careerRank] = await Promise.all([
-    getPlayerSeasonStats({ memCode, seasonCode, pbaType }),
+  // A pinned season is honoured as-is. Otherwise the page opens on the most
+  // recent season that actually has recorded statistics, so a mid-season
+  // profile does not greet readers with an empty board.
+  const requestedSeason =
+    seasonParam && seasons.some((s) => s.SeasonCode === seasonParam) ? seasonParam : null;
+  let seasonCode = requestedSeason ?? currentSeason.SeasonCode;
+  let seasonStat = await getPlayerSeasonStats({ memCode, seasonCode, pbaType });
+  if (!requestedSeason && !hasStatData(normalizePlayerStat(seasonStat))) {
+    for (const candidate of seasons.filter((s) => s.SeasonCode !== currentSeason.SeasonCode).slice(0, 4)) {
+      const probe = await getPlayerSeasonStats({ memCode, seasonCode: candidate.SeasonCode, pbaType });
+      if (hasStatData(normalizePlayerStat(probe))) {
+        seasonCode = candidate.SeasonCode;
+        seasonStat = probe;
+        break;
+      }
+    }
+  }
+
+  const [tourStats, championships, seasonRank, careerRank] = await Promise.all([
     getPlayerTourStats({ memCode, seasonCode, pbaType }),
     getPlayerChampionships(memCode),
     getPlayerSeasonRank({ memCode, seasonCode, pbaType }),
@@ -133,7 +148,7 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
               <div className="flex flex-wrap items-center gap-2">
                 <Chip tone={league.tone}>{league.name}</Chip>
                 <Chip tone="neutral">{player.gender === "F" ? "Women" : "Men"}</Chip>
-                {player.birth && <Chip tone="neutral">b. {player.birth}</Chip>}
+                {player.birth && <Chip tone="neutral">b. {player.birth.slice(0, 4)}</Chip>}
               </div>
 
               <h1 className="display-lg mt-4 text-fog-100">{player.name}</h1>

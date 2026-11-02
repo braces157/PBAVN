@@ -105,7 +105,7 @@ export default async function HomePage() {
               <div className="mt-7 flex flex-wrap gap-2.5">
                 <Link
                   href="/live"
-                  className="inline-flex items-center gap-2 rounded-lg bg-lime-400 px-4 py-2.5 text-[13.5px] font-semibold text-ink-950 transition-colors hover:bg-lime-300"
+                  className="press inline-flex items-center gap-2 rounded-lg bg-lime-400 px-4 py-2.5 text-[13.5px] font-semibold text-ink-950 transition-colors hover:bg-lime-300"
                 >
                   <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-ink-950" />
                   Match centre
@@ -424,7 +424,7 @@ function RankingPanel({
         </Link>
       </div>
       {rows.length > 0 ? (
-        <RankingTable rows={rows} metric={metric} limit={6} />
+        <RankingTable rows={rows} metric={metric} limit={6} hideSortBar />
       ) : (
         <div className="px-4 py-10 text-center text-[13px] text-fog-500">
           No ranking published for this season yet.

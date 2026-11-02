@@ -131,7 +131,7 @@ export default async function PlayersPage({ searchParams }: PageProps) {
             />
             <button
               type="submit"
-              className="rounded-md bg-lime-400 px-3.5 py-2 text-[12.5px] font-semibold text-ink-950 transition-colors hover:bg-lime-300"
+              className="press rounded-md bg-lime-400 px-3.5 py-2 text-[12.5px] font-semibold text-ink-950 transition-colors hover:bg-lime-300"
             >
               Search
             </button>
@@ -284,24 +284,30 @@ function PlayerCard({ player }: { player: Player }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 divide-x divide-ink-800 border-t border-ink-800 text-center">
-        <div className="px-1 py-2">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-fog-600">W–L</p>
-          <p className="tnum mt-0.5 text-[11.5px] font-semibold text-fog-200">
-            {player.wins}–{player.losses}
-          </p>
+      {player.wins === 0 && player.losses === 0 && player.prize === 0 ? (
+        <div className="border-t border-ink-800 px-3 py-2.5 text-center">
+          <p className="text-[10.5px] text-fog-600">No recorded matches yet</p>
         </div>
-        <div className="px-1 py-2">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-fog-600">Win%</p>
-          <p className="tnum mt-0.5 text-[11.5px] font-semibold text-fog-200">{percent(rate, 0)}</p>
+      ) : (
+        <div className="grid grid-cols-3 divide-x divide-ink-800 border-t border-ink-800 text-center">
+          <div className="px-1 py-2">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-fog-600">W–L</p>
+            <p className="tnum mt-0.5 text-[11.5px] font-semibold text-fog-200">
+              {player.wins}–{player.losses}
+            </p>
+          </div>
+          <div className="px-1 py-2">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-fog-600">Win%</p>
+            <p className="tnum mt-0.5 text-[11.5px] font-semibold text-fog-200">{percent(rate, 0)}</p>
+          </div>
+          <div className="px-1 py-2">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-fog-600">Prize</p>
+            <p className="tnum mt-0.5 text-[11.5px] font-semibold text-lime-400">
+              {wonCompact(player.prize)}
+            </p>
+          </div>
         </div>
-        <div className="px-1 py-2">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-fog-600">Prize</p>
-          <p className="tnum mt-0.5 text-[11.5px] font-semibold text-lime-400">
-            {wonCompact(player.prize)}
-          </p>
-        </div>
-      </div>
+      )}
     </Link>
   );
 }

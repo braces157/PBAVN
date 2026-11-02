@@ -14,7 +14,7 @@ import { grouped, wonCompact } from "@/lib/format";
 import { LiveBoard } from "@/components/domain/live-board";
 import { FeaturedEvent, EventRow } from "@/components/domain/event-card";
 import { StandingsTable } from "@/components/domain/standings-table";
-import { Chip, EmptyState, LiveChip, SectionHeading, TextLink } from "@/components/ui/primitives";
+import { Chip, EmptyState, LiveChip, SectionHeading, TextLink, cn } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/domain/filter-bar";
 
 export const revalidate = 30;
@@ -65,6 +65,11 @@ export default async function LivePage() {
   }));
 
   const currentEvent = snapshot.current;
+  // The rail must not repeat the event already featured in the main column.
+  const railEvent =
+    currentEvent && !snapshot.live.some((event) => event.id === currentEvent.id)
+      ? currentEvent
+      : null;
 
   return (
     <>
@@ -91,7 +96,12 @@ export default async function LivePage() {
             {snapshot.live.length > 0 && (
               <section>
                 <SectionHeading eyebrow="On now" title="Events in progress" />
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div
+                  className={cn(
+                    "mt-4 grid gap-3",
+                    snapshot.live.length > 1 && "sm:grid-cols-2",
+                  )}
+                >
                   {snapshot.live.map((event) => (
                     <FeaturedEvent key={event.id} event={event} />
                   ))}
@@ -159,10 +169,10 @@ export default async function LivePage() {
           </div>
 
           <aside className="space-y-4">
-            {currentEvent ? (
-              <FeaturedEvent event={currentEvent} />
+            {railEvent ? (
+              <FeaturedEvent event={railEvent} />
             ) : (
-              <EmptyState title="No event scheduled" />
+              !currentEvent && <EmptyState title="No event scheduled" />
             )}
 
             {teamSeason?.liveRound && (

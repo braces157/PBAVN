@@ -80,7 +80,7 @@ export function SiteHeader() {
             href="https://www.pbatour.org/en/index"
             target="_blank"
             rel="noreferrer noopener"
-            className="hidden items-center gap-1.5 rounded-md bg-lime-400 px-3 py-1.5 text-[13px] font-semibold text-ink-950 transition-colors hover:bg-lime-300 xl:inline-flex"
+            className="press hidden items-center gap-1.5 rounded-md bg-lime-400 px-3 py-1.5 text-[13px] font-semibold text-ink-950 transition-colors hover:bg-lime-300 xl:inline-flex"
           >
             pbatour.org
             <svg viewBox="0 0 12 12" className="h-3 w-3" aria-hidden="true">
