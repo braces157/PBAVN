@@ -1,0 +1,26 @@
+# Posts "@coderabbitai review" on PRs so CodeRabbit reviews them even though
+# the repo is below its automatic-review star threshold.
+#
+# pull_request_target is used so the token can comment on PRs from forks.
+# This is safe here because the workflow never checks out or runs PR code.
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review]
+    # Add "synchronize" above to also request a review on every push.
+
+permissions:
+  pull-requests: write
+
+jobs:
+  trigger-review:
+    # Skip draft PRs; "ready_for_review" fires when a draft is marked ready.
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask CodeRabbit to review
+        env:
+          # Uses CODERABBIT_TRIGGER_TOKEN (a PAT) if you add one, otherwise
+          # falls back to the built-in GITHUB_TOKEN.
+          GH_TOKEN: ${{ secrets.CODERABBIT_TRIGGER_TOKEN || secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr comment "$PR_URL" --body "@coderabbitai review"
