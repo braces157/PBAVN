@@ -21,6 +21,12 @@ import {
 } from "../src/lib/pba/scoreboard-parse.ts";
 import { bracketRound, parseBracketRows } from "../src/lib/pba/bracket-parse.ts";
 import { parseSearchRows } from "../src/lib/pba/search-parse.ts";
+import {
+  parseFixtureBouts,
+  parseInnings,
+  parseRoundFixtures,
+  parseTptCodes,
+} from "../src/lib/pba/team-matches-parse.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(join(here, "..", "tests", "fixtures", name), "utf8");
@@ -399,6 +405,198 @@ check("a row without its own heading inherits the round above it", () => {
   assert.equal(rows[0].round, "Quarter-final");
   assert.equal(rows[1].round, "Quarter-final");
   assert.equal(rows[1].pstCode, "102");
+});
+
+/* ------------------------------------------------------------ team league */
+
+const playedRound = parseRoundFixtures(fixture("team-fixtures-93.html"));
+const mixedRound = parseRoundFixtures(fixture("team-fixtures-94-scheduled.html"));
+
+check("a played round listing yields every fixture", () => {
+  assert.equal(playedRound.length, 45);
+  assert.ok(playedRound.every((fixture) => fixture.played));
+});
+
+check("a played fixture reads both clubs, their codes and their score columns", () => {
+  const first = playedRound[0];
+  assert.equal(first.gameNo, "1");
+  assert.equal(first.playedAt, "2026-09-14 16:01");
+  assert.equal(first.home.clubCode, "T00003");
+  assert.equal(first.away.clubCode, "T00002");
+  assert.equal(first.home.name, "CROWN HAITAI");
+  assert.equal(first.home.sets, 4);
+  assert.equal(first.home.average, 2.588);
+  assert.equal(first.home.highRun, 11);
+  assert.equal(first.home.draws, 0);
+  assert.equal(first.home.losses, 0);
+  assert.equal(first.home.won, true);
+  assert.equal(first.away.sets, 0);
+  assert.equal(first.away.average, 0.8);
+  assert.equal(first.away.losses, 4);
+  assert.equal(first.away.won, false);
+});
+
+check("a played round keeps every club code pair", () => {
+  for (const fixture of playedRound) {
+    assert.match(fixture.home.clubCode ?? "", /^T\d+$/, fixture.gameNo ?? "");
+    assert.match(fixture.away.clubCode ?? "", /^T\d+$/, fixture.gameNo ?? "");
+  }
+});
+
+check("the team column heading row is never a side", () => {
+  for (const fixture of [...playedRound, ...mixedRound]) {
+    assert.notEqual(fixture.home.name, "Team");
+    assert.notEqual(fixture.away.name, "Team");
+    assert.ok(fixture.home.name.length > 0, JSON.stringify(fixture));
+    assert.ok(fixture.away.name.length > 0, JSON.stringify(fixture));
+  }
+});
+
+check("a scheduled block parses with a date, a game number and no score", () => {
+  assert.equal(mixedRound.length, 34);
+  assert.ok(mixedRound.every((fixture) => !fixture.played));
+  const first = mixedRound[0];
+  assert.equal(first.gameNo, "6");
+  assert.equal(first.playedAt, "2026-11-02 15:00");
+  assert.equal(first.home.sets, null);
+  assert.equal(first.home.average, null);
+  assert.equal(first.home.won, false);
+  assert.equal(first.away.sets, null);
+});
+
+check("a scheduled block accepts Korean club names and the no_order round label", () => {
+  // `no_order` reads "4 Round" where a match number would sit on a played
+  // block; the game number still comes from viewResult. Club names arrive in
+  // Korean on scheduled blocks — display resolves them through club codes.
+  assert.ok(mixedRound.every((fixture) => /^\d+$/.test(fixture.gameNo ?? "")));
+  assert.equal(mixedRound[0].home.name, "에스와이");
+  assert.equal(mixedRound[0].away.name, "웰컴저축은행");
+  assert.equal(mixedRound[0].home.clubCode, "T00021");
+  assert.equal(mixedRound[0].away.clubCode, "T00002");
+});
+
+check("an unrecognised round listing yields no fixtures", () => {
+  assert.deepEqual(parseRoundFixtures(null), []);
+  assert.deepEqual(parseRoundFixtures("<html><body>maintenance</body></html>"), []);
+});
+
+const bouts38 = parseFixtureBouts(fixture("team-bouts-38.html"));
+
+check("the bout fragment reads the score board", () => {
+  assert.equal(bouts38.homeName, "하림 용가리즈");
+  assert.equal(bouts38.awayName, "하나카드 하나페이");
+  assert.match(bouts38.homeLogo ?? "", /T00029_LOGO/);
+  assert.match(bouts38.awayLogo ?? "", /T00020_LOGO/);
+  assert.equal(bouts38.homeSets, 2);
+  assert.equal(bouts38.awaySets, 4);
+  assert.equal(bouts38.homeAverage, 1.423);
+  assert.equal(bouts38.awayAverage, 2.259);
+  assert.equal(bouts38.homeHighRun, 12);
+  assert.equal(bouts38.awayHighRun, 12);
+  assert.equal(bouts38.winner, "away");
+});
+
+check("a played fixture carries one bout per set with its record sheet", () => {
+  assert.equal(bouts38.bouts.length, 6);
+  assert.deepEqual(
+    bouts38.bouts.map((bout) => bout.setNo),
+    [1, 2, 3, 4, 5, 6],
+  );
+  assert.deepEqual(
+    bouts38.bouts.map((bout) => bout.tgCode),
+    ["12657", "12658", "12659", "12660", "12661", "12662"],
+  );
+  const first = bouts38.bouts[0];
+  assert.equal(first.format, "GP11");
+  assert.equal(first.playedAt, "2026-09-18 21:06");
+  assert.deepEqual(first.sides[0].names, ["P.응우옌", "쩐득민"]);
+  assert.deepEqual(first.sides[1].names, ["초클루", "Q.응우옌"]);
+  assert.equal(first.sides[0].points, 9);
+  assert.equal(first.sides[0].innings, 7);
+  assert.equal(first.sides[0].average, 1.286);
+  assert.equal(first.sides[1].points, 11);
+  assert.equal(first.sides[1].innings, 8);
+  assert.equal(first.sides[1].won, true);
+  assert.equal(first.sides[0].won, false);
+});
+
+check("every bout of a played fixture records exactly one winner", () => {
+  for (const bout of bouts38.bouts) {
+    assert.equal(
+      bout.sides.filter((side) => side.won).length,
+      1,
+      `set ${bout.setNo}`,
+    );
+  }
+});
+
+check("a live fragment shows the running set with no record sheet", () => {
+  const live = parseFixtureBouts(fixture("team-bouts-live.html"));
+  assert.ok(live, "live fragment did not parse");
+  assert.equal(live.bouts.length, 1);
+  const running = live.bouts[0];
+  assert.equal(running.setNo, 1);
+  assert.equal(running.tgCode, null);
+  assert.equal(running.format, "GP11");
+  assert.equal(running.sides[0].points, 5);
+  assert.equal(running.sides[0].innings, 3);
+  assert.equal(live.winner, null);
+});
+
+check("an unrecognised bout fragment yields nothing rather than a guess", () => {
+  assert.equal(parseFixtureBouts(null), null);
+  assert.equal(parseFixtureBouts("<html><body>maintenance</body></html>"), null);
+});
+
+const tpt = parseTptCodes(fixture("team-bout-detail-12657.html"));
+
+check("the detail page yields the two TPT codes and the last inning", () => {
+  assert.equal(tpt.tptCode1, "25317");
+  assert.equal(tpt.tptCode2, "25318");
+  assert.equal(tpt.lastInning, 8);
+});
+
+check("a detail page without TPT variables yields nothing", () => {
+  assert.equal(parseTptCodes(null), null);
+  assert.equal(parseTptCodes("<html><body>no sheet here</body></html>"), null);
+});
+
+const boutInnings = parseInnings(fixture("team-innings-12657.json"));
+
+check("the innings JSON rows to the longer side", () => {
+  assert.equal(boutInnings.maxInnings, 8);
+  assert.equal(boutInnings.rows.length, 8);
+  assert.equal(boutInnings.rows[7].sides[0], null);
+  assert.equal(boutInnings.rows[7].sides[1].total, 11);
+});
+
+check("the per-inning score and the running total stay distinct", () => {
+  const third = boutInnings.rows[2].sides[0];
+  assert.equal(third.score, 3);
+  assert.equal(third.total, 5);
+  assert.equal(third.onePoint, 3);
+  assert.equal(third.twoPoint, 0);
+});
+
+check("the running total never decreases on either side", () => {
+  for (const side of [0, 1]) {
+    let previous = 0;
+    for (const row of boutInnings.rows) {
+      const cell = row.sides[side];
+      if (!cell) continue;
+      assert.ok(
+        cell.total >= previous,
+        `side ${side} dropped from ${previous} to ${cell.total} at inning ${row.inning}`,
+      );
+      previous = cell.total;
+    }
+  }
+});
+
+check("an unparseable innings answer yields an empty chain", () => {
+  assert.deepEqual(parseInnings(null), { maxInnings: 0, rows: [] });
+  assert.deepEqual(parseInnings("<html>oops</html>"), { maxInnings: 0, rows: [] });
+  assert.deepEqual(parseInnings("{}"), { maxInnings: 0, rows: [] });
 });
 
 console.log(`\n${passed}/${passed + failures.length} parser checks passed`);
