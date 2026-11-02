@@ -99,6 +99,7 @@ Korean label and an `_EN` field, so this app always requests `en` and prefers th
 | `/stats/ranking_prize/ajax/seasonList`, `/tourList` | Ranking filters |
 | `/stats/service/season` | Per-player season statistics |
 | `/stats/service/tour` | Per-player, per-event statistics |
+| `/stats/service/period` | Per-player record for a date window, 33 fields |
 | `/stats/service/champion` | Player titles |
 | `/stats/service/rank`, `/rank/total` | Season and career standing |
 | `/stats/service/top5/season` | Season category leaders |
@@ -113,6 +114,31 @@ Korean label and an `_EN` field, so this app always requests `en` and prefers th
 | `/media/video/ajax/list`, `/media/gallery/ajax/list` | Video, galleries |
 | `/award/ajax/tour` | Awards |
 | `app.pbatour.org/mob/contest_new/code_behind/live_info.asp` | Live scoreboard fragment |
+| `app.pbatour.org/mob/contest_new/admin_en/live_info_setview.asp` | One match: sets, points/innings, average, high run |
+| `app.pbatour.org/mob/contest_new/code_behind/contest_result_set_help.asp` | Match totals (innings, points, 1P/2P, success rates) |
+| `app.pbatour.org/mob/contest_new/code_behind/contest_result_set_record.asp` | One set, turn by turn |
+| `app.pbatour.org/mob/contest_new/code_behind/contest_result_sur.asp` | Every match of an event, by bracket depth |
+
+### Match cards and turn-by-turn scoring
+
+The tour API publishes results in aggregate: sets won, average, high run. What happened on the table
+lives in the association's scoring terminal, a legacy ASP application that answers with HTML
+fragments rather than JSON. `src/lib/pba/scoreboard.ts` and `src/lib/pba/bracket.ts` read it, and
+`src/lib/pba/*-parse.ts` turn it into typed rows.
+
+Three rules keep that honest:
+
+- **The parsers trust published values, not markup shape.** A row is only a player if it carries a
+  points-over-innings figure; a heading row that shares the same list markup is skipped. A set
+  format outside the range the sport uses (`GP99` is a flag, not a race to ninety-nine) reports no
+  race target rather than inventing one.
+- **Derived numbers are cross-checked against an independent fragment.** Every turn record has to
+  reconcile with the published set score, and the best single turn has to equal the published high
+  run. `npm test` asserts both against real saved markup.
+- **Everything is requested with `LangCode=en`.** The terminal defaults to Korean regardless of the
+  path, so the parameter is explicit at each call site.
+
+Run `npm test` for the parser and analytics suite, which reads its fixtures from `tests/fixtures`.
 
 ### Three things that made this harder than it looks
 

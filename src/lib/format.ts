@@ -69,10 +69,24 @@ export function daysUntil(value: DateLike): number | null {
 
 /* ------------------------------------------------------------------ numbers */
 
+/**
+ * Parse a number, or `null` when the text was never one.
+ *
+ * `Number("")` is 0, so a placeholder like "tbd" would otherwise read as a real
+ * zero and be printed as one. Use this at the display edge; use `num` when a
+ * zero default is genuinely wanted for arithmetic.
+ */
+export function toNumber(value: number | string | null | undefined): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const digits = String(value).replace(/[^0-9.-]/g, "");
+  if (digits === "" || digits === "-" || digits === ".") return null;
+  const parsed = Number(digits);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function num(value: number | string | null | undefined, fallback = 0): number {
-  if (value === null || value === undefined || value === "") return fallback;
-  const parsed = typeof value === "number" ? value : Number(String(value).replace(/[^0-9.-]/g, ""));
-  return Number.isFinite(parsed) ? parsed : fallback;
+  return toNumber(value) ?? fallback;
 }
 
 export function int(value: number | string | null | undefined, fallback = 0): number {
@@ -81,7 +95,7 @@ export function int(value: number | string | null | undefined, fallback = 0): nu
 
 /** Compact prize wording for dense UI: ₩216M, ₩111.5M, ₩150K. */
 export function wonCompact(value: number | string | null | undefined): string {
-  const n = num(value);
+  const n = toNumber(value);
   if (!n) return "—";
   const trim = (input: string) => input.replace(/\.0$/, "");
   if (n >= 1_000_000_000) return `₩${trim((n / 1_000_000_000).toFixed(1))}B`;
@@ -92,14 +106,14 @@ export function wonCompact(value: number | string | null | undefined): string {
 
 /** 216000000 → "₩216,000,000" for tables. */
 export function won(value: number | string | null | undefined): string {
-  const n = num(value);
+  const n = toNumber(value);
   if (!n) return "—";
   return `₩${Math.round(n).toLocaleString("en-US")}`;
 }
 
 /** Compact Korean prize wording: ₩2.16억 / ₩1,150만. */
 export function wonKorean(value: number | string | null | undefined): string {
-  const n = num(value);
+  const n = toNumber(value);
   if (!n) return "—";
   if (n >= 100_000_000) {
     const eok = n / 100_000_000;
@@ -110,19 +124,21 @@ export function wonKorean(value: number | string | null | undefined): string {
 }
 
 export function grouped(value: number | string | null | undefined): string {
-  const n = num(value);
+  const n = toNumber(value);
+  // A count that was never published is not zero.
+  if (n === null) return "—";
   return n.toLocaleString("en-US");
 }
 
 /** Carom average, always three decimals — the sport's canonical precision. */
 export function average(value: number | string | null | undefined): string {
-  const n = num(value);
+  const n = toNumber(value);
   if (!n) return "—";
   return n.toFixed(3);
 }
 
 export function percent(value: number | string | null | undefined, digits = 1): string {
-  const n = num(value);
+  const n = toNumber(value);
   if (!n) return "—";
   return `${n.toFixed(digits)}%`;
 }

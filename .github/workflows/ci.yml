@@ -28,6 +28,9 @@ jobs:
       - name: Typecheck
         run: npm run lint
 
+      - name: Test the scoring-terminal parsers and match analytics
+        run: npm test
+
       - name: Build
         run: npm run build
         env:

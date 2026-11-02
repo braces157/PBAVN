@@ -1,0 +1,302 @@
+// Parser tests for the scoring-terminal boundary.
+//
+//   npm run test:parsers
+//
+// Runs the TypeScript parsers directly (node strips the types) against real
+// upstream HTML saved under research/fixtures. The fixtures are the contract:
+// if the association changes its markup, this fails before a page renders a
+// wrong score.
+
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import assert from "node:assert/strict";
+
+import {
+  parseScorecard,
+  parseSetInnings,
+  parseSets,
+  parseTotals,
+  parseLiveBoard,
+} from "../src/lib/pba/scoreboard-parse.ts";
+import { bracketRound, parseBracketRows } from "../src/lib/pba/bracket-parse.ts";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const fixture = (name) => readFileSync(join(here, "..", "tests", "fixtures", name), "utf8");
+
+let passed = 0;
+const failures = [];
+
+function check(name, run) {
+  try {
+    run();
+    passed += 1;
+    console.log(`PASS  ${name}`);
+  } catch (error) {
+    failures.push(name);
+    console.log(`FAIL  ${name}\n      ${String(error.message).split("\n")[0]}`);
+  }
+}
+
+const scorecardHtml = fixture("match-68308.html");
+const setHtml = fixture("set-139146.html");
+const totalsHtml = fixture("totals-68308.html");
+
+const scorecard = parseScorecard(scorecardHtml, totalsHtml, "68308");
+
+check("match page yields every set", () => {
+  assert.equal(scorecard.sets.length, 5);
+});
+
+check("a match page with no totals fragment still yields its sets", () => {
+  assert.equal(parseScorecard(scorecardHtml, null, "68308").sets.length, 5);
+  assert.deepEqual(parseScorecard(null, totalsHtml, "68308").totals.length > 0, true);
+});
+
+check("set parsing is independent of the totals fragment", () => {
+  assert.deepEqual(parseSets(scorecardHtml), scorecard.sets);
+});
+
+check("set keeps its race format, date and set id", () => {
+  const first = scorecard.sets[0];
+  assert.equal(first.setNo, 1);
+  assert.equal(first.gameType, "GP15");
+  assert.equal(first.playedOn, "11-25");
+  assert.equal(first.pcgmCode, "139146");
+});
+
+check("set order is published order, not document order", () => {
+  assert.deepEqual(
+    scorecard.sets.map((set) => set.setNo),
+    [1, 2, 3, 4, 5],
+  );
+});
+
+check("both players carry points, innings, average and high run", () => {
+  const [first, second] = scorecard.sets[0].players;
+  assert.equal(first.name, "황형범");
+  assert.equal(first.points, 9);
+  assert.equal(first.innings, 17);
+  assert.equal(first.average, 0.529);
+  assert.equal(first.highRun, 3);
+  assert.equal(second.name, "김임권");
+  assert.equal(second.points, 15);
+  assert.equal(second.innings, 17);
+  assert.equal(second.average, 0.882);
+});
+
+check("the set winner is the player who reached the race target", () => {
+  const [first, second] = scorecard.sets[0].players;
+  assert.equal(first.won, false);
+  assert.equal(second.won, true);
+  assert.equal(second.points, Number(scorecard.sets[0].gameType?.replace("GP", "")));
+});
+
+check("match totals are read as value, label, value", () => {
+  const average = scorecard.totals.find((row) => row.label === "AVG");
+  assert.ok(average, "no AVG row");
+  assert.equal(average.left, "1.049");
+  assert.equal(average.right, "1.366");
+  const innings = scorecard.totals.find((row) => row.label === "이닝");
+  assert.ok(innings, "no innings row");
+  assert.equal(innings.left, "41");
+});
+
+check("match totals never include the player header row", () => {
+  assert.ok(!scorecard.totals.some((row) => /^VS$/i.test(row.label)));
+});
+
+const innings = parseSetInnings(setHtml);
+
+check("set record names both players and the breaker", () => {
+  assert.deepEqual(innings.players, ["황형범", "김임권"]);
+  assert.equal(innings.breaker, 0);
+});
+
+check("set record has one row per inning", () => {
+  assert.ok(innings.rows.length >= 5, `only ${innings.rows.length} innings`);
+  assert.deepEqual(
+    innings.rows.map((row) => row.inning),
+    Array.from({ length: innings.rows.length }, (_, index) => index + 1),
+  );
+});
+
+check("first inning carries each player's 1P, 2P and score", () => {
+  const [first] = innings.rows;
+  assert.deepEqual(first.sides[0], { onePoint: 1, twoPoint: 0, total: 1 });
+  assert.deepEqual(first.sides[1], { onePoint: 0, twoPoint: 0, total: 0 });
+});
+
+check("every inning splits into exactly two player groups", () => {
+  for (const row of innings.rows) assert.equal(row.sides.length, 2);
+});
+
+check("running score never goes backwards", () => {
+  for (const side of [0, 1]) {
+    let previous = 0;
+    for (const row of innings.rows) {
+      assert.ok(
+        row.sides[side].total >= previous,
+        `side ${side} dropped from ${previous} to ${row.sides[side].total} at inning ${row.inning}`,
+      );
+      previous = row.sides[side].total;
+    }
+  }
+});
+
+check("innings reconcile with the set score on the match page", () => {
+  const [first, second] = scorecard.sets[0].players;
+  const last = innings.rows.at(-1);
+  assert.equal(last.sides[0].total, first.points);
+  assert.equal(last.sides[1].total, second.points);
+});
+
+check("per-inning points add up to the running score", () => {
+  for (const side of [0, 1]) {
+    let scored = 0;
+    for (const row of innings.rows) {
+      const cell = row.sides[side];
+      scored += cell.onePoint + cell.twoPoint * 2;
+      assert.ok(
+        Math.abs(scored - cell.total) <= 1,
+        `side ${side} inning ${row.inning}: ${scored} scored vs ${cell.total} published`,
+      );
+    }
+  }
+});
+
+check("a missing response is an empty scorecard, not an exception", () => {
+  assert.deepEqual(parseScorecard(null, null, "1"), { pstCode: "1", sets: [], totals: [] });
+  assert.deepEqual(parseSetInnings(null), { players: [], breaker: null, rows: [] });
+  assert.deepEqual(parseTotals(null), []);
+  assert.deepEqual(parseLiveBoard(null), []);
+});
+
+check("a column heading is never mistaken for a player", () => {
+  for (const set of scorecard.sets) {
+    assert.equal(set.players.length, 2, `set ${set.setNo} has ${set.players.length} players`);
+    for (const player of set.players) {
+      assert.ok(player.points > 0, `set ${set.setNo} player "${player.name}" has no points`);
+    }
+  }
+});
+
+check("unrecognised markup yields nothing rather than a guess", () => {
+  assert.deepEqual(parseScorecard("<html><body>maintenance</body></html>", "9").sets, []);
+  assert.deepEqual(parseSetInnings("<table><tr><td>1</td></tr></table>").rows, []);
+});
+
+check("live board finds the scorecard link when a match is live", () => {
+  const fragment = `<a href="#" onclick="javascript:setview(98885);">세트결과</a>`;
+  assert.deepEqual(parseLiveBoard(fragment), [{ pstCode: "98885", watchUrl: null }]);
+});
+
+check("live board attaches a broadcast link to the match", () => {
+  const fragment = `<a onclick="youTubeHelp('https://www.youtube.com/watch?v=abc123XYZ_');">LIVE</a>
+    <a href="#" onclick="setview(41);">세트결과</a>`;
+  const [match] = parseLiveBoard(fragment);
+  assert.equal(match.pstCode, "41");
+  assert.equal(match.watchUrl, "https://www.youtube.com/watch?v=abc123XYZ_");
+});
+
+check("live board finds a match whichever way the code is carried", () => {
+  for (const fragment of [
+    `<a href="/mob/contest_new/admin_en/live_info_setview.asp?PSTCode=4101">sheet</a>`,
+    `<a href="#" onclick="setview(4101);">세트결과</a>`,
+    `<li data-pstcode="4101">table 3</li>`,
+  ]) {
+    assert.deepEqual(
+      parseLiveBoard(fragment).map((match) => match.pstCode),
+      ["4101"],
+      fragment,
+    );
+  }
+});
+
+check("the idle live board yields no matches", () => {
+  assert.deepEqual(parseLiveBoard('<style>\n\t.pt5 { padding: 5px 1px !important; }\n</style>'), []);
+});
+
+/* --------------------------------------------------------------- brackets */
+
+const final = parseBracketRows(fixture("bracket-final.html"), 2);
+const lastSixteen = parseBracketRows(fixture("bracket-r16.html"), 16);
+const englishFinal = parseBracketRows(fixture("bracket-english.html"), 2);
+
+check("the English variant of the same page parses to the same shape", () => {
+  assert.equal(englishFinal.length, 1);
+  const names = englishFinal[0].sides.map((side) => side.name);
+  // Production asks for LangCode=en, so names must survive in Latin script.
+  assert.ok(names.every((name) => /^[\x20-\x7E]+$/.test(name)), names.join(", "));
+  assert.equal(englishFinal[0].sides.filter((side) => side.won).length, 1);
+  assert.ok(englishFinal[0].pstCode.length > 0);
+});
+
+check("a bracket row carries the match code that opens its card", () => {
+  assert.equal(final.length, 1);
+  assert.equal(final[0].pstCode, "68377");
+  assert.equal(final[0].matchNo, "127");
+  assert.equal(final[0].table, "T1");
+  assert.equal(final[0].scheduledAt, "23-11-30 23:47");
+  assert.equal(final[0].round, "Final");
+});
+
+check("both players come through with their member codes in row order", () => {
+  const [loser, winner] = final[0].sides;
+  assert.equal(loser.name, "레펀스");
+  assert.equal(loser.memCode, "M0017156");
+  assert.equal(loser.sets, 1);
+  assert.equal(loser.average, 1.581);
+  assert.equal(loser.highRun, 7);
+  assert.equal(loser.won, false);
+  assert.equal(winner.name, "조재호");
+  assert.equal(winner.memCode, "M0017784");
+  assert.equal(winner.sets, 4);
+  assert.equal(winner.won, true);
+});
+
+check("a deeper bracket yields one row per drawn match", () => {
+  assert.equal(lastSixteen.length, 8);
+  assert.ok(lastSixteen.every((match) => match.sides.length === 2));
+  assert.ok(lastSixteen.every((match) => match.round === "Round of 16"));
+  assert.equal(new Set(lastSixteen.map((match) => match.pstCode)).size, lastSixteen.length);
+});
+
+check("every match in a bracket records exactly one winner", () => {
+  for (const match of lastSixteen) {
+    assert.equal(
+      match.sides.filter((side) => side.won).length,
+      1,
+      `match ${match.matchNo} has ${match.sides.filter((side) => side.won).length} winners`,
+    );
+  }
+});
+
+check("a bracket heading is never mistaken for a player", () => {
+  for (const match of [...final, ...lastSixteen]) {
+    for (const side of match.sides) {
+      assert.ok(side.name.length > 0);
+      assert.notEqual(side.name, "Player");
+      assert.notEqual(side.memCode, "");
+    }
+  }
+});
+
+check("a round is named from the bracket depth, not the Korean label", () => {
+  assert.equal(bracketRound(2), "Final");
+  assert.equal(bracketRound(4), "Semi-final");
+  assert.equal(bracketRound(8), "Quarter-final");
+  assert.equal(bracketRound(128), "Round of 128");
+  assert.equal(bracketRound(3), "Bracket of 3");
+});
+
+check("a bracket that did not answer yields no matches", () => {
+  assert.deepEqual(parseBracketRows(null, 8), []);
+  assert.deepEqual(parseBracketRows("<html><body>maintenance</body></html>", 8), []);
+});
+
+console.log(`\n${passed}/${passed + failures.length} parser checks passed`);
+if (failures.length > 0) {
+  console.log(`failing: ${failures.join(", ")}`);
+  process.exit(1);
+}

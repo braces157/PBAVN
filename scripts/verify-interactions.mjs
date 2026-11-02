@@ -182,9 +182,46 @@ await navigate("/teams/players");
 const teamLinks = await evaluate(`document.querySelectorAll('table.stat-table tbody tr a[href^="/players/"]').length`);
 check("team league rows link to player profiles", teamLinks > 0, `${teamLinks} links`);
 
+// A match card is the deepest view on the site: sets, then every turn.
+await navigate("/matches/98885?tour=271&seq=tour2026051210390860&round=Final", 6000);
+const setPanels = await evaluate(`document.querySelectorAll('section[id^="set-"]').length`);
+check("a match card renders a panel per set", setPanels >= 5, `${setPanels} sets`);
+
+const turnRows = await evaluate(`
+  [...document.querySelectorAll('section[id^="set-"] table tbody')]
+    .reduce((total, body) => total + body.querySelectorAll('tr').length, 0)
+`);
+check("every set publishes its turn-by-turn rows", turnRows > 50, `${turnRows} turns`);
+
+const cardScore = await evaluate(`document.querySelector('dl dd .tnum')?.textContent?.trim()`);
+check("the card leads with the sets won", /\d/.test(cardScore ?? ""), cardScore);
+
+// The event page is the only route into a card that a person can find by clicking.
+await navigate("/schedule/tour2026051210390860", 8000);
+const cardLinks = await evaluate(`document.querySelectorAll('a[href^="/matches/"]').length`);
+check("an event page links every drawn match to its card", cardLinks > 20, `${cardLinks} cards`);
+
+// The period-stats table is the widest stats surface on the site.
+await navigate("/records?stat=bankShotRate", 5000);
+const periodRows = await evaluate(`
+  [...document.querySelectorAll('table')]
+    .some(table => table.querySelectorAll('tbody tr').length > 10)
+`);
+check("the season form table ranks more than ten players", periodRows === true, String(periodRows));
+
 await viewport(390, 844, true);
-for (const route of ["/", "/players", "/rankings", "/teams", "/teams/players", "/players/M0017111", "/records"]) {
-  await navigate(route, 3000);
+for (const route of [
+  "/",
+  "/players",
+  "/rankings",
+  "/teams",
+  "/teams/players",
+  "/players/M0017111",
+  "/records",
+  "/matches/98885",
+  "/schedule/tour2026051210390860",
+]) {
+  await navigate(route, 5000);
   const overflow = await evaluate(`
     (() => {
       document.documentElement.style.overflowX = 'visible';

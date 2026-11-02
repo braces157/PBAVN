@@ -1,0 +1,58 @@
+feat: read the scoring terminal for match cards and period stats
+
+The tour API publishes results in aggregate: sets won, average, high run. What
+actually happened on the table lives in the association's scoring terminal, a
+legacy ASP application that answers with HTML fragments. This reads it.
+
+The tour API and the terminal meet in exactly one place: the schedule feed
+publishes the tour code as MATCH_CODE, and the terminal publishes the match code
+per drawn match. That join is what makes a card reachable.
+
+What a visitor can now do that they could not before:
+
+- Open a card for any match and see the set-by-set score, the points and innings
+  per set, a score progression chart, and the turn-by-turn table: what each
+  player scored on every visit, split into 1-point and 2-point conversions, with
+  the running score.
+- Find every drawn match of an event from the event page. A 128-player draw
+  lists all 127.
+- See all 33 fields the association publishes per player for a date window, on
+  /records: 1-pointers, long runs, bank shots, first-shot success, attack
+  success, expected points, closing probability and the full tiebreak record.
+- See closing probability and the 2-point figures on /compare, which the
+  head-to-head row already carried and nothing rendered.
+- Watch a live match from the live board, which now shows the set score and a
+  broadcast link instead of raw scoreboard text.
+
+How it stays honest:
+
+- Parsers live in `*-parse.ts` modules with no imports, so the markup contract
+  is testable without a network, and every parser returns an empty result rather
+  than a guess when the shape is not recognised.
+- A row is only a player when it carries a published value. The column-heading
+  row shares the same list markup and produced a phantom player with zeroes
+  until a test caught it.
+- Derived numbers are cross-checked against an independent fragment: the turn
+  record has to reconcile with the published set score, and the best single turn
+  has to equal the published high run.
+- `GP99` is a format flag, not a race to ninety-nine. A set outside the range the
+  sport uses reports no race target rather than inventing one, so a 2-1 decider
+  is not drawn on a 99-point axis.
+
+Fixes found while building this, each with a test or a browser check:
+
+- `num()` turned a placeholder like "tbd" into a real zero, because `Number("")`
+  is 0. Display formatters now distinguish a missing value from a zero.
+- An event card labelled last season's winner "Champion" on a completed event.
+- The live board was served from the same 24-hour scorecard cache as the
+  archive, so a 20-second poll redrew around day-old numbers.
+- The live board reported an unreachable scoreboard as "no match in play".
+- `/compare` read both players with one circuit code, so cross-circuit pairs
+  returned nothing, and labelled the 2-point rate as "Bank shot".
+
+Verified with `npm test` (50 checks against saved upstream markup) and
+`npm run verify` (19 checks in a real browser, including no horizontal overflow
+at 390px on the new routes).
+
+The audit that prompted this is in `.audit/audit.md`; the data-source survey is
+in `.audit/data-sources.md` and the decision trail in `.audit/match-data.tsv`.

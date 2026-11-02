@@ -14,6 +14,7 @@ import type {
   RawLeague,
   RawPlayer,
   RawPlayerStat,
+  RawPeriodStat,
   RawPress,
   RawRankTour,
   RawRankingRow,
@@ -262,6 +263,35 @@ export async function getSeasonLeaders(params: {
   const data = await fetchJson<PbaEnvelope<RawTop5Row>>(
     `/stats/service/top5/season${qs(params)}`,
     { revalidate: CACHE.stats },
+  );
+  return rows(data);
+}
+
+/**
+ * The full per-player statistical record for a date window.
+ *
+ * `pbaType` takes the circuit code (`PBA1`, `LPBA1`, `PBA2`), not the display
+ * name. `orderBy` is a Korean column alias and the service rejects the request
+ * outright when it is empty, so it is always supplied even though callers rank
+ * the rows themselves.
+ */
+export async function getPeriodStats(params: {
+  startDate: string;
+  endDate: string;
+  pbaType: string;
+  orderBy?: string;
+  sort?: "asc" | "desc";
+}): Promise<RawPeriodStat[]> {
+  const data = await fetchJson<PbaEnvelope<RawPeriodStat>>(
+    `/stats/service/period${qs({
+      startDate: params.startDate,
+      endDate: params.endDate,
+      pbaType: params.pbaType,
+      orderBy: params.orderBy ?? "승수",
+      sort: params.sort ?? "desc",
+      langCode: "en",
+    })}`,
+    { revalidate: CACHE.stats, timeoutMs: 25_000 },
   );
   return rows(data);
 }

@@ -1,11 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getSeasonLeaders, getTourHistory, trackFailures } from "@/lib/pba/api";
+import { getPeriodStats, getSeasonLeaders, getTourHistory, trackFailures } from "@/lib/pba/api";
 import { getRequestFailures } from "@/lib/pba/failures";
 import { getCurrentSeason, getSeasonList, resolveTourLabels } from "@/lib/pba/service";
 import { LEADER_CATEGORIES } from "@/lib/normalize";
+import {
+  PERIOD_CATEGORIES,
+  normalizePeriodStat,
+  periodCategory,
+  periodWindow,
+  rankPeriod,
+  seasonWindow,
+} from "@/lib/period";
 import { grouped, percent } from "@/lib/format";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
+import { PeriodTable } from "@/components/domain/period-table";
 import { EmptyState, SectionHeading, TextLink, cn } from "@/components/ui/primitives";
 
 export const revalidate = 900;
@@ -23,7 +32,7 @@ const CIRCUITS = [
 ];
 
 interface PageProps {
-  searchParams: Promise<{ season?: string; circuit?: string }>;
+  searchParams: Promise<{ season?: string; circuit?: string; stat?: string }>;
 }
 
 export default async function RecordsPage({ searchParams }: PageProps) {
@@ -34,14 +43,19 @@ export default async function RecordsPage({ searchParams }: PageProps) {
   const seasonCode =
     params.season && seasons.some((s) => s.SeasonCode === params.season) ? params.season : current.SeasonCode;
   const circuit = CIRCUITS.some((c) => c.value === params.circuit) ? params.circuit! : "PBA1";
+  const category = periodCategory(params.stat);
+  const window = seasonWindow(seasonCode);
 
-  const { leaders, tours, failures } = await trackFailures(async () => {
-    const [leaders, tours] = await Promise.all([
+  const { leaders, tours, period, failures } = await trackFailures(async () => {
+    const [leaders, tours, period] = await Promise.all([
       getSeasonLeaders({ seasonCode, pbaType: circuit }),
       getTourHistory(),
+      getPeriodStats({ startDate: window.startDate, endDate: window.endDate, pbaType: circuit }),
     ]);
-    return { leaders, tours, failures: getRequestFailures() };
+    return { leaders, tours, period, failures: getRequestFailures() };
   });
+
+  const ranked = rankPeriod(period.map(normalizePeriodStat), category);
   const byCategory = new Map<string, typeof leaders>();
   for (const row of leaders) {
     const bucket = byCategory.get(row.Category) ?? [];
@@ -152,6 +166,35 @@ export default async function RecordsPage({ searchParams }: PageProps) {
             ))}
           </div>
         )}
+
+        <section className="mt-14">
+          <SectionHeading
+            eyebrow="Season form"
+            title={`${category.label} leaders`}
+            description={`${category.hint} Ranked across ${periodWindow(window.startDate, window.endDate)}, the window the association reports for this season. Every row also carries the supporting figures behind it.`}
+          />
+          <div className="mt-5">
+            <FilterRow
+              label="Category"
+              basePath="/records"
+              paramKey="stat"
+              active={category.key}
+              params={{ season: seasonCode, circuit }}
+              options={PERIOD_CATEGORIES.map((item) => ({ value: item.key, label: item.label }))}
+            />
+          </div>
+          <div className="mt-4 overflow-x-auto rounded-[14px] border border-ink-750 bg-ink-900">
+            {ranked.length > 0 ? (
+              <PeriodTable rows={ranked} category={category} />
+            ) : (
+              <EmptyState
+                className="border-0"
+                title="No period data published"
+                description="The association's statistics service has not published per-player records for this circuit and window."
+              />
+            )}
+          </div>
+        </section>
 
         <div className="mt-14 grid gap-10 lg:grid-cols-2 lg:gap-12">
           <section className="min-w-0">

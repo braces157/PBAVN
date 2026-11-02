@@ -61,7 +61,7 @@ export function FeaturedEvent({ event, className }: { event: Event; className?: 
           </div>
           <div>
             <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-fog-600">
-              {event.status === "completed" ? "Champion" : "Prize pool"}
+              {event.status === "completed" ? "Defending champion" : "Prize pool"}
             </dt>
             <dd className="mt-1 leading-snug text-fog-200">
               {event.status === "completed" && !isPlaceholder(event.defendingChampion)
