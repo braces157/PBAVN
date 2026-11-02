@@ -15,6 +15,7 @@ import {
   leagueByCode,
   normalizePlayer,
   normalizePlayerStat,
+  statLeagueCode,
   winRate,
 } from "@/lib/normalize";
 import { average, grouped, ordinal, percent, wonCompact, won } from "@/lib/format";
@@ -40,13 +41,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: name,
     description: `${name} — season averages, high runs, win rates, bank-shot accuracy, tour results and prize money on the PBA / LPBA tour.`,
   };
-}
-
-/** Sponsor-recommended members are scored against the top-tier table. */
-function statLeagueCode(code: string): string {
-  if (code === "PBA9") return "PBA1";
-  if (code === "LPBA9") return "LPBA1";
-  return code;
 }
 
 export default async function PlayerProfilePage({ params, searchParams }: PageProps) {
@@ -382,6 +376,17 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                 </ul>
               </div>
             )}
+
+            <div className="surface p-4">
+              <p className="eyebrow">Match history</p>
+              <p className="mt-2 text-[12.5px] leading-relaxed text-fog-500">
+                Every recorded tour match of {player.name.split(" ").slice(-1)[0]}, season by
+                season, each row opening its turn-by-turn card.
+              </p>
+              <div className="mt-3">
+                <TextLink href={`/players/${player.code}/matches`}>Open match history</TextLink>
+              </div>
+            </div>
 
             <div className="surface p-4">
               <p className="eyebrow">Compare</p>
