@@ -160,7 +160,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
         {/* -------------------------------------------------- score board */}
         <div className="surface p-5">
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-            <div className="flex items-center justify-end gap-3">
+            <div className="flex min-w-0 items-center justify-end gap-3">
               <div className="min-w-0 text-right">
                 <p
                   className={cn(
@@ -171,7 +171,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
                   {bouts.homeName || "—"}
                 </p>
                 {bouts.homeAverage !== null && (
-                  <p className="tnum mt-0.5 text-[11px] text-fog-500">
+                  <p className="tnum mt-0.5 truncate text-[11px] text-fog-500">
                     AVG {bouts.homeAverage.toFixed(3)} · HR {bouts.homeHighRun ?? "—"}
                   </p>
                 )}
@@ -192,7 +192,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
                 </Chip>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <TeamLogo src={bouts.awayLogo} name={bouts.awayName} size="lg" />
               <div className="min-w-0">
                 <p
@@ -204,7 +204,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
                   {bouts.awayName || "—"}
                 </p>
                 {bouts.awayAverage !== null && (
-                  <p className="tnum mt-0.5 text-[11px] text-fog-500">
+                  <p className="tnum mt-0.5 truncate text-[11px] text-fog-500">
                     AVG {bouts.awayAverage.toFixed(3)} · HR {bouts.awayHighRun ?? "—"}
                   </p>
                 )}

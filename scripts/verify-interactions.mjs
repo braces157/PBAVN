@@ -284,6 +284,25 @@ const periodRows = await waitFor(`
 `);
 check("the season form table ranks more than ten players", periodRows === true, String(periodRows));
 
+// The player history table is the natural route into any recorded match.
+await navigate("/players/M0017111/matches", 8000);
+const historyRows = await waitFor(
+  `document.querySelectorAll('table.stat-table a[href^="/matches/"]').length || 0`,
+);
+check("the player history table links rows into match cards", historyRows > 0, `${historyRows} rows`);
+
+// The fixtures page lands on the round in play with nothing touched.
+await navigate("/teams/matches", 8000);
+const fixtureCards = await waitFor(
+  `document.querySelectorAll('a[href^="/teams/matches/"]').length || 0`,
+);
+check("the fixtures page lands on the live round with fixtures", fixtureCards > 0, `${fixtureCards} fixtures`);
+
+// A bout page is the team league's deepest view: one panel per set.
+await navigate("/teams/matches/38?season=2026&round=93", 8000);
+const boutPanels = await waitFor(`document.querySelectorAll('[id^="set-"]').length || 0`);
+check("a fixture page renders one panel per bout", boutPanels >= 5, `${boutPanels} bouts`);
+
 await viewport(390, 844, true);
 for (const route of [
   "/",
@@ -291,7 +310,10 @@ for (const route of [
   "/rankings",
   "/teams",
   "/teams/players",
+  "/teams/matches",
+  "/teams/matches/38?season=2026&round=93",
   "/players/M0017111",
+  "/players/M0017111/matches",
   "/records",
   "/matches/98885",
   "/schedule/tour2026051210390860",
