@@ -47,6 +47,13 @@ export function leagueName(code: string | null | undefined): string {
 /** `TLG` is not a player league; filter it out of player-facing selectors. */
 export const PLAYER_LEAGUES = LEAGUES.filter((l) => l.code !== "TLG");
 
+/** Sponsor-recommended members are scored against the top-tier table. */
+export function statLeagueCode(code: string): string {
+  if (code === "PBA9") return "PBA1";
+  if (code === "LPBA9") return "LPBA1";
+  return code;
+}
+
 /* -------------------------------------------------------------- tournaments */
 
 export type EventStatus = "live" | "upcoming" | "completed";

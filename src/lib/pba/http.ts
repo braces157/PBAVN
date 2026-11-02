@@ -1,3 +1,4 @@
+import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { recordFailure } from "./failures";
 
@@ -28,6 +29,8 @@ const FORCED_OFFLINE = process.env.PBA_OFFLINE === "1";
 
 export const SITE_ORIGIN = "https://www.pbatour.org";
 export const APP_ORIGIN = "https://app.pbatour.org";
+/** The team-league terminal: plain HTTP, POST form bodies, no TLS. */
+export const TEAM_ORIGIN = "http://team.pbatour.org";
 /** Player photos, team logos, sponsor artwork and tournament logos live here. */
 export const ASSET_ORIGIN = "https://pbatour.org/resources/upload";
 
@@ -52,6 +55,8 @@ export interface FetchOptions {
   method?: "GET" | "POST";
   body?: string;
   headers?: Record<string, string>;
+  /** A 200 with an empty body is a real answer, not a failure. Opt-in per call. */
+  allowEmpty?: boolean;
 }
 
 export interface PbaEnvelope<T> {
@@ -94,24 +99,26 @@ interface CacheEntry {
 }
 
 const fallbackCache = new Map<string, CacheEntry>();
+/** Next's data cache never reuses a POST, so POSTs cache here on the primary path. */
+const postCache = new Map<string, CacheEntry>();
 
-function readCache(key: string): string | null {
-  const hit = fallbackCache.get(key);
+function readCache(cache: Map<string, CacheEntry>, key: string): string | null {
+  const hit = cache.get(key);
   if (!hit) return null;
   if (hit.expires < Date.now()) {
-    fallbackCache.delete(key);
+    cache.delete(key);
     return null;
   }
   return hit.body;
 }
 
-function writeCache(key: string, body: string, ttlSeconds: number): void {
-  if (fallbackCache.size > 400) {
+function writeCache(cache: Map<string, CacheEntry>, key: string, body: string, ttlSeconds: number): void {
+  if (cache.size > 400) {
     // Cheap eviction: drop the oldest insertion order entries.
-    const keys = [...fallbackCache.keys()].slice(0, 120);
-    for (const stale of keys) fallbackCache.delete(stale);
+    const keys = [...cache.keys()].slice(0, 120);
+    for (const stale of keys) cache.delete(stale);
   }
-  fallbackCache.set(key, { expires: Date.now() + Math.max(1, ttlSeconds) * 1000, body });
+  cache.set(key, { expires: Date.now() + Math.max(1, ttlSeconds) * 1000, body });
 }
 
 interface RawResponse {
@@ -165,6 +172,49 @@ function requestInsecure(
   });
 }
 
+/** Same shape as `requestInsecure`, for the team host that never had TLS. */
+function requestPlain(
+  url: string,
+  options: { method: string; headers: Record<string, string>; body?: string; timeoutMs: number },
+): Promise<RawResponse> {
+  return new Promise((resolve, reject) => {
+    const target = new URL(url);
+    const request = httpRequest(
+      {
+        protocol: target.protocol,
+        hostname: target.hostname,
+        port: target.port || 80,
+        path: `${target.pathname}${target.search}`,
+        method: options.method,
+        headers: {
+          ...options.headers,
+          // node:http does not decompress either.
+          "Accept-Encoding": "identity",
+          ...(options.body ? { "Content-Length": Buffer.byteLength(options.body) } : {}),
+        },
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("end", () => {
+          resolve({
+            status: response.statusCode ?? 0,
+            body: Buffer.concat(chunks),
+            contentType: String(response.headers["content-type"] ?? ""),
+          });
+        });
+      },
+    );
+
+    request.setTimeout(options.timeoutMs, () => {
+      request.destroy(new Error("PBA_UPSTREAM_TIMEOUT"));
+    });
+    request.on("error", reject);
+    if (options.body) request.write(options.body);
+    request.end();
+  });
+}
+
 /* ----------------------------------------------------------- failure signal */
 
 
@@ -193,6 +243,7 @@ async function getText(
     headers,
     accept,
     referer,
+    allowEmpty = false,
   } = options;
 
   if (FORCED_OFFLINE) {
@@ -208,6 +259,15 @@ async function getText(
     ...headers,
   };
 
+  // POST responses are never reused by Next's data cache, so their in-process
+  // cache is the primary path; GET keeps native fetch with the fallback below.
+  const post = method === "POST";
+  const cacheKey = `${method} ${url} ${body ?? ""}`;
+  if (post) {
+    const reserved = readCache(postCache, cacheKey);
+    if (reserved !== null) return reserved;
+  }
+
   // 1. Native fetch — the path Next can cache across requests.
   try {
     const response = await fetch(url, {
@@ -219,10 +279,11 @@ async function getText(
     });
     if (response.ok) {
       const text = await response.text();
-      if (!text) {
+      if (!text && !allowEmpty) {
         recordFailure(url);
         return null;
       }
+      if (post) writeCache(postCache, cacheKey, text, revalidate);
       return text;
     }
     recordFailure(url);
@@ -235,18 +296,17 @@ async function getText(
   }
 
   // 2. Chain-broken fallback.
-  const cacheKey = `${method} ${url} ${body ?? ""}`;
-  const cached = readCache(cacheKey);
-  if (cached) return cached;
+  const cached = readCache(post ? postCache : fallbackCache, cacheKey);
+  if (cached !== null) return cached;
 
   try {
     const result = await requestInsecure(url, { method, headers: mergedHeaders, body, timeoutMs });
-    if (result.status < 200 || result.status >= 300 || result.body.length === 0) {
+    if (result.status < 200 || result.status >= 300 || (result.body.length === 0 && !allowEmpty)) {
       recordFailure(url);
       return null;
     }
     const text = result.body.toString("utf8");
-    writeCache(cacheKey, text, Math.min(revalidate, 300));
+    writeCache(post ? postCache : fallbackCache, cacheKey, text, post ? revalidate : Math.min(revalidate, 300));
     return text;
   } catch {
     recordFailure(url);
@@ -328,7 +388,7 @@ export async function fetchJson<T = PbaEnvelope<unknown>>(
 /** Call a legacy ASP page that answers with an HTML fragment. */
 export async function fetchHtmlFragment(
   path: string,
-  options: { revalidate?: number; timeoutMs?: number } = {},
+  options: { revalidate?: number; timeoutMs?: number; allowEmpty?: boolean } = {},
 ): Promise<string | null> {
   const url = path.startsWith("http") ? path : `${APP_ORIGIN}${path}`;
   return getText(url, {
@@ -336,7 +396,99 @@ export async function fetchHtmlFragment(
     timeoutMs: options.timeoutMs ?? 6_000,
     accept: "text/html, */*",
     referer: `${APP_ORIGIN}/mob/contest_new/admin_en/live_info.asp`,
+    allowEmpty: options.allowEmpty,
   });
+}
+
+/* ------------------------------------------------------------ team terminal */
+
+/**
+ * Fragment transport for the team-league terminal at `team.pbatour.org`.
+ *
+ * That host is plain HTTP and answers only POST form bodies, so Next's data
+ * cache never sees a reusable response — the in-process cache below is the
+ * primary path, not a fallback, and it is keyed by method, URL and body because
+ * the same endpoint means something different for every form posting. Native
+ * `fetch` still runs beneath it (it may gain GET caching later), and a
+ * `node:http` request is the last resort. Failure recording, the offline flag
+ * and the timeout policy are the ones every other transport shares.
+ */
+export async function fetchTeamFragment(
+  path: string,
+  options: {
+    method?: "GET" | "POST";
+    body?: string;
+    revalidate?: number;
+    timeoutMs?: number;
+    allowEmpty?: boolean;
+  } = {},
+): Promise<string | null> {
+  const {
+    method = "GET",
+    body,
+    revalidate = 300,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    allowEmpty = false,
+  } = options;
+
+  const url = path.startsWith("http") ? path : `${TEAM_ORIGIN}${path}`;
+
+  if (FORCED_OFFLINE) {
+    recordFailure(url);
+    return null;
+  }
+
+  const cacheKey = `${method} ${url} ${body ?? ""}`;
+  const cached = readCache(postCache, cacheKey);
+  if (cached !== null) return cached;
+
+  const teamHeaders: Record<string, string> = {
+    "User-Agent": BASE_HEADERS["User-Agent"],
+    Accept: "*/*",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
+    // The terminal sits behind its own pages; the plan page is their referrer.
+    Referer: `${TEAM_ORIGIN}/mob/ko/planDetail.asp`,
+    ...(body ? { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" } : {}),
+  };
+
+  // 1. Native fetch.
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: teamHeaders,
+      body,
+      signal: AbortSignal.timeout(timeoutMs),
+      next: { revalidate },
+    });
+    if (response.ok) {
+      const text = await response.text();
+      if (!text && !allowEmpty) {
+        recordFailure(url);
+        return null;
+      }
+      writeCache(postCache, cacheKey, text, revalidate);
+      return text;
+    }
+    recordFailure(url);
+    return null;
+  } catch {
+    // Plain HTTP has no certificate failure mode; every error falls through.
+  }
+
+  // 2. node:http fallback.
+  try {
+    const result = await requestPlain(url, { method, headers: teamHeaders, body, timeoutMs });
+    if (result.status < 200 || result.status >= 300 || (result.body.length === 0 && !allowEmpty)) {
+      recordFailure(url);
+      return null;
+    }
+    const text = result.body.toString("utf8");
+    writeCache(postCache, cacheKey, text, revalidate);
+    return text;
+  } catch {
+    recordFailure(url);
+    return null;
+  }
 }
 
 /** Prefix an upstream relative asset path with the asset CDN origin. */

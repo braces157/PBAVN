@@ -8,7 +8,10 @@ import {
   getTeamPlayerStats,
   getTeamRoster,
   getTeamStandings,
+  trackFailures,
 } from "@/lib/pba/api";
+import { getRequestFailures } from "@/lib/pba/failures";
+import { FIXTURES_ARCHIVE_TTL, FIXTURES_IN_PLAY_TTL, getRoundFixtures, type TeamFixture } from "@/lib/pba/team-matches";
 import {
   matchMatrix,
   normalizeTeam,
@@ -19,6 +22,8 @@ import { average, grouped, percent } from "@/lib/format";
 import { PlayerAvatar, TeamLogo } from "@/components/ui/media";
 import { Chip, EmptyState, KeyValue, SectionHeading, Stat, TextLink } from "@/components/ui/primitives";
 import { TeamStatGrid } from "@/components/domain/standings-table";
+import { FixtureList, type FixtureClub } from "@/components/domain/fixture-list";
+import { DataStatus } from "@/components/site/data-status";
 
 export const revalidate = 900;
 
@@ -41,12 +46,33 @@ async function resolveTeam(code: string, seasonParam?: string, roundParam?: stri
   const roundCode = round ? String(round.라운드코드) : "0";
   const decoded = decodeURIComponent(code);
 
-  const [rosterRaw, standingsRaw, playersRaw, matrixRaw] = await Promise.all([
-    getTeamRoster({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
-    getTeamStandings({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
-    getTeamPlayerStats({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
-    getTeamMatchMatrix({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
-  ]);
+  const { rosterRaw, standingsRaw, playersRaw, matrixRaw, fixtures, failures } = await trackFailures(
+    async () => {
+      const [rosterRaw, standingsRaw, playersRaw, matrixRaw, fixtures] = await Promise.all([
+        getTeamRoster({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
+        getTeamStandings({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
+        getTeamPlayerStats({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
+        getTeamMatchMatrix({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
+        // The round-wide fixtures POST, shared with /teams and /teams/matches
+        // through the transport cache; the section below filters it by club.
+        round
+          ? getRoundFixtures(
+              String(round.라운드코드),
+              round.라운드,
+              round.진행상황 === "진행중" ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
+            )
+          : Promise.resolve([] as TeamFixture[]),
+      ]);
+      return {
+        rosterRaw,
+        standingsRaw,
+        playersRaw,
+        matrixRaw,
+        fixtures,
+        failures: getRequestFailures(),
+      };
+    },
+  );
 
   const profileRaw = rosterRaw.find((r) => r.팀코드 === decoded || r.리그참여팀코드 === decoded);
   if (!profileRaw) return null;
@@ -68,6 +94,16 @@ async function resolveTeam(code: string, seasonParam?: string, roundParam?: stri
     players,
     standings,
     matrix: matchMatrix(matrixRaw),
+    fixtures: fixtures.filter(
+      (fixture) => fixture.home.clubCode === profile.code || fixture.away.clubCode === profile.code,
+    ),
+    failures,
+    clubs: new Map<string, FixtureClub>(
+      standingsRaw.map((raw) => {
+        const team = normalizeTeam(raw);
+        return [team.code, { name: team.name, logo: team.logo }];
+      }),
+    ),
     profileIndex: new Map(rosterRaw.map((r) => [r.팀코드, normalizeTeamProfile(r)])),
   };
 }
@@ -88,7 +124,8 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
   const resolved = await resolveTeam(code, search.season, search.round);
   if (!resolved) notFound();
 
-  const { season, round, roundCode, profile, standing, players, standings, matrix, profileIndex } = resolved;
+  const { season, round, roundCode, profile, standing, players, standings, matrix, fixtures, clubs, failures, profileIndex } =
+    resolved;
 
   return (
     <>
@@ -135,6 +172,7 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
       </section>
 
       <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-10">
+        <DataStatus failures={failures} />
         {standing && <TeamStatGrid team={standing} />}
 
         <div className="mt-10 grid gap-10 lg:grid-cols-[1.3fr_0.7fr] lg:gap-14">
@@ -195,6 +233,39 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
                 }
               />
             )}
+          </section>
+
+          <section className="mt-12">
+            <SectionHeading
+              eyebrow="Fixtures"
+              title={`Fixtures in this round${round ? ` (R${round.라운드})` : ""}`}
+              description="This club's own fixtures for the round selected above, from the same feed the round page uses."
+              action={
+                <TextLink
+                  href={`/teams/matches?season=${season.시즌코드}&round=${roundCode}`}
+                >
+                  All fixtures of the round
+                </TextLink>
+              }
+            />
+            <div className="mt-5">
+              <FixtureList
+                fixtures={fixtures}
+                clubs={clubs}
+                season={season.시즌코드}
+                round={roundCode}
+                emptyTitle={
+                  standing
+                    ? "No fixtures published for this club"
+                    : `${profile.shortName} is not competing this round`
+                }
+                emptyDescription={
+                  standing
+                    ? "The round's schedule has no fixture blocks for this club yet."
+                    : undefined
+                }
+              />
+            </div>
           </section>
 
           <aside className="space-y-4">

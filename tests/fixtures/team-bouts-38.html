@@ -1,0 +1,506 @@
+
+<style type="text/css">
+    body {background:#fff}
+    #container {margin: 0 0;}
+    .set_box {margin:10px}
+    .content_block {margin:0;padding: 0;background: #fff!important;border: 1px #bebebe solid; overflow:hidden; }
+
+    .tbl_info{position:relative;background:#23283d; margin:0 0 5px 0; padding:0; color:#fff;font-size:0.875em;border-bottom:0px #d1d1d1 solid; }
+    .tbl_info .icon_divi { opacity: 0.2; }
+    .tbl_info .analysis_view{position: absolute;
+        top: -8px;
+        right: 0;
+        display: block; color:#FFF;
+        background:url(/mob/images/ico_anal01.png) no-repeat left 11px;
+        background-size:15px;
+        font-size: 1em;width:72px; padding: 8.5px 0px 8.5px 0px; margin:0; text-align:right;}
+
+    .score_board { position:relative;margin:0 0 0 0;padding:10px; background:#23283d; border-top:1px #282d44 solid}
+    .score_board table {width:100%;border-collapse:collapse; margin:0; padding:0 }
+    .score_board th { padding:7px 5px; color:#FFF; font-size:0.80em; font-weight:normal; vertical-align:middle; line-height:1.2; position: relative; }
+    .score_board th .player_name{
+        display:inline-block;width:85%; font-size:0.90em;vertical-align:top;text-overflow:ellipsis; overflow:hidden;  word-break:keep-all;text-align:left; border:0px #000 solid;
+    }
+    .score_board td { padding: 5px; background:#fff; color:#FFF; font-size:0.75em;text-align:left; }
+    .score_board th.bg01 {background:#3e4e78;border-bottom:0px #cbcbcb solid;}
+    .score_board th.bg02 {background:#48577f;border-bottom:0px #cbcbcb solid;}
+
+    .score_board td.bg01 {background:#303f63;border-bottom:0px #cbcbcb solid;}
+    .score_board td.bg02 {background:#3b496b;border-bottom:0px #cbcbcb solid;}
+
+    .score_board th.left, .score_board td.left { text-align:left;}
+    .score_board th.center, .score_board td.center {text-align:center}
+    .score_board th.right{text-align:right}
+    .score_board .icon_win_left { position:absolute; right: 5px; top: 4px; }
+    .score_board .icon_win_right { position:absolute; right: 5px; top: 4px; }
+    .photo {width:70px; border:0px solid #333; margin:0; border-radius: 5px; vertical-align: middle; }
+    .arr_box{padding:5px 0; background:url(/mob/images/arr_down02.png) no-repeat center top; background-size:18px;}
+    .play_info_box{background: #fff!important;}
+.anal_record {
+-ms-overflow-style: none; /* IE 및 Edge에서 스크롤바 숨기기 */
+}
+
+.anal_record::-webkit-scrollbar {
+display: none; /* Chrome, Safari, Opera에서 스크롤바 숨기기 */
+}
+
+    .tit_round {padding:5px 0 3px 5px}
+    .analysis {
+        position: absolute;
+        top: 0px;
+        right: 60px;
+        display: block;
+        background:url(/mob/images/ico_anal.png) no-repeat left center;
+        background-size:15px;
+        font-size: 0.90em;width:60px; padding: 8.5px 0px 8.5px 0px; margin:0; text-align:center;/*border-left: 1px #d8d8d8 solid;*/
+    }
+    .paper {
+        position: absolute;
+        top: 0px;
+        right: 0;
+        display: block;
+        background:url(/mob/images/ico_paper.png) no-repeat left center;
+        background-size:12px;
+        font-size: 0.90em;width:65px; padding: 8.5px 0px 8.5px 5px; margin:0; text-align:center;/*border-left: 1px #d8d8d8 solid;*/
+    }
+    .btn_detail{
+        position: absolute;color:#FFF;
+        top: 5px;
+        right: 5px;
+        display: block;
+        background:#8c8478 url(/mob/images/ico_detail.png) no-repeat 8px center;
+        background-size:14px;
+        font-size: 0.80em;width:75px; padding: 3.5px 0px 3.5px 22px; margin:0; text-align:center;border-radius: 5px;
+    }
+
+    .proud_box{position:relative;background:#eeeeee; padding:0; color:#000;font-size:0.90em;border-bottom:0px #d1d1d1 solid; }
+    .proud_box .no_order {display:inline-block;width:50px;padding:8px 8px 8px 8px; margin:0 5px 0 0; text-align:center; background:#e5e5e5; color:#000; }
+    .proud_box .icon_divi { opacity: 0.6; }
+    .bg_win{background:#375494;}
+
+    .tabMenuW50pc { width: calc(50% - 15px); }
+    .tabMenuW33pc { width: calc(33.3% - 13.4px); }
+    /* 탭메뉴 끝 */
+
+    .win_lost_block01 { padding: 0px 5px 3px 5px; margin: 0px; }
+    .win_lost_block01 li {position: relative; margin:2px 0; padding: 7px 0 4px 5px; font-size:0.80em;  *zoom:1; }
+    .win_lost_block01 li:first-child { border: 0px; }
+    .win_lost_block01 li:after { content: ""; display: block; clear: both; }
+    .win_lost_block01 li.player_end {background:#f7eddd}
+    .win_lost_block01 li.player_end span{color:;}
+    .win_lost_block01 li > span { float: left; color:#000 }
+    .win_lost_block01 li > span.t_order {width:40px;margin-right:6px; text-align:center }
+    .win_lost_block01 li > span.num_ing  {width:40px;margin-right:6px;padding-top:0; text-align:center; font-weight:bold; color:#345aa7;/* background: url(/mob/images/mark_end.png) no-repeat center center; background-size:contain*/ }
+    .win_lost_block01 li > span.t_name {width:calc(100% - 195px); border:0px #000 solid/*width:35%;*/ }
+    .win_lost_block01 li > span.t_set {width:70px; text-align: center;font-weight:normal}
+    .win_lost_block01 li > span.t_avg {width: 50px; text-align: center; }
+    .win_lost_block01 li > span.t_high {width: 20px; text-align: center;}
+    .win_lost_block01 li > span.t_ball {width: 30px; text-align: center;}
+    .win_lost_block01 li > span.t_club {position: absolute; top: 28px; left: 45px; font-size:0.75em; color: #000; opacity: 0.3; }
+    .win_lost_block01 li .icon_comm { float: left; display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; font-size: 12px; font-weight: bold; -moz-border-radius: 50%; -webkit-border-radius: 50%; border-radius: 50%; }
+    .icon_win { display: inline-block; background: #ea0d12; color: #fff; width:20px; line-height:20px; padding:0px; border-radius: 50%; font-weight:bold; font-size:0.80em; text-align: center; }
+    .win_lost_block01 li .icon_lost {/* background: #6D6D6D;*/ color:#a39378 !important; opacity: 1; }
+    .win_lost_block01 li.line { padding: 0px 0px; margin: 0px 10px; border-bottom: 1px #e4e4e4 solid; }
+    .iconGubun { margin-left: 5px; margin-right: 5px;}
+
+
+
+    .flag{ display:inline-block;width:18px; margin:0 3px 0 auto;border:0px #e1e1e1 solid; vertical-align:top}
+    .ball{ display:inline-block;width:20px; margin:0 auto 0 auto;border:0px #e1e1e1 solid; vertical-align:middle}
+    .keyf0_6{ color:#afc9ff}
+    .btn_find {
+        width: 60px; height:35px;
+        background: -webkit-gradient(linear, left top, left bottom, from(#446ab9), to(#264c97));
+        background: -webkit-linear-gradient(top, #446ab9, #264c97);
+        background: -moz-linear-gradient(top, #446ab9, #264c97);
+        background: -ms-linear-gradient(top, #446ab9, #264c97);
+        background: -o-linear-gradient(top, #446ab9, #264c97);
+        color: #FFF;
+        border: 0px #345aa7 solid;
+        font-weight: normal;
+        font-size: 0.95em;
+        margin-left: 3px;
+        padding: 0px 0; vertical-align:middle; border-radius:5px
+        }
+    .btn_alarmsave { position: fixed; bottom:0; border-bottom: display:block;
+        width:97%; margin:0 10px;
+        background:#2569bf;
+        color: #FFF;font-weight: normal;
+        font-size: 0.875em;
+        margin-left: 5px;
+        padding: 10px 0; vertical-align:middle; border-radius:5px
+    }
+    .anal_record {margin:0; padding:0}
+    .anal_record table {width:100%;border-collapse:collapse; border-spacing:0; margin:0; padding:0; }
+    .anal_record th {padding:7px 0px; color:#000; font-size:0.80em;border-right:1px #cbcbcb solid;border-bottom:1px #cbcbcb solid; font-weight:normal; vertical-align:middle; line-height:1.2}
+    .anal_record th .player_name{ /* display:inline-block;width:30%;*/ font-size:0.875em;; vertical-align:top;/*text-overflow:ellipsis; overflow:hidden; white-space:nowrap;*/ word-break:keep-all;text-align:left; border:0px #000 solid }
+    .anal_record td {padding:5px 0px; background:#fff; color:#000; font-size:0.75em;border-right:1px #cbcbcb solid;border-bottom:1px #cbcbcb solid;text-align:left; }
+    .anal_record th.bg01 {background:#f4f4f4;border-bottom:1px #cbcbcb solid;}
+    .anal_record th.bg02 {background:#eeeeee;border-bottom:1px #cbcbcb solid;}
+    .anal_record th.bg03 {background:#f4f4f4;border-bottom:1px #cbcbcb solid;}
+
+    .anal_record td.bg01 {background:#f4f4f4;border-bottom:1px #cbcbcb solid;}
+    .anal_record td.bg02 {background:#eeeeee;border-bottom:1px #cbcbcb solid;}
+    .anal_record td.bg03 {background:#f4f4f4;border-bottom:1px #cbcbcb solid;}
+
+    .anal_record td.left {padding:0 0 0 18px}
+    .anal_record th.center, .anal_record td.center {text-align:center}
+
+
+    /* 레이어 탭메뉴 */
+    .tab_01 { position:relative; overflow: hidden;background:#245492/*url(/mob/images/tab_bg03.png) repeat-x 0 0; background-size:contain; */}
+
+    .btn_menu{float:left;width:30%;}
+    .btn_menu a{display:block;padding:12px 0px 10px 0px;font-size:0.80em; color:#9b9ca5;text-align: center;font-weight:bold;}
+    .btn_menu a.select{width:100%;margin: 0;color:#FFF; font-weight:bold;background: url(/mob/images/arr_select.png) no-repeat center bottom ; background-size:15px}
+    .sel_box { width:70px; background:#113f7b; color:#FFF; font-weight:bold; border:0; margin-top: 4.5px; }
+    a.noimg{background:none}
+    .r_lft_top {border-top-left-radius:5px;}
+    .r_lft_bot {border-bottom-left-radius:5px;}
+    .r_rgt_top {border-top-right-radius:5px;}
+    .r_rgt_bot {border-bottom-right-radius:5px;}
+
+    .layer-box .close {position: absolute;top:10px; right:10px; display:block; width:10px; height:10px; background: url(/images/btn_close.png) center center no-repeat; background-size:10px}
+
+    .icon_perfect { display: inline-block; background: #8920cc; padding: 1px 6px; font-size: 12px; color: #fff; margin-left: 5px; }
+
+    /* 새로운 구조를 위한 추가 CSS */
+    .bg_col01 { background: #fff; }
+    .br5px { border-radius: 5px; }
+    .play_info_box { padding: 0; margin: 0; }
+    .dynamic-box02 { margin: 0; padding: 0; }
+    .t15 { font-size: 15px; }
+    .t14 { font-size: 14px; }
+    .left_pt5 { padding-left: 5px; }
+    .right_pt5 { padding-right: 5px; }
+</style>
+
+
+        <div class="teamleague-status-listbox">
+            <div class="score_board">
+                <div class="tbl_info">
+                    <!--경기정보 경기일 출력-->
+                    
+                    <span class="t15">3 라운드</span>
+                    <span class="icon_divi left_pt5 right_pt5">|</span>
+                    <span class="t15">No 38</span>
+                </div>
+                <table class="" width="100%" cellpadding="0" cellspacing="0">
+                    <colgroup>
+                        <col width="22%" / >
+                        <col width="20%" / >
+                        <col width="20%" / >
+                        <col width="20%" / >
+                        <col width="30%" / >
+                    </colgroup>
+                    <tr>
+                        <th colspan="2" class="left bg01">
+                            <span class="player_name">하림 용가리즈</span>
+                            <!-- 승리 마크-->
+                            
+                        </th>
+                        <th class="center bg02">Team</th>
+                        <th colspan="2" class="left bg01">
+                            <span class="player_name">하나카드 하나페이</span>
+                            <!-- 승리 마크-->
+                            
+                                <span class="icon_win icon_win_right">W</span>
+                            
+                        </th>
+                    </tr>
+                    <tr>
+                        <td rowspan="3" class="left bg01"><img src="https://teamfile.billiboard.co.kr/team/T00029_LOGO_B_KR_20261031122046.png" class="photo" alt="하림 용가리즈" /></td>
+                        <td class="center bg01 number0"><span class="t24">2</span></td>
+                        <td class="center bg02">Score</td>
+                        <td class="center bg01 number0"><span class="t24">4</span></td>
+                        <td rowspan="3" class="right bg01"><img src="https://teamfile.billiboard.co.kr/team/T00020_LOGO_300.png" class="photo" alt="하나카드 하나페이" /></td>
+                    </tr>
+                    <tr>
+                        <td class="center bg01">1.423</td>
+                        <td class="center bg02">AVG</td>
+                        <td class="center bg01">2.259</td>
+                    </tr>
+                    <tr>
+                        <td class="center bg01">12</td>
+                        <td class="center bg02">HR</td>
+                        <td class="center bg01">12</td>
+                    </tr>
+                </table>
+            </div>
+
+            <ul class="teamleague-status-list">
+
+					<li>
+                        <div class="set_box">
+                            <div class="content_block bg_col01 br5px">
+                                <div class="proud_box">
+                                    <span class="no_order t15">
+                                        SET 1
+                                    </span>
+                                    <span class="t14">2026-09-18 21:06</span>
+                                    <span class="icon_divi left_pt5 right_pt5">|</span>
+                                    <span class="t14">GP11</span>
+                                    
+                                    <a href="javascript: viewResultDetail('12657');" class="paper">기록지</a>
+                                    
+
+                                <div class="play_info_box">
+                                    <div class="dynamic-box02">
+                                        <ul class="win_lost_block01">
+                                            <li style="border-bottom:1px #efefef solid;">
+                                                <span class="t_order" style="color:#8a8a8a">Result</span>
+                                                <span class="t_name" style="text-align:center;color:#8a8a8a">Player</span>
+                                                <span class="t_set" style="color:#8a8a8a">Point/inn</span>
+                                                <span class="t_avg" style="color:#8a8a8a">Avg</span>
+                                                <span class="t_high" style="color:#8a8a8a">HR</span>
+                                            </li>
+                                            <li>
+                                                <span class="t_order"><span class="icon_lost">&nbsp;</span></span>
+                                                <span class="t_name">P.응우옌<br />쩐득민</span>
+                                                <span class="t_set">9P / 7</span>
+                                                <span class="t_avg">1.286</span>
+                                                <span class="t_high">4</span>
+                                            </li>
+                                            <li>
+                                                <span class="t_order"><span class="icon_win">W</span></span>
+                                                <span class="t_name">초클루<br />Q.응우옌</span>
+                                                <span class="t_set">11P / 8</span>
+                                                <span class="t_avg">1.375</span>
+                                                <span class="t_high">5</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+
+					<li>
+                        <div class="set_box">
+                            <div class="content_block bg_col01 br5px">
+                                <div class="proud_box">
+                                    <span class="no_order t15">
+                                        SET 2
+                                    </span>
+                                    <span class="t14">2026-09-18 21:31</span>
+                                    <span class="icon_divi left_pt5 right_pt5">|</span>
+                                    <span class="t14">GP9</span>
+                                    
+                                    <a href="javascript: viewResultDetail('12658');" class="paper">기록지</a>
+                                    
+
+                                <div class="play_info_box">
+                                    <div class="dynamic-box02">
+                                        <ul class="win_lost_block01">
+                                            <li style="border-bottom:1px #efefef solid;">
+                                                <span class="t_order" style="color:#8a8a8a">Result</span>
+                                                <span class="t_name" style="text-align:center;color:#8a8a8a">Player</span>
+                                                <span class="t_set" style="color:#8a8a8a">Point/inn</span>
+                                                <span class="t_avg" style="color:#8a8a8a">Avg</span>
+                                                <span class="t_high" style="color:#8a8a8a">HR</span>
+                                            </li>
+                                            <li>
+                                                <span class="t_order"><span class="icon_lost">&nbsp;</span></span>
+                                                <span class="t_name">박정현<br />김상아</span>
+                                                <span class="t_set">0P / 2</span>
+                                                <span class="t_avg">0.000</span>
+                                                <span class="t_high">0</span>
+                                            </li>
+                                            <li>
+                                                <span class="t_order"><span class="icon_win">W</span></span>
+                                                <span class="t_name">김가영<br />김진아</span>
+                                                <span class="t_set">9P / 2</span>
+                                                <span class="t_avg">4.500</span>
+                                                <span class="t_high">5</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+
+					<li>
+                        <div class="set_box">
+                            <div class="content_block bg_col01 br5px">
+                                <div class="proud_box">
+                                    <span class="no_order t15">
+                                        SET 3
+                                    </span>
+                                    <span class="t14">2026-09-18 21:41</span>
+                                    <span class="icon_divi left_pt5 right_pt5">|</span>
+                                    <span class="t14">GP15</span>
+                                    
+                                    <a href="javascript: viewResultDetail('12659');" class="paper">기록지</a>
+                                    
+
+                                <div class="play_info_box">
+                                    <div class="dynamic-box02">
+                                        <ul class="win_lost_block01">
+                                            <li style="border-bottom:1px #efefef solid;">
+                                                <span class="t_order" style="color:#8a8a8a">Result</span>
+                                                <span class="t_name" style="text-align:center;color:#8a8a8a">Player</span>
+                                                <span class="t_set" style="color:#8a8a8a">Point/inn</span>
+                                                <span class="t_avg" style="color:#8a8a8a">Avg</span>
+                                                <span class="t_high" style="color:#8a8a8a">HR</span>
+                                            </li>
+                                            <li>
+                                                <span class="t_order"><span class="icon_win">W</span></span>
+                                                <span class="t_name">김준태</span>
+                                                <span class="t_set">15P / 4</span>
+                                                <span class="t_avg">3.750</span>
+                                                <span class="t_high">12</span>
+                                            </li>
+                                            <li>
+                                                <span class="t_order"><span class="icon_lost">&nbsp;</span></span>
+                                                <span class="t_name">초클루</span>
+                                                <span class="t_set">13P / 4</span>
+                                                <span class="t_avg">3.250</span>
+                                                <span class="t_high">12</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+
+					<li>
+                        <div class="set_box">
+                            <div class="content_block bg_col01 br5px">
+                                <div class="proud_box">
+                                    <span class="no_order t15">
+                                        SET 4
+                                    </span>
+                                    <span class="t14">2026-09-18 22:04</span>
+                                    <span class="icon_divi left_pt5 right_pt5">|</span>
+                                    <span class="t14">GP9</span>
+                                    
+                                    <a href="javascript: viewResultDetail('12660');" class="paper">기록지</a>
+                                    
+
+                                <div class="play_info_box">
+                                    <div class="dynamic-box02">
+                                        <ul class="win_lost_block01">
+                                            <li style="border-bottom:1px #efefef solid;">
+                                                <span class="t_order" style="color:#8a8a8a">Result</span>
+                                                <span class="t_name" style="text-align:center;color:#8a8a8a">Player</span>
+                                                <span class="t_set" style="color:#8a8a8a">Point/inn</span>
+                                                <span class="t_avg" style="color:#8a8a8a">Avg</span>
+                                                <span class="t_high" style="color:#8a8a8a">HR</span>
+                                            </li>
+                                            <li>
+                                                <span class="t_order"><span class="icon_win">W</span></span>
+                                                <span class="t_name">김준태<br />박정현</span>
+                                                <span class="t_set">9P / 8</span>
+                                                <span class="t_avg">1.125</span>
+                                                <span class="t_high">3</span>
+                                            </li>
+                                            <li>
+                                                <span class="t_order"><span class="icon_lost">&nbsp;</span></span>
+                                                <span class="t_name">신정주<br />한슬기</span>
+                                                <span class="t_set">8P / 7</span>
+                                                <span class="t_avg">1.143</span>
+                                                <span class="t_high">7</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+
+					<li>
+                        <div class="set_box">
+                            <div class="content_block bg_col01 br5px">
+                                <div class="proud_box">
+                                    <span class="no_order t15">
+                                        SET 5
+                                    </span>
+                                    <span class="t14">2026-09-18 22:26</span>
+                                    <span class="icon_divi left_pt5 right_pt5">|</span>
+                                    <span class="t14">GP11</span>
+                                    
+                                    <a href="javascript: viewResultDetail('12661');" class="paper">기록지</a>
+                                    
+
+                                <div class="play_info_box">
+                                    <div class="dynamic-box02">
+                                        <ul class="win_lost_block01">
+                                            <li style="border-bottom:1px #efefef solid;">
+                                                <span class="t_order" style="color:#8a8a8a">Result</span>
+                                                <span class="t_name" style="text-align:center;color:#8a8a8a">Player</span>
+                                                <span class="t_set" style="color:#8a8a8a">Point/inn</span>
+                                                <span class="t_avg" style="color:#8a8a8a">Avg</span>
+                                                <span class="t_high" style="color:#8a8a8a">HR</span>
+                                            </li>
+                                            <li>
+                                                <span class="t_order"><span class="icon_lost">&nbsp;</span></span>
+                                                <span class="t_name">P.응우옌</span>
+                                                <span class="t_set">1P / 2</span>
+                                                <span class="t_avg">0.500</span>
+                                                <span class="t_high">1</span>
+                                            </li>
+                                            <li>
+                                                <span class="t_order"><span class="icon_win">W</span></span>
+                                                <span class="t_name">Q.응우옌</span>
+                                                <span class="t_set">11P / 3</span>
+                                                <span class="t_avg">3.667</span>
+                                                <span class="t_high">8</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+
+					<li>
+                        <div class="set_box">
+                            <div class="content_block bg_col01 br5px">
+                                <div class="proud_box">
+                                    <span class="no_order t15">
+                                        SET 6
+                                    </span>
+                                    <span class="t14">2026-09-18 22:40</span>
+                                    <span class="icon_divi left_pt5 right_pt5">|</span>
+                                    <span class="t14">GP9</span>
+                                    
+                                    <a href="javascript: viewResultDetail('12662');" class="paper">기록지</a>
+                                    
+
+                                <div class="play_info_box">
+                                    <div class="dynamic-box02">
+                                        <ul class="win_lost_block01">
+                                            <li style="border-bottom:1px #efefef solid;">
+                                                <span class="t_order" style="color:#8a8a8a">Result</span>
+                                                <span class="t_name" style="text-align:center;color:#8a8a8a">Player</span>
+                                                <span class="t_set" style="color:#8a8a8a">Point/inn</span>
+                                                <span class="t_avg" style="color:#8a8a8a">Avg</span>
+                                                <span class="t_high" style="color:#8a8a8a">HR</span>
+                                            </li>
+                                            <li>
+                                                <span class="t_order"><span class="icon_lost">&nbsp;</span></span>
+                                                <span class="t_name">김상아</span>
+                                                <span class="t_set">3P / 3</span>
+                                                <span class="t_avg">1.000</span>
+                                                <span class="t_high">2</span>
+                                            </li>
+                                            <li>
+                                                <span class="t_order"><span class="icon_win">W</span></span>
+                                                <span class="t_name">김가영</span>
+                                                <span class="t_set">9P / 3</span>
+                                                <span class="t_avg">3.000</span>
+                                                <span class="t_high">8</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+
+				</ul>
+            </div>
+        </div>
+

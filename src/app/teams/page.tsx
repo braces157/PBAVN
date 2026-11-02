@@ -4,10 +4,12 @@ import { getTeamLeagueRounds, getTeamLeagueSeasons, getTeamPlayerStats, getTeamR
 import { englishSponsor, englishVenue, teamLeagueTitle } from "@/lib/pba/service";
 import { trackFailures } from "@/lib/pba/api";
 import { getRequestFailures } from "@/lib/pba/failures";
+import { FIXTURES_ARCHIVE_TTL, FIXTURES_IN_PLAY_TTL, getRoundFixtures } from "@/lib/pba/team-matches";
 import { normalizeTeam, normalizeTeamPlayer, normalizeTeamProfile } from "@/lib/normalize";
 import { grouped, percent, wonCompact } from "@/lib/format";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
 import { StandingsTable } from "@/components/domain/standings-table";
+import { FixtureList, type FixtureClub } from "@/components/domain/fixture-list";
 import { PlayerAvatar, TeamLogo } from "@/components/ui/media";
 import { Chip, EmptyState, LiveChip, SectionHeading, Stat, TextLink } from "@/components/ui/primitives";
 
@@ -51,16 +53,28 @@ export default async function TeamsPage({ searchParams }: PageProps) {
     null;
   const roundCode = selectedRound ? String(selectedRound.라운드코드) : "0";
 
-  const { standingsRaw, playersRaw, rosterRaw, failures } = await trackFailures(async () => {
-    const [standingsRaw, playersRaw, rosterRaw] = await Promise.all([
+  const { standingsRaw, playersRaw, rosterRaw, fixtures, failures } = await trackFailures(async () => {
+    const [standingsRaw, playersRaw, rosterRaw, fixtures] = await Promise.all([
       getTeamStandings({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
       getTeamPlayerStats({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
       getTeamRoster({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
+      // The same cached POST the fixtures page and the club pages use; the
+      // round in play re-reads within the minute.
+      selectedRound
+        ? getRoundFixtures(
+            String(selectedRound.라운드코드),
+            selectedRound.라운드,
+            selectedRound.진행상황 === "진행중" ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
+          )
+        : Promise.resolve([]),
     ]);
-    return { standingsRaw, playersRaw, rosterRaw, failures: getRequestFailures() };
+    return { standingsRaw, playersRaw, rosterRaw, fixtures, failures: getRequestFailures() };
   });
 
   const standings = standingsRaw.map(normalizeTeam);
+  const clubs = new Map<string, FixtureClub>(
+    standings.map((team) => [team.code, { name: team.name, logo: team.logo }]),
+  );
   const players = playersRaw.map(normalizeTeamPlayer);
 
   // One profile per club; the roster feed repeats a club for every round it appears in.
@@ -170,6 +184,31 @@ export default async function TeamsPage({ searchParams }: PageProps) {
             </div>
           </section>
         </div>
+
+        {selectedRound && (
+          <section className="mt-14">
+            <SectionHeading
+              eyebrow="Fixtures"
+              title={`Fixtures in round ${selectedRound.라운드}`}
+              description="Played results with bout pages behind them, scheduled kickoffs ahead."
+              action={
+                <TextLink
+                  href={`/teams/matches?season=${season.시즌코드}&round=${roundCode}`}
+                >
+                  Open the round's fixtures
+                </TextLink>
+              }
+            />
+            <div className="mt-5">
+              <FixtureList
+                fixtures={fixtures}
+                clubs={clubs}
+                season={season.시즌코드}
+                round={roundCode}
+              />
+            </div>
+          </section>
+        )}
 
         <section className="mt-14">
           <SectionHeading

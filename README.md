@@ -36,7 +36,7 @@ npm run lint       # tsc --noEmit
 npm test           # parser and analytics suites, no network
 npm run build
 npm start &        # in another terminal
-npm run verify     # launches headless Chrome, asserts 19 interactions
+npm run verify     # launches headless Chrome, asserts 25 interactions
 ```
 
 `npm run refresh-data` rebuilds the two committed translation lookups described under
@@ -54,9 +54,12 @@ npm run verify     # launches headless Chrome, asserts 19 interactions
 | `/schedule/[seq]` | One event: dates, venue, prize money, defending champion, broadcast, equipment, event guide |
 | `/players` | 1,700+ professionals, searchable by name (English or Korean), filterable by circuit and initial |
 | `/players/[memCode]` | Player profile: season stats with per-metric rank, tour-by-tour results, titles, career totals |
+| `/players/[memCode]/matches` | Player match history: every recorded individual-tour match of a season, newest first, each row linking to its match card |
 | `/rankings` | Prize-money and ranking-point tables, filterable by circuit, season and individual event |
 | `/teams` | Team league: round selector, standings, best averages, all ten clubs |
 | `/teams/[code]` | Club page: roster, team statistics, head-to-head record against every rival |
+| `/teams/matches` | Team-league round fixtures: every fixture of the selected round, played results and scheduled kickoffs |
+| `/teams/matches/[gameNo]` | One fixture: score board, bout-by-bout list, and the per-inning record of a selected bout |
 | `/teams/players` | Every team-league player, sortable by average, win rate, high run and more |
 | `/records` | Season category leaders (26 categories) plus the full roll of honour |
 | `/compare` | Head-to-head: how two players compare and every recorded meeting between them |
@@ -119,7 +122,11 @@ Korean label and an `_EN` field, so this app always requests `en` and prefers th
 | `app.pbatour.org/mob/contest_new/admin_en/live_info_setview.asp` | One match: sets, points/innings, average, high run |
 | `app.pbatour.org/mob/contest_new/code_behind/contest_result_set_help.asp` | Match totals (innings, points, 1P/2P, success rates) |
 | `app.pbatour.org/mob/contest_new/code_behind/contest_result_set_record.asp` | One set, turn by turn |
-| `app.pbatour.org/mob/contest_new/code_behind/contest_result_sur.asp` | Every match of an event, by bracket depth |
+| `app.pbatour.org/mob/contest_new/code_behind/contest_result_sur.asp` | Every match of an event, by bracket depth; with `txt_Search=`, one player's matches within an event |
+| `team.pbatour.org/mob/code_behind/getPlanDetailEnd_new2.asp` | Team-league round fixtures (plain-HTTP POST) |
+| `team.pbatour.org/mob/code_behind/getPlanResult_new.asp` | One fixture's score board and bouts (POST) |
+| `team.pbatour.org/mob/ko/planResultDetail.asp` | One bout's record-sheet codes |
+| `team.pbatour.org/mob/code_behind/getPlanResultDetail.asp` | One bout's per-inning chain as JSON (POST) |
 
 ### Match cards and turn-by-turn scoring
 
@@ -240,14 +247,18 @@ src/
     loading.tsx            route skeleton
   components/
     site/                  header, footer, wordmark, partial-data notice
-    domain/                event cards, tables, live board, filter bar, player sub-nav
+    domain/                event cards, tables, fixture cards, live board, filter bar, player sub-nav
     ui/                    primitives, data table, player search, media, safe image
   lib/
     pba/http.ts            transport, TLS fallback, binary asset fetch, asset helpers
     pba/failures.ts        per-request failure record behind the partial-data notice
     pba/api.ts             one function per endpoint
     pba/types.ts           raw upstream shapes
-    pba/service.ts         composed reads (current season, snapshots, English resolution)
+    pba/service.ts         composed reads (current season, snapshots, English resolution, player history)
+    pba/search-parse.ts    pure parser for the scoring terminal's name-search rows
+    pba/match-search.ts    player match history: one name search per tour, pooled and capped
+    pba/team-matches.ts    team-league terminal reads: fixtures, bouts, innings
+    pba/team-matches-parse.ts  pure parsers for the team terminal
     pba/live.ts            scoreboard fragment extraction
     pba/data/*.json        committed translation lookups (see below)
     photo.ts               player photo paths -> `/api/photo` URLs and src sets
@@ -277,10 +288,10 @@ scripts/
   table is active, and the association's `ended_matches` and `next_game` fragments time out under
   query. The wire is built and polls, but it has never been observed carrying an actual match.
   When idle the page says so rather than inventing a result.
-- **The partial-data notice covers three pages.** `/rankings`, `/records` and `/teams` record
-  transport failures and say so. `/players`, `/live` and `/schedule` still render an ordinary empty
-  state when the upstream is unreachable. Threading the same signal through them is mechanical work,
-  not a design question.
+- **The partial-data notice covers seven pages.** `/rankings`, `/records`, `/teams`, the club
+  pages, both match-history pages and the bout page record transport failures and say so.
+  `/players`, `/live` and `/schedule` still render an ordinary empty state when the upstream is
+  unreachable. Threading the same signal through them is mechanical work, not a design question.
 - **Thirteen hand-built filter parameter bags.** Each `FilterRow` call site restates every other
   parameter on its page. Adding a filter means touching all of them or silently dropping state.
   This works today; it is a maintenance hazard, not a user-visible bug.

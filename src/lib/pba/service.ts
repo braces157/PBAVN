@@ -16,9 +16,11 @@ import {
   getTeamPlayerStats,
   getTeamStandings,
   getTournaments,
+  getPlayerTourStats,
   type RankingKind,
 } from "./api";
 import { byStart, eventStatus, normalizeEvent, type Event } from "../normalize";
+import { getPlayerSeasonMatches, searchNameOf, type TourMatch } from "./match-search";
 import type { RawLeague, RawSeason } from "./types";
 
 export const getSeasonList = cache(async (): Promise<RawSeason[]> => {
@@ -102,6 +104,70 @@ export const getTeamBoard = cache(
     return { standings, players };
   },
 );
+
+/* ---------------------------------------------------------- player history */
+
+export interface PlayerMatchHistory {
+  matches: TourMatch[];
+  /** Tours the search actually queried this render. */
+  toursSearched: number;
+  toursFailed: number;
+  /** True when a page or request cap bound the search with rows possibly missing. */
+  partial: boolean;
+  /** Null when the player has no searchable (Latin-script) English name. */
+  searchTerm: string | null;
+}
+
+/**
+ * Every recorded individual-tour match of one player in one season.
+ *
+ * The join runs through `getPlayerTourStats` — one row per tour entered — and
+ * the search itself is one request per tour, paged and capped in
+ * `./match-search`. Wrapped in `cache` so the metadata pass and the render
+ * share a single fan-out.
+ */
+export const getPlayerMatchHistory = cache(async (params: {
+  memCode: string;
+  nameEn: string | null | undefined;
+  nameEnShort: string | null | undefined;
+  seasonCode: string;
+  pbaType: string;
+}): Promise<PlayerMatchHistory> => {
+  const empty: PlayerMatchHistory = {
+    matches: [],
+    toursSearched: 0,
+    toursFailed: 0,
+    partial: false,
+    searchTerm: null,
+  };
+
+  const searchTerm = searchNameOf(params.nameEn, params.nameEnShort);
+  if (!searchTerm) return empty;
+
+  const tours = await getPlayerTourStats({
+    memCode: params.memCode,
+    seasonCode: params.seasonCode,
+    pbaType: params.pbaType,
+  });
+  if (tours.length === 0) return { ...empty, searchTerm };
+
+  const result = await getPlayerSeasonMatches({
+    memCode: params.memCode,
+    searchName: searchTerm,
+    tours: tours.map((tour) => ({
+      code: String(tour.TourCode ?? ""),
+      title: tour.TourTitleEn || tour.TourTitle || "",
+    })),
+  });
+
+  return {
+    matches: result.matches,
+    toursSearched: result.searched,
+    toursFailed: result.toursFailed,
+    partial: result.partial,
+    searchTerm,
+  };
+});
 
 export const getRankingBoard = cache(
   async (params: { kind: RankingKind; leagueCode: string; season: string; tourCode?: string }) => {

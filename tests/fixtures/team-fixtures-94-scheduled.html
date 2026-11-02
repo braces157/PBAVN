@@ -1,0 +1,2477 @@
+
+<!--일정/결과 페이지에서 경기 일정/현황/결과 조회하는 페이지-->
+<style type="text/css">
+		body {background:#fff}
+		#container {margin: 0 0;}
+        .set_box {margin:10px}
+		.sur_box {margin:10px}
+		.content_block {margin:0;padding: 0;background: #FFF;border: 1px #bbbbbb solid; overflow:hidden; }
+        .content_block_set {margin:0;padding: 0;background: #fbf7f0;border: 1px #cfb69f solid; overflow:hidden; }
+
+		.search_block {margin:0 0 0 0;padding:10px 10px 0px 10px; background:#303650;}
+		.search_block .sel_box { width: 80px; }
+		.search_block .player_finder{padding:0px 10px 0px 34px; border:0; width: calc(100% - 180px); height:32px; line-height: 32px; border-radius:5px; background:#FFF url(/mob/images/ico_scale01.png) no-repeat 10px center; background-size:15px; font-size:0.80em; margin-left:10px; }
+
+		.sel_month { width:85px; height: 35px; margin-left:10px;padding:0px 3px 0px 6px; border:1px solid #dedede; font-size:0.875em; background:#fff url(/mob/images/select_arr01.png) no-repeat right 0; background-size:contain; -webkit-border-radius: 5px; -moz-border-radius: 5px; border-radius: 5px; -webkit-appearance: none; }
+		.tit_round {padding:5px 0 3px 5px}
+		.analysis {
+			position: absolute;
+			top: 0px;
+			right: 60px;
+			display: block;
+			background:url(/mob/images/ico_anal.png) no-repeat left center;
+			background-size:15px;
+			font-size: 0.90em;width:60px; padding: 8.5px 0px 8.5px 0px; margin:0; text-align:center;/*border-left: 1px #d8d8d8 solid;*/
+		}
+		.analysis_set {
+			position: absolute;
+			top: 0px;
+			right: 80px;
+			display: block;
+			background:url(/mob/images/ico_anal.png) no-repeat left center;
+			background-size:15px;
+			font-size: 0.90em;width:60px; padding: 8.5px 0px 8.5px 10px; margin:0; text-align:center;/*border-left: 1px #d8d8d8 solid;*/
+		}
+		.paper {
+			position: absolute;
+			top: 0px;
+			right: 0;
+			display: block;
+			background:url(/mob/images/ico_paper.png) no-repeat left center;
+			background-size:12px;
+			font-size: 0.90em;width:65px; padding: 8.5px 0px 8.5px 0px; margin:0; text-align:center;/*border-left: 1px #d8d8d8 solid;*/
+		}
+
+		.proud_box_set{position:relative;background:#f6f0e6; padding:0; color:#000;font-size:0.90em;border-bottom:0px #d1d1d1 solid; }
+		.proud_box_set .no_order {display:inline-block;width:50px;padding:8px 8px 8px 8px; margin:0 5px 0 0; text-align:center; background:#f7eddd; color:#000; }
+		.proud_box_set .icon_divi { opacity: 0.6; }
+
+		.proud_box{position:relative;background:#ececec; padding:0; color:#000;font-size:0.90em;border-bottom:0px #d1d1d1 solid; }
+		.proud_box .no_order {display:inline-block;width:60px;padding:8px 5px 8px 5px; margin:0 5px 0 0; text-align:center; background:#e1e1e1; color:#000; }
+		.proud_box .icon_divi { opacity: 0.3; }
+		.bg_win{background:#375494;}
+
+		.tabMenuW50pc { width: calc(50% - 15px); }
+		.tabMenuW33pc { width: calc(33.3% - 13.4px); }
+		/* 탭메뉴 끝 */
+
+		.win_lost_block01 { padding: 0px 5px 10px 5px; margin: 0px; }
+		.win_lost_block01 li {position: relative; margin:2px 0; padding: 7px 0 4px 5px; font-size:0.80em;background:/*url(/images/ico_arr04.png) no-repeat*/ 98.5% 12px; background-size:5px; *zoom:1; }
+		.win_lost_block01 li:first-child { border: 0px; }
+		.win_lost_block01 li:after { content: ""; display: block; clear: both; }
+		.win_lost_block01 li.player_end {background:#eef6ff /*url(/images/ico_arr04.png) no-repeat*/ 98.5% 12px; background-size:5px;}
+		.win_lost_block01 li.player_end span{color:#0f4e88;}
+		.win_lost_block01 li > span { float: left; color:#626262 }
+		.win_lost_block01 li > span.t_order {width:30px;margin-right:6px; text-align:center }
+		.win_lost_block01 li > span.num_ing  {width:30px;margin-right:6px;padding-top:0; text-align:center; font-weight:bold; color:#345aa7;/* background: url(/mob/images/mark_end.png) no-repeat center center; background-size:contain*/ }
+		.win_lost_block01 li > span.t_name {width:calc(100% - 230px); border:0px #000 solid/*width:35%;*/ }
+		.win_lost_block01 li > span.t_start { width:0px; text-align: center; }
+		.win_lost_block01 li > span.t_end { width: 45px; text-align: center; }
+		.win_lost_block01 li > span.t_avg { width: 65px; text-align: center; }
+		.win_lost_block01 li > span.t_high { width: 37.5px; text-align: center;}
+		.win_lost_block01 li > span.t_club { position: absolute; top: 28px; left: 45px; font-size:0.75em; color: #000; opacity: 0.3; }
+		.win_lost_block01 li .icon_comm { float: left; display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; font-size: 12px; font-weight: bold; -moz-border-radius: 50%; -webkit-border-radius: 50%; border-radius: 50%; }
+        .win_lost_block01 li > span > .icon_win { display: inline-block; background: #ea0d12; color: #fff; width:20px; line-height:20px; padding:0px; border-radius: 50%; font-weight:bold; font-size:0.80em }
+		.win_lost_block01 li > span > .icon_lost {/* background: #6D6D6D;*/ color:#a39378 !important; opacity: 1; }
+        /*
+		.win_lost_block01 li .icon_win { background: #CD2852; color: #fff; }
+		.win_lost_block01 li .icon_lost { background: #6D6D6D; color: #BFBFBF !important; opacity: 0; }
+        */
+		.win_lost_block01 li.line { padding: 0px 0px; margin: 0px 10px; border-bottom: 1px #e4e4e4 solid; }
+		.iconGubun { margin-left: 5px; margin-right: 5px;}
+
+
+		.win_lost_block01_set { padding: 0px 5px 3px 5px; margin: 0px; }
+		.win_lost_block01_set li {position: relative; margin:2px 0; padding: 7px 0 4px 5px; font-size:0.80em;background:/*url(/images/ico_arr04.png) no-repeat*/ 98.5% 12px; background-size:5px;  *zoom:1; }
+		.win_lost_block01_set li:first-child { border: 0px; }
+		.win_lost_block01_set li:after { content: ""; display: block; clear: both; }
+		.win_lost_block01_set li.player_end {background:#f7eddd /*url(/images/ico_arr04.png) no-repeat*/ 98.5% 12px; background-size:5px;}
+		.win_lost_block01_set li.player_end span{color:;}
+		.win_lost_block01_set li > span { float: left; color:#000 }
+		.win_lost_block01_set li > span.t_order {width:40px;margin-right:6px; text-align:center }
+		.win_lost_block01_set li > span.num_ing  {width:40px;margin-right:6px;padding-top:0; text-align:center; font-weight:bold; color:#345aa7;/* background: url(/mob/images/mark_end.png) no-repeat center center; background-size:contain*/ }
+		.win_lost_block01_set li > span.t_name {width:calc(100% - 215px); border:0px #000 solid/*width:35%;*/ }
+		.win_lost_block01_set li > span.t_set {width: 40px; text-align: center; color:#ea0d12; font-weight:bold}
+		.win_lost_block01_set li > span.t_avg {width: 30px; text-align: center; }
+		.win_lost_block01_set li > span.t_high {width: 30px; text-align: center;}
+		.win_lost_block01_set li > span.t_club {position: absolute; top: 28px; left: 45px; font-size:0.75em; color: #000; opacity: 0.3; }
+		.win_lost_block01_set li .icon_comm { float: left; display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; font-size: 12px; font-weight: bold; -moz-border-radius: 50%; -webkit-border-radius: 50%; border-radius: 50%; }
+        .win_lost_block01_set li .icon_win { display: inline-block; background: #ea0d12; color: #fff; width:20px; line-height:20px; padding:0px; border-radius: 50%; font-weight:bold; font-size:0.80em }
+		.win_lost_block01_set li .icon_lost {/* background: #6D6D6D;*/ color:#a39378 !important; opacity: 1; }
+		.win_lost_block01_set li.line { padding: 0px 0px; margin: 0px 10px; border-bottom: 1px #e4e4e4 solid; }
+
+
+
+		.flag{ display:none;width:22px; margin:0 auto 2px auto;border:1px #e1e1e1 solid; vertical-align:top}
+        .flag_set{ display:inline-block;width:22px; margin:0 2px 2px auto;border:1px #e1e1e1 solid; vertical-align:top}
+		.keyf0_6{ color:#afc9ff}
+		.btn_find {
+			width: 80px; height:32px; line-height: 32px;
+		    background: -webkit-gradient(linear, left top, left bottom, from(#446ab9), to(#264c97));
+		    background: -webkit-linear-gradient(top, #446ab9, #264c97);
+		    background: -moz-linear-gradient(top, #446ab9, #264c97);
+		    background: -ms-linear-gradient(top, #446ab9, #264c97);
+		    background: -o-linear-gradient(top, #446ab9, #264c97);
+			color: #FFF;
+			border: 0px #345aa7 solid;
+			font-weight: normal;
+			font-size: 0.8em;
+			margin-left: 10px;
+			padding: 0px 0; vertical-align:middle; border-radius:5px
+			}
+		.btn_alarmsave { position: fixed; bottom:0; border-bottom: display:block;
+			width:97%; margin:0 10px;
+			background:#2569bf;
+			color: #FFF;font-weight: normal;
+			font-size: 0.875em;
+			margin-left: 5px;
+			padding: 10px 0; vertical-align:middle; border-radius:5px
+		}
+
+		.anal_record table {width:100%;border-collapse:collapse; margin:0; padding:0 }
+		.anal_record th {padding:7px 0px; color:#000; font-size:0.80em;border-right:1px #cbcbcb solid;border-bottom:1px #cbcbcb solid; font-weight:normal; vertical-align:middle; line-height:1.2}
+		.anal_record th .player_name{ /* display:inline-block;width:30%;*/ font-size:0.875em;; vertical-align:middle;/*text-overflow:ellipsis; overflow:hidden; white-space:nowrap;*/ word-break:keep-all;text-align:left; border:0px #000 solid }
+		.anal_record td {padding:3px 0px; background:#fff; color:#000; font-size:0.70em;border-right:1px #cbcbcb solid;border-bottom:1px #cbcbcb solid;text-align:left; }
+		.anal_record th.bg01 {background:#ecf6ff;border-bottom:1px #cbcbcb solid;}
+		.anal_record th.bg02 {background:#e1effa;border-bottom:1px #cbcbcb solid;}
+		.anal_record th.bg03 {background:#f4f4f4;border-bottom:1px #cbcbcb solid;}
+
+		.anal_record td.bg01 {background:#ecf6ff;border-bottom:1px #cbcbcb solid;}
+		.anal_record td.bg02 {background:#e1effa;border-bottom:1px #cbcbcb solid;}
+		.anal_record td.bg03 {background:#f4f4f4;border-bottom:1px #cbcbcb solid;}
+		.anal_record td.bg03 > span { font-size: 1em; }
+
+		.anal_record td.left {padding:0 0 0 18px}
+		.anal_record th.center, .anal_record td.center {text-align:center}
+
+
+		/* 레이어 탭메뉴 */
+		.tab_01 { position:relative; overflow: hidden;background:#245492/*url(/mob/images/tab_bg03.png) repeat-x 0 0; background-size:contain; */}
+
+		.btn_menu{float:left;width:30%;}
+		.btn_menu a{display:block;padding:12px 0px 10px 0px;font-size:0.80em; color:#9b9ca5;text-align: center;font-weight:bold;}
+		.btn_menu a.select{width:100%;margin: 0;color:#FFF; font-weight:bold;background: url(/mob/images/arr_select.png) no-repeat center 101% ; background-size:15px}
+
+		a.noimg{background:none}
+		.r_lft_top {border-top-left-radius:5px;}
+		.r_lft_bot {border-bottom-left-radius:5px;}
+		.r_rgt_top {border-top-right-radius:5px;}
+		.r_rgt_bot {border-bottom-right-radius:5px;}
+
+		.layer-box .close {position: absolute;top:10px; right:10px; display:block; width:10px; height:10px; background: url(/images/btn_close.png) center center no-repeat; background-size:10px}
+
+		.btn_detail{
+			position: absolute;color:#FFF;
+			top: 5px;
+			right: 5px;
+			display: block;
+			background:#8c8478 url(/mob/images/ico_detail.png) no-repeat 6px center;
+			background-size:14px;
+			font-size: 0.80em;width:75px; padding: 3.5px 0px 3.5px 22px; margin:0; text-align:center;border-radius: 5px;
+		}
+		.txt_guide{padding:5px 10px; font-size:0.70em; background:#303650; color:#FFF}
+
+        .detail-btn.active {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .league-game-popup {
+            display: block;
+            background-color: #fff;
+            max-width: 100%;
+        }
+        .league-game-detail {
+            font-size: 14px;
+        }
+        .set_box02{
+            padding: 10px;
+            width: 100%;
+        }
+        .group-match-table{
+            background: #fbf7f0;
+            border: 1px #cfb69f solid;
+            overflow: hidden;
+            border-radius: 5px;
+            width: 100%;
+        }
+        .group-match-table-h{
+            width: 100%;
+            height: 37px;
+            display: flex;
+            background: #f7eddd;
+        }
+        .group-match-table-h span{
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 400;
+            color: #000;
+        }
+        .group-match-table-h span:nth-child(1){
+            width: 36px;
+        }
+        .group-match-table-h span:nth-child(2){
+            width: calc(100% - 293px);
+        }
+        .group-match-table-h span:nth-child(3){
+            width:72px ;
+        }
+        .group-match-table-h span:nth-child(4){
+            width:54px ;
+        }
+        .group-match-table-h span:nth-child(5){
+            width: 54px;
+        }
+        .group-match-table-h span:nth-child(6){
+            width: 32px;
+        }
+        .group-match-table-h span:nth-child(7){
+            width: 45px;
+        }
+        .group-match-table-d{
+            width: 100%;
+            height: 32px;
+            display: flex;
+        }
+
+        .group-match-table-d span{
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 400;
+            color: #464646;
+        }
+        .group-match-table-d span.red{
+            color: #f24a51;
+        }
+        .group-match-table-d span:nth-child(1){
+            width: 36px;
+            font-size: 16px;
+            font-weight: bold;
+            font-style: italic; /* 텍스트 기울기 */
+        }
+        .group-match-table-d span:nth-child(2){
+            width: calc(100% - 293px);
+        }
+        .group-match-table-d span:nth-child(2){
+            align-items: center;
+            justify-content: flex-start;
+            gap: 6px;
+        }
+        .group-match-img{
+            width: 28px;
+            height: 18px;
+            border: 1px solid #E1E1E1;
+        }
+        .group-match-img img{
+            width: 100%;
+            height: 100%;
+        }
+        .group-match-table-d span:nth-child(3){
+            width:72px ;
+        }
+        .group-match-table-d span:nth-child(4){
+            width:54px ;
+        }
+        .group-match-table-d span:nth-child(5){
+            width: 54px;
+        }
+        .group-match-table-d span:nth-child(6){
+            width: 32px;
+        }
+        .group-match-table-d span:nth-child(7){
+            width: 45px;
+            align-items: center;
+            justify-content: center;
+        }
+        .group-match-table-d span a{
+            width: 36px;
+            height: 24px;
+            background-color: #F24A51;
+            cursor: pointer;
+            color: #FFF;
+            text-align: center;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            text-decoration: none;
+        }
+        .group-match-table-d:nth-child(odd) {
+            background: #f7eddd;
+        }
+
+
+
+    </style>
+    <!-- 경기시작전-->
+    <style>
+        .sur_box, .set_box {margin:10px}
+		.content_block {margin:0;padding: 0;background: #FFF;border: 1px #bbbbbb solid; overflow:hidden; }
+
+		.search_block {margin:0 0 0 0;padding:10px 10px 10px 10px; background:#303650;text-align:center}
+		.search_block .player_finder{padding:0px 10px 0px 34px; border:0; width: calc(100% - 90px); height:32px; line-height: 32px; border-radius:5px;background:#FFF url(/mob/images/ico_scale01.png) no-repeat 10px center; background-size:15px; font-size:0.80em}
+		.sel_month { width:85px; height: 35px; margin-left:10px;padding:0px 3px 0px 6px; border:1px solid #dedede; font-size:0.875em; background:#fff url(/mob/images/select_arr01.png) no-repeat right 0; background-size:contain; -webkit-border-radius: 5px; -moz-border-radius: 5px; border-radius: 5px; -webkit-appearance: none; }
+		.tit_round {padding:5px 0 3px 5px}
+		.analysis {
+			position: absolute;
+			top: 0px;
+			right: 60px;
+			display: block;
+			background:url(/mob/images/ico_anal.png) no-repeat left center;
+			background-size:15px;
+			font-size: 0.90em;width:60px; padding: 8.5px 0px 8.5px 0px; margin:0; text-align:center;/*border-left: 1px #d8d8d8 solid;*/
+		}
+		.paper {
+			position: absolute;
+			top: 0px;
+			right: 0;
+			display: block;
+			background:url(/mob/images/ico_paper.png) no-repeat left center;
+			background-size:12px;
+			font-size: 0.90em;width:65px; padding: 8.5px 0px 8.5px 0px; margin:0; text-align:center;/*border-left: 1px #d8d8d8 solid;*/
+		}
+		.d_day {position:absolute;top: 0px; right:10px;padding: 8.5px 0px 8.5px 0px; font-size:0.90em; white-space: nowrap; }
+
+		.proud_box{position:relative;background:#ececec; padding:0; color:#000;font-size:0.80em;border-bottom:0px #d1d1d1 solid; }
+		.proud_box .no_order {display:inline-block;width:60px;padding:8px 0 8px 0; margin:0 3px 0 0; text-align:center; background:#e1e1e1; color:#000; }
+        .proud_box .btn_compare_kor{/*position:absolute; top:6px; left:105px; z-index:1; */display:inline-block; width:64px; padding:2px 0 2px 0; background:#484952; border:1px #35363f solid; font-size:0.75em; border-radius:3px; color:#FFF; text-align:center; vertical-align:middle}
+        .proud_box .btn_compare_eng{/*position:absolute; top:6px; left:105px; z-index:1; */display:inline-block; width:96px; padding:2px 0 2px 0; background:#484952; border:1px #35363f solid; font-size:0.75em; border-radius:3px; color:#FFF; text-align:center; vertical-align:middle}
+
+		.proud_box .icon_divi { opacity: 0.6; margin: 0px; padding: 0px 5px; }
+		.bg_win{background:#375494;}
+
+		.tabMenuW50pc { width: calc(50% - 15px); }
+		.tabMenuW33pc { width: calc(33.3% - 13.4px); }
+		/* 탭메뉴 끝 */
+
+		.win_lost_block01 { padding: 0px 5px 10px 5px; margin: 0px;}
+		.win_lost_block01 li {position: relative; margin:2px 0; padding: 7px 0 4px 5px; font-size:0.80em;/*background:url(/images/ico_arr04.png) no-repeat*/ 98.5% 13px; background-size:5px;  *zoom:1; }
+		.win_lost_block01 li:first-child { border: 0px; }
+		.win_lost_block01 li:after { content: ""; display: block; clear: both; }
+		.win_lost_block01 li.player_bg {background:#fafafa /*url(/images/ico_arr04.png) no-repeat*/ 98.5% 13px; background-size:5px;}
+		.win_lost_block01 li.player_bg span{color:#555;}
+		.win_lost_block01 li > span { float: left; color:#000 }
+		.win_lost_block01 li > span.t_name {width:calc(100% - 160px); padding:0 0 0 6px; border:0px #000 solid/*width:35%;*/ }
+		.win_lost_block01 li > span.t_nation {width:100px; text-align: left; }
+		.win_lost_block01 li > span.t_point {width:40px; text-align: center;}
+		.win_lost_block01 li > span.t_set {width:40px; text-align: center; }
+
+		.win_lost_block01 li > span.t_club { position: absolute; top: 28px; left: 45px; font-size:0.75em; color: #000; opacity: 0.3; }
+		.win_lost_block01 li .icon_comm { float: left; display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; font-size: 12px; font-weight: bold; -moz-border-radius: 50%; -webkit-border-radius: 50%; border-radius: 50%; }
+		.win_lost_block01 li .icon_win { background: #CD2852; color: #fff; }
+		.win_lost_block01 li .icon_lost { background: #6D6D6D; color: #BFBFBF !important; opacity: 0; }
+		.win_lost_block01 li.line { padding: 0px 0px; margin: 0px 10px; border-bottom: 1px #e4e4e4 solid; }
+		.iconGubun { margin-left: 5px; margin-right: 5px;}
+
+
+
+		.flag{ display:inline-block;width:18px; margin:0 auto 2px auto;border:1px #e1e1e1 solid; vertical-align:middle}
+		.keyf0_6{ color:#afc9ff}
+		.btn_find {
+			width: 80px; height:32px; line-height: 32px;
+		    background: -webkit-gradient(linear, left top, left bottom, from(#446ab9), to(#264c97));
+		    background: -webkit-linear-gradient(top, #446ab9, #264c97);
+		    background: -moz-linear-gradient(top, #446ab9, #264c97);
+		    background: -ms-linear-gradient(top, #446ab9, #264c97);
+		    background: -o-linear-gradient(top, #446ab9, #264c97);
+			color: #FFF;
+			border: 0px #345aa7 solid;
+			font-weight: normal;
+			font-size: 0.8em;
+			margin-left: 10px;
+			padding: 0px 0; border-radius:5px
+			}
+		.btn_alarmsave { position: fixed; bottom:0; border-bottom: display:block;
+			width:97%; margin:0 10px;
+			background:#2569bf;
+			color: #FFF;font-weight: normal;
+			font-size: 0.875em;
+			margin-left: 5px;
+			padding: 10px 0; vertical-align:middle; border-radius:5px
+		}
+    </style>
+
+                <div class="set_box">
+                    
+                            <div class="tit_round">
+                                <strong class="t18 number0">4 Round</strong>
+                                <span class="t14">대진표</span>
+                            </div>
+                        
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">6</span>-->
+<!--                            No <span class="number0 t18">1</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('6');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00021','T00002');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-02
+                            	    <span class="icon_divi">|</span>
+                                   15:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">에스와이</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">웰컴저축은행</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">29</span>-->
+<!--                            No <span class="number0 t18">2</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('29');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00029','T00010');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-02
+                            	    <span class="icon_divi">|</span>
+                                   15:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">하림</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">휴온스</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">15</span>-->
+<!--                            No <span class="number0 t18">3</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('15');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00022','T00003');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-02
+                            	    <span class="icon_divi">|</span>
+                                   18:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">우리금융캐피탈</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">크라운해태</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">19</span>-->
+<!--                            No <span class="number0 t18">4</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('19');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00008','T00017');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-02
+                            	    <span class="icon_divi">|</span>
+                                   21:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">NH농협카드</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">하이원리조트</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">13</span>-->
+<!--                            No <span class="number0 t18">5</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('13');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00003','T00020');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-03
+                            	    <span class="icon_divi">|</span>
+                                   12:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">크라운해태</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">하나카드</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">9</span>-->
+<!--                            No <span class="number0 t18">6</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('9');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00030','T00002');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-03
+                            	    <span class="icon_divi">|</span>
+                                   15:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">브레이커스</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">웰컴저축은행</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">28</span>-->
+<!--                            No <span class="number0 t18">7</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('28');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00010','T00022');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-03
+                            	    <span class="icon_divi">|</span>
+                                   15:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">휴온스</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">우리금융캐피탈</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">21</span>-->
+<!--                            No <span class="number0 t18">8</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('21');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00008','T00021');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-03
+                            	    <span class="icon_divi">|</span>
+                                   18:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">NH농협카드</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">에스와이</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">34</span>-->
+<!--                            No <span class="number0 t18">9</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('34');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00017','T00029');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-03
+                            	    <span class="icon_divi">|</span>
+                                   21:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">하이원리조트</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">하림</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">11</span>-->
+<!--                            No <span class="number0 t18">10</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('11');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00003','T00010');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-04
+                            	    <span class="icon_divi">|</span>
+                                   12:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">크라운해태</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">휴온스</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">20</span>-->
+<!--                            No <span class="number0 t18">11</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('20');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00020','T00008');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-04
+                            	    <span class="icon_divi">|</span>
+                                   15:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">하나카드</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">NH농협카드</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">40</span>-->
+<!--                            No <span class="number0 t18">12</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('40');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00022','T00021');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-04
+                            	    <span class="icon_divi">|</span>
+                                   15:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">우리금융캐피탈</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">에스와이</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">35</span>-->
+<!--                            No <span class="number0 t18">13</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('35');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00017','T00030');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-04
+                            	    <span class="icon_divi">|</span>
+                                   18:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">하이원리조트</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">브레이커스</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">8</span>-->
+<!--                            No <span class="number0 t18">14</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('8');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00002','T00029');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-04
+                            	    <span class="icon_divi">|</span>
+                                   21:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">웰컴저축은행</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">하림</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">25</span>-->
+<!--                            No <span class="number0 t18">15</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('25');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00010','T00017');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-05
+                            	    <span class="icon_divi">|</span>
+                                   12:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">휴온스</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">하이원리조트</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">2</span>-->
+<!--                            No <span class="number0 t18">16</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('2');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00008','T00002');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-05
+                            	    <span class="icon_divi">|</span>
+                                   15:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">NH농협카드</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">웰컴저축은행</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">42</span>-->
+<!--                            No <span class="number0 t18">17</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('42');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00021','T00030');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-05
+                            	    <span class="icon_divi">|</span>
+                                   15:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">에스와이</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">브레이커스</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">16</span>-->
+<!--                            No <span class="number0 t18">18</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('16');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00029','T00003');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-05
+                            	    <span class="icon_divi">|</span>
+                                   18:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">하림</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">크라운해태</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">37</span>-->
+<!--                            No <span class="number0 t18">19</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('37');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00020','T00022');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-05
+                            	    <span class="icon_divi">|</span>
+                                   21:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">하나카드</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">우리금융캐피탈</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">45</span>-->
+<!--                            No <span class="number0 t18">20</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('45');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00030','T00029');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-06
+                            	    <span class="icon_divi">|</span>
+                                   12:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">브레이커스</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">하림</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">1</span>-->
+<!--                            No <span class="number0 t18">21</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('1');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00002','T00003');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-06
+                            	    <span class="icon_divi">|</span>
+                                   15:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">웰컴저축은행</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">크라운해태</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">33</span>-->
+<!--                            No <span class="number0 t18">22</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('33');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00022','T00017');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-06
+                            	    <span class="icon_divi">|</span>
+                                   15:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">우리금융캐피탈</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">하이원리조트</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">36</span>-->
+<!--                            No <span class="number0 t18">23</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('36');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00021','T00020');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-06
+                            	    <span class="icon_divi">|</span>
+                                   18:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">에스와이</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">하나카드</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">18</span>-->
+<!--                            No <span class="number0 t18">24</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('18');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00010','T00008');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-06
+                            	    <span class="icon_divi">|</span>
+                                   21:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">휴온스</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">NH농협카드</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">17</span>-->
+<!--                            No <span class="number0 t18">25</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('17');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00003','T00030');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-07
+                            	    <span class="icon_divi">|</span>
+                                   12:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">크라운해태</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">브레이커스</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">23</span>-->
+<!--                            No <span class="number0 t18">26</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('23');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00029','T00008');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-07
+                            	    <span class="icon_divi">|</span>
+                                   15:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">하림</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">NH농협카드</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">31</span>-->
+<!--                            No <span class="number0 t18">27</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('31');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00017','T00020');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-07
+                            	    <span class="icon_divi">|</span>
+                                   15:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">하이원리조트</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">하나카드</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">7</span>-->
+<!--                            No <span class="number0 t18">28</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('7');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00002','T00022');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-07
+                            	    <span class="icon_divi">|</span>
+                                   18:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">웰컴저축은행</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">우리금융캐피탈</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">27</span>-->
+<!--                            No <span class="number0 t18">29</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('27');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00021','T00010');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-07
+                            	    <span class="icon_divi">|</span>
+                                   21:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">에스와이</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">휴온스</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">43</span>-->
+<!--                            No <span class="number0 t18">30</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('43');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00022','T00029');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-08
+                            	    <span class="icon_divi">|</span>
+                                   12:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">우리금융캐피탈</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">하림</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">14</span>-->
+<!--                            No <span class="number0 t18">31</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('14');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00003','T00021');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-08
+                            	    <span class="icon_divi">|</span>
+                                   15:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">크라운해태</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">에스와이</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">26</span>-->
+<!--                            No <span class="number0 t18">32</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('26');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00020','T00010');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-08
+                            	    <span class="icon_divi">|</span>
+                                   15:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">하나카드</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">휴온스</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">24</span>-->
+<!--                            No <span class="number0 t18">33</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('24');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00030','T00008');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-08
+                            	    <span class="icon_divi">|</span>
+                                   18:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">브레이커스</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">NH농협카드</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>
+
+                <div class="set_box">
+                    
+
+                    <div class="content_block bg_col01 br5px">
+
+                        <div class="proud_box">
+                            <!--경기정보 경기일 출력-->
+                            <span class="no_order t15" style="">
+<!--                            No <span class="number0 t18">4</span>-->
+<!--                            No <span class="number0 t18">34</span>-->
+                            4 Round
+                            </span>
+
+                            
+                                <!-- <span class="pt5 keyf0_8">|</span> -->
+                                <a href="#" onclick="viewResult('4');" class="btn_compare_kor">상세경기<span class="t10 left_pt5">▶</span></a>
+                                
+                                <a href="#" onclick="viewRanktOther('T00002','T00017');" class="btn_compare_kor">상대전적 <span class="t11 left_pt5">▶</span></a>
+                                
+
+                            <div class="d_day">
+                                2026-11-08
+                            	    <span class="icon_divi">|</span>
+                                   21:00
+                            </div>
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01">
+                                    <!-- 구분명-->
+                                    <li style="background-color:#f3f3f3;background-image:none">
+                                        <span class="t_name" style="color:#000">Team</span>
+                                        <!-- <span class="t_nation" style="color:#000">Status</span> -->
+                                    </li>
+
+                                    <li>
+                                        <span class="t_name">웰컴저축은행</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+
+                                    <li class="player_bg">
+                                        <span class="t_name">하이원리조트</span>
+                                        <span class="t_nation">
+                                            <!-- 
+                                                <span class="spbox w_70 lword">예정</span>
+                                             -->
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div><!--content_block end-->
+
+                </div>

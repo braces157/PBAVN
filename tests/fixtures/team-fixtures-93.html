@@ -1,0 +1,3053 @@
+
+<!--일정/결과 페이지에서 경기 일정/현황/결과 조회하는 페이지-->
+<style type="text/css">
+		body {background:#fff}
+		#container {margin: 0 0;}
+        .set_box {margin:10px}
+		.sur_box {margin:10px}
+		.content_block {margin:0;padding: 0;background: #FFF;border: 1px #bbbbbb solid; overflow:hidden; }
+        .content_block_set {margin:0;padding: 0;background: #fbf7f0;border: 1px #cfb69f solid; overflow:hidden; }
+
+		.search_block {margin:0 0 0 0;padding:10px 10px 0px 10px; background:#303650;}
+		.search_block .sel_box { width: 80px; }
+		.search_block .player_finder{padding:0px 10px 0px 34px; border:0; width: calc(100% - 180px); height:32px; line-height: 32px; border-radius:5px; background:#FFF url(/mob/images/ico_scale01.png) no-repeat 10px center; background-size:15px; font-size:0.80em; margin-left:10px; }
+
+		.sel_month { width:85px; height: 35px; margin-left:10px;padding:0px 3px 0px 6px; border:1px solid #dedede; font-size:0.875em; background:#fff url(/mob/images/select_arr01.png) no-repeat right 0; background-size:contain; -webkit-border-radius: 5px; -moz-border-radius: 5px; border-radius: 5px; -webkit-appearance: none; }
+		.tit_round {padding:5px 0 3px 5px}
+		.analysis {
+			position: absolute;
+			top: 0px;
+			right: 60px;
+			display: block;
+			background:url(/mob/images/ico_anal.png) no-repeat left center;
+			background-size:15px;
+			font-size: 0.90em;width:60px; padding: 8.5px 0px 8.5px 0px; margin:0; text-align:center;/*border-left: 1px #d8d8d8 solid;*/
+		}
+		.analysis_set {
+			position: absolute;
+			top: 0px;
+			right: 80px;
+			display: block;
+			background:url(/mob/images/ico_anal.png) no-repeat left center;
+			background-size:15px;
+			font-size: 0.90em;width:60px; padding: 8.5px 0px 8.5px 10px; margin:0; text-align:center;/*border-left: 1px #d8d8d8 solid;*/
+		}
+		.paper {
+			position: absolute;
+			top: 0px;
+			right: 0;
+			display: block;
+			background:url(/mob/images/ico_paper.png) no-repeat left center;
+			background-size:12px;
+			font-size: 0.90em;width:65px; padding: 8.5px 0px 8.5px 0px; margin:0; text-align:center;/*border-left: 1px #d8d8d8 solid;*/
+		}
+
+		.proud_box_set{position:relative;background:#f6f0e6; padding:0; color:#000;font-size:0.90em;border-bottom:0px #d1d1d1 solid; }
+		.proud_box_set .no_order {display:inline-block;width:50px;padding:8px 8px 8px 8px; margin:0 5px 0 0; text-align:center; background:#f7eddd; color:#000; }
+		.proud_box_set .icon_divi { opacity: 0.6; }
+
+		.proud_box{position:relative;background:#ececec; padding:0; color:#000;font-size:0.90em;border-bottom:0px #d1d1d1 solid; }
+		.proud_box .no_order {display:inline-block;width:60px;padding:8px 5px 8px 5px; margin:0 5px 0 0; text-align:center; background:#e1e1e1; color:#000; }
+		.proud_box .icon_divi { opacity: 0.3; }
+		.bg_win{background:#375494;}
+
+		.tabMenuW50pc { width: calc(50% - 15px); }
+		.tabMenuW33pc { width: calc(33.3% - 13.4px); }
+		/* 탭메뉴 끝 */
+
+		.win_lost_block01 { padding: 0px 5px 10px 5px; margin: 0px; }
+		.win_lost_block01 li {position: relative; margin:2px 0; padding: 7px 0 4px 5px; font-size:0.80em;background:/*url(/images/ico_arr04.png) no-repeat*/ 98.5% 12px; background-size:5px; *zoom:1; }
+		.win_lost_block01 li:first-child { border: 0px; }
+		.win_lost_block01 li:after { content: ""; display: block; clear: both; }
+		.win_lost_block01 li.player_end {background:#eef6ff /*url(/images/ico_arr04.png) no-repeat*/ 98.5% 12px; background-size:5px;}
+		.win_lost_block01 li.player_end span{color:#0f4e88;}
+		.win_lost_block01 li > span { float: left; color:#626262 }
+		.win_lost_block01 li > span.t_order {width:30px;margin-right:6px; text-align:center }
+		.win_lost_block01 li > span.num_ing  {width:30px;margin-right:6px;padding-top:0; text-align:center; font-weight:bold; color:#345aa7;/* background: url(/mob/images/mark_end.png) no-repeat center center; background-size:contain*/ }
+		.win_lost_block01 li > span.t_name {width:calc(100% - 230px); border:0px #000 solid/*width:35%;*/ }
+		.win_lost_block01 li > span.t_start { width:0px; text-align: center; }
+		.win_lost_block01 li > span.t_end { width: 45px; text-align: center; }
+		.win_lost_block01 li > span.t_avg { width: 65px; text-align: center; }
+		.win_lost_block01 li > span.t_high { width: 37.5px; text-align: center;}
+		.win_lost_block01 li > span.t_club { position: absolute; top: 28px; left: 45px; font-size:0.75em; color: #000; opacity: 0.3; }
+		.win_lost_block01 li .icon_comm { float: left; display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; font-size: 12px; font-weight: bold; -moz-border-radius: 50%; -webkit-border-radius: 50%; border-radius: 50%; }
+        .win_lost_block01 li > span > .icon_win { display: inline-block; background: #ea0d12; color: #fff; width:20px; line-height:20px; padding:0px; border-radius: 50%; font-weight:bold; font-size:0.80em }
+		.win_lost_block01 li > span > .icon_lost {/* background: #6D6D6D;*/ color:#a39378 !important; opacity: 1; }
+        /*
+		.win_lost_block01 li .icon_win { background: #CD2852; color: #fff; }
+		.win_lost_block01 li .icon_lost { background: #6D6D6D; color: #BFBFBF !important; opacity: 0; }
+        */
+		.win_lost_block01 li.line { padding: 0px 0px; margin: 0px 10px; border-bottom: 1px #e4e4e4 solid; }
+		.iconGubun { margin-left: 5px; margin-right: 5px;}
+
+
+		.win_lost_block01_set { padding: 0px 5px 3px 5px; margin: 0px; }
+		.win_lost_block01_set li {position: relative; margin:2px 0; padding: 7px 0 4px 5px; font-size:0.80em;background:/*url(/images/ico_arr04.png) no-repeat*/ 98.5% 12px; background-size:5px;  *zoom:1; }
+		.win_lost_block01_set li:first-child { border: 0px; }
+		.win_lost_block01_set li:after { content: ""; display: block; clear: both; }
+		.win_lost_block01_set li.player_end {background:#f7eddd /*url(/images/ico_arr04.png) no-repeat*/ 98.5% 12px; background-size:5px;}
+		.win_lost_block01_set li.player_end span{color:;}
+		.win_lost_block01_set li > span { float: left; color:#000 }
+		.win_lost_block01_set li > span.t_order {width:40px;margin-right:6px; text-align:center }
+		.win_lost_block01_set li > span.num_ing  {width:40px;margin-right:6px;padding-top:0; text-align:center; font-weight:bold; color:#345aa7;/* background: url(/mob/images/mark_end.png) no-repeat center center; background-size:contain*/ }
+		.win_lost_block01_set li > span.t_name {width:calc(100% - 215px); border:0px #000 solid/*width:35%;*/ }
+		.win_lost_block01_set li > span.t_set {width: 40px; text-align: center; color:#ea0d12; font-weight:bold}
+		.win_lost_block01_set li > span.t_avg {width: 30px; text-align: center; }
+		.win_lost_block01_set li > span.t_high {width: 30px; text-align: center;}
+		.win_lost_block01_set li > span.t_club {position: absolute; top: 28px; left: 45px; font-size:0.75em; color: #000; opacity: 0.3; }
+		.win_lost_block01_set li .icon_comm { float: left; display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; font-size: 12px; font-weight: bold; -moz-border-radius: 50%; -webkit-border-radius: 50%; border-radius: 50%; }
+        .win_lost_block01_set li .icon_win { display: inline-block; background: #ea0d12; color: #fff; width:20px; line-height:20px; padding:0px; border-radius: 50%; font-weight:bold; font-size:0.80em }
+		.win_lost_block01_set li .icon_lost {/* background: #6D6D6D;*/ color:#a39378 !important; opacity: 1; }
+		.win_lost_block01_set li.line { padding: 0px 0px; margin: 0px 10px; border-bottom: 1px #e4e4e4 solid; }
+
+
+
+		.flag{ display:none;width:22px; margin:0 auto 2px auto;border:1px #e1e1e1 solid; vertical-align:top}
+        .flag_set{ display:inline-block;width:22px; margin:0 2px 2px auto;border:1px #e1e1e1 solid; vertical-align:top}
+		.keyf0_6{ color:#afc9ff}
+		.btn_find {
+			width: 80px; height:32px; line-height: 32px;
+		    background: -webkit-gradient(linear, left top, left bottom, from(#446ab9), to(#264c97));
+		    background: -webkit-linear-gradient(top, #446ab9, #264c97);
+		    background: -moz-linear-gradient(top, #446ab9, #264c97);
+		    background: -ms-linear-gradient(top, #446ab9, #264c97);
+		    background: -o-linear-gradient(top, #446ab9, #264c97);
+			color: #FFF;
+			border: 0px #345aa7 solid;
+			font-weight: normal;
+			font-size: 0.8em;
+			margin-left: 10px;
+			padding: 0px 0; vertical-align:middle; border-radius:5px
+			}
+		.btn_alarmsave { position: fixed; bottom:0; border-bottom: display:block;
+			width:97%; margin:0 10px;
+			background:#2569bf;
+			color: #FFF;font-weight: normal;
+			font-size: 0.875em;
+			margin-left: 5px;
+			padding: 10px 0; vertical-align:middle; border-radius:5px
+		}
+
+		.anal_record table {width:100%;border-collapse:collapse; margin:0; padding:0 }
+		.anal_record th {padding:7px 0px; color:#000; font-size:0.80em;border-right:1px #cbcbcb solid;border-bottom:1px #cbcbcb solid; font-weight:normal; vertical-align:middle; line-height:1.2}
+		.anal_record th .player_name{ /* display:inline-block;width:30%;*/ font-size:0.875em;; vertical-align:middle;/*text-overflow:ellipsis; overflow:hidden; white-space:nowrap;*/ word-break:keep-all;text-align:left; border:0px #000 solid }
+		.anal_record td {padding:3px 0px; background:#fff; color:#000; font-size:0.70em;border-right:1px #cbcbcb solid;border-bottom:1px #cbcbcb solid;text-align:left; }
+		.anal_record th.bg01 {background:#ecf6ff;border-bottom:1px #cbcbcb solid;}
+		.anal_record th.bg02 {background:#e1effa;border-bottom:1px #cbcbcb solid;}
+		.anal_record th.bg03 {background:#f4f4f4;border-bottom:1px #cbcbcb solid;}
+
+		.anal_record td.bg01 {background:#ecf6ff;border-bottom:1px #cbcbcb solid;}
+		.anal_record td.bg02 {background:#e1effa;border-bottom:1px #cbcbcb solid;}
+		.anal_record td.bg03 {background:#f4f4f4;border-bottom:1px #cbcbcb solid;}
+		.anal_record td.bg03 > span { font-size: 1em; }
+
+		.anal_record td.left {padding:0 0 0 18px}
+		.anal_record th.center, .anal_record td.center {text-align:center}
+
+
+		/* 레이어 탭메뉴 */
+		.tab_01 { position:relative; overflow: hidden;background:#245492/*url(/mob/images/tab_bg03.png) repeat-x 0 0; background-size:contain; */}
+
+		.btn_menu{float:left;width:30%;}
+		.btn_menu a{display:block;padding:12px 0px 10px 0px;font-size:0.80em; color:#9b9ca5;text-align: center;font-weight:bold;}
+		.btn_menu a.select{width:100%;margin: 0;color:#FFF; font-weight:bold;background: url(/mob/images/arr_select.png) no-repeat center 101% ; background-size:15px}
+
+		a.noimg{background:none}
+		.r_lft_top {border-top-left-radius:5px;}
+		.r_lft_bot {border-bottom-left-radius:5px;}
+		.r_rgt_top {border-top-right-radius:5px;}
+		.r_rgt_bot {border-bottom-right-radius:5px;}
+
+		.layer-box .close {position: absolute;top:10px; right:10px; display:block; width:10px; height:10px; background: url(/images/btn_close.png) center center no-repeat; background-size:10px}
+
+		.btn_detail{
+			position: absolute;color:#FFF;
+			top: 5px;
+			right: 5px;
+			display: block;
+			background:#8c8478 url(/mob/images/ico_detail.png) no-repeat 6px center;
+			background-size:14px;
+			font-size: 0.80em;width:75px; padding: 3.5px 0px 3.5px 22px; margin:0; text-align:center;border-radius: 5px;
+		}
+		.txt_guide{padding:5px 10px; font-size:0.70em; background:#303650; color:#FFF}
+
+        .detail-btn.active {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .league-game-popup {
+            display: block;
+            background-color: #fff;
+            max-width: 100%;
+        }
+        .league-game-detail {
+            font-size: 14px;
+        }
+        .set_box02{
+            padding: 10px;
+            width: 100%;
+        }
+        .group-match-table{
+            background: #fbf7f0;
+            border: 1px #cfb69f solid;
+            overflow: hidden;
+            border-radius: 5px;
+            width: 100%;
+        }
+        .group-match-table-h{
+            width: 100%;
+            height: 37px;
+            display: flex;
+            background: #f7eddd;
+        }
+        .group-match-table-h span{
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 400;
+            color: #000;
+        }
+        .group-match-table-h span:nth-child(1){
+            width: 36px;
+        }
+        .group-match-table-h span:nth-child(2){
+            width: calc(100% - 293px);
+        }
+        .group-match-table-h span:nth-child(3){
+            width:72px ;
+        }
+        .group-match-table-h span:nth-child(4){
+            width:54px ;
+        }
+        .group-match-table-h span:nth-child(5){
+            width: 54px;
+        }
+        .group-match-table-h span:nth-child(6){
+            width: 32px;
+        }
+        .group-match-table-h span:nth-child(7){
+            width: 45px;
+        }
+        .group-match-table-d{
+            width: 100%;
+            height: 32px;
+            display: flex;
+        }
+
+        .group-match-table-d span{
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 400;
+            color: #464646;
+        }
+        .group-match-table-d span.red{
+            color: #f24a51;
+        }
+        .group-match-table-d span:nth-child(1){
+            width: 36px;
+            font-size: 16px;
+            font-weight: bold;
+            font-style: italic; /* 텍스트 기울기 */
+        }
+        .group-match-table-d span:nth-child(2){
+            width: calc(100% - 293px);
+        }
+        .group-match-table-d span:nth-child(2){
+            align-items: center;
+            justify-content: flex-start;
+            gap: 6px;
+        }
+        .group-match-img{
+            width: 28px;
+            height: 18px;
+            border: 1px solid #E1E1E1;
+        }
+        .group-match-img img{
+            width: 100%;
+            height: 100%;
+        }
+        .group-match-table-d span:nth-child(3){
+            width:72px ;
+        }
+        .group-match-table-d span:nth-child(4){
+            width:54px ;
+        }
+        .group-match-table-d span:nth-child(5){
+            width: 54px;
+        }
+        .group-match-table-d span:nth-child(6){
+            width: 32px;
+        }
+        .group-match-table-d span:nth-child(7){
+            width: 45px;
+            align-items: center;
+            justify-content: center;
+        }
+        .group-match-table-d span a{
+            width: 36px;
+            height: 24px;
+            background-color: #F24A51;
+            cursor: pointer;
+            color: #FFF;
+            text-align: center;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            text-decoration: none;
+        }
+        .group-match-table-d:nth-child(odd) {
+            background: #f7eddd;
+        }
+
+
+
+    </style>
+    <!-- 경기시작전-->
+    <style>
+        .sur_box, .set_box {margin:10px}
+		.content_block {margin:0;padding: 0;background: #FFF;border: 1px #bbbbbb solid; overflow:hidden; }
+
+		.search_block {margin:0 0 0 0;padding:10px 10px 10px 10px; background:#303650;text-align:center}
+		.search_block .player_finder{padding:0px 10px 0px 34px; border:0; width: calc(100% - 90px); height:32px; line-height: 32px; border-radius:5px;background:#FFF url(/mob/images/ico_scale01.png) no-repeat 10px center; background-size:15px; font-size:0.80em}
+		.sel_month { width:85px; height: 35px; margin-left:10px;padding:0px 3px 0px 6px; border:1px solid #dedede; font-size:0.875em; background:#fff url(/mob/images/select_arr01.png) no-repeat right 0; background-size:contain; -webkit-border-radius: 5px; -moz-border-radius: 5px; border-radius: 5px; -webkit-appearance: none; }
+		.tit_round {padding:5px 0 3px 5px}
+		.analysis {
+			position: absolute;
+			top: 0px;
+			right: 60px;
+			display: block;
+			background:url(/mob/images/ico_anal.png) no-repeat left center;
+			background-size:15px;
+			font-size: 0.90em;width:60px; padding: 8.5px 0px 8.5px 0px; margin:0; text-align:center;/*border-left: 1px #d8d8d8 solid;*/
+		}
+		.paper {
+			position: absolute;
+			top: 0px;
+			right: 0;
+			display: block;
+			background:url(/mob/images/ico_paper.png) no-repeat left center;
+			background-size:12px;
+			font-size: 0.90em;width:65px; padding: 8.5px 0px 8.5px 0px; margin:0; text-align:center;/*border-left: 1px #d8d8d8 solid;*/
+		}
+		.d_day {position:absolute;top: 0px; right:10px;padding: 8.5px 0px 8.5px 0px; font-size:0.90em; white-space: nowrap; }
+
+		.proud_box{position:relative;background:#ececec; padding:0; color:#000;font-size:0.80em;border-bottom:0px #d1d1d1 solid; }
+		.proud_box .no_order {display:inline-block;width:60px;padding:8px 0 8px 0; margin:0 3px 0 0; text-align:center; background:#e1e1e1; color:#000; }
+        .proud_box .btn_compare_kor{/*position:absolute; top:6px; left:105px; z-index:1; */display:inline-block; width:64px; padding:2px 0 2px 0; background:#484952; border:1px #35363f solid; font-size:0.75em; border-radius:3px; color:#FFF; text-align:center; vertical-align:middle}
+        .proud_box .btn_compare_eng{/*position:absolute; top:6px; left:105px; z-index:1; */display:inline-block; width:96px; padding:2px 0 2px 0; background:#484952; border:1px #35363f solid; font-size:0.75em; border-radius:3px; color:#FFF; text-align:center; vertical-align:middle}
+
+		.proud_box .icon_divi { opacity: 0.6; margin: 0px; padding: 0px 5px; }
+		.bg_win{background:#375494;}
+
+		.tabMenuW50pc { width: calc(50% - 15px); }
+		.tabMenuW33pc { width: calc(33.3% - 13.4px); }
+		/* 탭메뉴 끝 */
+
+		.win_lost_block01 { padding: 0px 5px 10px 5px; margin: 0px;}
+		.win_lost_block01 li {position: relative; margin:2px 0; padding: 7px 0 4px 5px; font-size:0.80em;/*background:url(/images/ico_arr04.png) no-repeat*/ 98.5% 13px; background-size:5px;  *zoom:1; }
+		.win_lost_block01 li:first-child { border: 0px; }
+		.win_lost_block01 li:after { content: ""; display: block; clear: both; }
+		.win_lost_block01 li.player_bg {background:#fafafa /*url(/images/ico_arr04.png) no-repeat*/ 98.5% 13px; background-size:5px;}
+		.win_lost_block01 li.player_bg span{color:#555;}
+		.win_lost_block01 li > span { float: left; color:#000 }
+		.win_lost_block01 li > span.t_name {width:calc(100% - 160px); padding:0 0 0 6px; border:0px #000 solid/*width:35%;*/ }
+		.win_lost_block01 li > span.t_nation {width:100px; text-align: left; }
+		.win_lost_block01 li > span.t_point {width:40px; text-align: center;}
+		.win_lost_block01 li > span.t_set {width:40px; text-align: center; }
+
+		.win_lost_block01 li > span.t_club { position: absolute; top: 28px; left: 45px; font-size:0.75em; color: #000; opacity: 0.3; }
+		.win_lost_block01 li .icon_comm { float: left; display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; font-size: 12px; font-weight: bold; -moz-border-radius: 50%; -webkit-border-radius: 50%; border-radius: 50%; }
+		.win_lost_block01 li .icon_win { background: #CD2852; color: #fff; }
+		.win_lost_block01 li .icon_lost { background: #6D6D6D; color: #BFBFBF !important; opacity: 0; }
+		.win_lost_block01 li.line { padding: 0px 0px; margin: 0px 10px; border-bottom: 1px #e4e4e4 solid; }
+		.iconGubun { margin-left: 5px; margin-right: 5px;}
+
+
+
+		.flag{ display:inline-block;width:18px; margin:0 auto 2px auto;border:1px #e1e1e1 solid; vertical-align:middle}
+		.keyf0_6{ color:#afc9ff}
+		.btn_find {
+			width: 80px; height:32px; line-height: 32px;
+		    background: -webkit-gradient(linear, left top, left bottom, from(#446ab9), to(#264c97));
+		    background: -webkit-linear-gradient(top, #446ab9, #264c97);
+		    background: -moz-linear-gradient(top, #446ab9, #264c97);
+		    background: -ms-linear-gradient(top, #446ab9, #264c97);
+		    background: -o-linear-gradient(top, #446ab9, #264c97);
+			color: #FFF;
+			border: 0px #345aa7 solid;
+			font-weight: normal;
+			font-size: 0.8em;
+			margin-left: 10px;
+			padding: 0px 0; border-radius:5px
+			}
+		.btn_alarmsave { position: fixed; bottom:0; border-bottom: display:block;
+			width:97%; margin:0 10px;
+			background:#2569bf;
+			color: #FFF;font-weight: normal;
+			font-size: 0.875em;
+			margin-left: 5px;
+			padding: 10px 0; vertical-align:middle; border-radius:5px
+		}
+    </style>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 1</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-14 16:01</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00003','T00002');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('1');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">CROWN HAITAI</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   2.588</span>
+                                        <span class="t_high">11</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">0</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Ｗelcome Savings Bank</span>
+                                        <span class="t_set">0</span>
+                                        <span class="t_high">   0.800</span>
+                                        <span class="t_high">2</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 2</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-13 14:35</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00002','T00008');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('2');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Ｗelcome Savings Bank</span>
+                                        <span class="t_set">3</span>
+                                        <span class="t_high">   1.093</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">NH Nonghyup Card</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.291</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">3</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 3</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-17 16:48</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00002','T00010');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('3');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Ｗelcome Savings Bank</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.455</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">1</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Huons</span>
+                                        <span class="t_set">1</span>
+                                        <span class="t_high">   1.226</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 4</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-10 17:46</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00017','T00002');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('4');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">High1 Resort</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.438</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">2</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Ｗelcome Savings Bank</span>
+                                        <span class="t_set">2</span>
+                                        <span class="t_high">   1.226</span>
+                                        <span class="t_high">8</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 5</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-12 20:04</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00002','T00020');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('5');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Ｗelcome Savings Bank</span>
+                                        <span class="t_set">2</span>
+                                        <span class="t_high">   0.791</span>
+                                        <span class="t_high">8</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Hana Card</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.182</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">2</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 6</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-11 23:30</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00021','T00002');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('6');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">SY</span>
+                                        <span class="t_set">3</span>
+                                        <span class="t_high">   1.082</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Ｗelcome Savings Bank</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.300</span>
+                                        <span class="t_high">8</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">3</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 7</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-18 19:44</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00002','T00022');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('7');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Ｗelcome Savings Bank</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.500</span>
+                                        <span class="t_high">7</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">1</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Woori Financial Capital</span>
+                                        <span class="t_set">1</span>
+                                        <span class="t_high">   0.938</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 8</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-15 17:40</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00029','T00002');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('8');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Harim</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   0.983</span>
+                                        <span class="t_high">7</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">3</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Ｗelcome Savings Bank</span>
+                                        <span class="t_set">3</span>
+                                        <span class="t_high">   0.867</span>
+                                        <span class="t_high">4</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 9</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-16 22:55</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00002','T00030');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('9');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Ｗelcome Savings Bank</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.553</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">2</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Breakers</span>
+                                        <span class="t_set">2</span>
+                                        <span class="t_high">   1.108</span>
+                                        <span class="t_high">7</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 10</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-16 19:28</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00008','T00003');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('10');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">NH Nonghyup Card</span>
+                                        <span class="t_set">0</span>
+                                        <span class="t_high">   0.885</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">CROWN HAITAI</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.571</span>
+                                        <span class="t_high">4</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">0</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 11</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-11 17:06</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00010','T00003');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('11');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Huons</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.385</span>
+                                        <span class="t_high">9</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">2</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">CROWN HAITAI</span>
+                                        <span class="t_set">2</span>
+                                        <span class="t_high">   1.237</span>
+                                        <span class="t_high">8</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 12</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-15 22:47</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00003','T00017');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('12');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">CROWN HAITAI</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.517</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">0</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">High1 Resort</span>
+                                        <span class="t_set">0</span>
+                                        <span class="t_high">   0.889</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 13</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-17 16:52</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00020','T00003');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('13');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Hana Card</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.844</span>
+                                        <span class="t_high">9</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">2</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">CROWN HAITAI</span>
+                                        <span class="t_set">2</span>
+                                        <span class="t_high">   1.129</span>
+                                        <span class="t_high">8</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 14</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-13 20:13</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00021','T00003');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('14');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">SY</span>
+                                        <span class="t_set">1</span>
+                                        <span class="t_high">   0.950</span>
+                                        <span class="t_high">4</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">CROWN HAITAI</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.286</span>
+                                        <span class="t_high">8</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">1</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 15</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-12 14:12</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00003','T00022');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('15');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">CROWN HAITAI</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.022</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">2</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Woori Financial Capital</span>
+                                        <span class="t_set">2</span>
+                                        <span class="t_high">   1.067</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 16</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-10 14:59</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00003','T00029');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('16');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">CROWN HAITAI</span>
+                                        <span class="t_set">1</span>
+                                        <span class="t_high">   0.946</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Harim</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.421</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">1</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 17</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-18 16:52</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00030','T00003');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('17');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Breakers</span>
+                                        <span class="t_set">2</span>
+                                        <span class="t_high">   1.167</span>
+                                        <span class="t_high">10</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">CROWN HAITAI</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.405</span>
+                                        <span class="t_high">7</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">2</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 18</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-10 21:02</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00010','T00008');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('18');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Huons</span>
+                                        <span class="t_set">1</span>
+                                        <span class="t_high">   1.000</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">NH Nonghyup Card</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.156</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">1</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 19</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-14 16:25</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00017','T00008');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('19');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">High1 Resort</span>
+                                        <span class="t_set">0</span>
+                                        <span class="t_high">   0.808</span>
+                                        <span class="t_high">4</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">NH Nonghyup Card</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.571</span>
+                                        <span class="t_high">11</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">0</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 20</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-11 13:52</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00008','T00020');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('20');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">NH Nonghyup Card</span>
+                                        <span class="t_set">2</span>
+                                        <span class="t_high">   1.118</span>
+                                        <span class="t_high">9</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Hana Card</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.486</span>
+                                        <span class="t_high">7</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">2</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 21</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-18 16:35</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00021','T00008');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('21');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">SY</span>
+                                        <span class="t_set">1</span>
+                                        <span class="t_high">   1.200</span>
+                                        <span class="t_high">8</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">NH Nonghyup Card</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.438</span>
+                                        <span class="t_high">8</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">1</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 22</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-15 16:46</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00022','T00008');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('22');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Woori Financial Capital</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.300</span>
+                                        <span class="t_high">7</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">3</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">NH Nonghyup Card</span>
+                                        <span class="t_set">3</span>
+                                        <span class="t_high">   1.900</span>
+                                        <span class="t_high">11</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 23</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-12 16:42</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00008','T00029');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('23');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">NH Nonghyup Card</span>
+                                        <span class="t_set">1</span>
+                                        <span class="t_high">   1.000</span>
+                                        <span class="t_high">4</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Harim</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.472</span>
+                                        <span class="t_high">7</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">1</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 24</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-17 23:30</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00030','T00008');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('24');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Breakers</span>
+                                        <span class="t_set">2</span>
+                                        <span class="t_high">   0.833</span>
+                                        <span class="t_high">4</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">NH Nonghyup Card</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.036</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">2</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 25</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-18 14:21</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00017','T00010');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('25');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">High1 Resort</span>
+                                        <span class="t_set">3</span>
+                                        <span class="t_high">   1.000</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Huons</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.340</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">3</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 26</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-13 22:30</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00020','T00010');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('26');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Hana Card</span>
+                                        <span class="t_set">0</span>
+                                        <span class="t_high">   1.077</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Huons</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.571</span>
+                                        <span class="t_high">11</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">0</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 27</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-15 20:40</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00010','T00021');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('27');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Huons</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.292</span>
+                                        <span class="t_high">7</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">3</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">SY</span>
+                                        <span class="t_set">3</span>
+                                        <span class="t_high">   1.021</span>
+                                        <span class="t_high">9</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 28</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-16 13:41</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00010','T00022');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('28');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Huons</span>
+                                        <span class="t_set">0</span>
+                                        <span class="t_high">   0.818</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Woori Financial Capital</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.257</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">0</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 29</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-14 23:40</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00029','T00010');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('29');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Harim</span>
+                                        <span class="t_set">2</span>
+                                        <span class="t_high">   0.931</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Huons</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   0.915</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">2</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 30</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-12 16:42</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00010','T00030');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('30');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Huons</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.361</span>
+                                        <span class="t_high">9</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">1</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Breakers</span>
+                                        <span class="t_set">1</span>
+                                        <span class="t_high">   0.824</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 31</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-16 16:26</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00017','T00020');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('31');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">High1 Resort</span>
+                                        <span class="t_set">0</span>
+                                        <span class="t_high">   0.655</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Hana Card</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.419</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">0</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 32</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-12 23:14</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00017','T00021');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('32');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">High1 Resort</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.040</span>
+                                        <span class="t_high">7</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">1</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">SY</span>
+                                        <span class="t_set">1</span>
+                                        <span class="t_high">   0.833</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 33</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-11 16:34</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00022','T00017');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('33');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Woori Financial Capital</span>
+                                        <span class="t_set">0</span>
+                                        <span class="t_high">   0.647</span>
+                                        <span class="t_high">3</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">High1 Resort</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.222</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">0</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 34</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-17 20:37</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00029','T00017');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('34');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Harim</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.037</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">3</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">High1 Resort</span>
+                                        <span class="t_set">3</span>
+                                        <span class="t_high">   1.093</span>
+                                        <span class="t_high">12</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 35</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-13 17:47</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00030','T00017');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('35');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Breakers</span>
+                                        <span class="t_set">3</span>
+                                        <span class="t_high">   0.950</span>
+                                        <span class="t_high">8</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">High1 Resort</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.000</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">3</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 36</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-10 17:24</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00020','T00021');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('36');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Hana Card</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.692</span>
+                                        <span class="t_high">9</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">0</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">SY</span>
+                                        <span class="t_set">0</span>
+                                        <span class="t_high">   1.125</span>
+                                        <span class="t_high">9</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 37</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-14 20:10</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00020','T00022');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('37');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Hana Card</span>
+                                        <span class="t_set">3</span>
+                                        <span class="t_high">   1.308</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Woori Financial Capital</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.513</span>
+                                        <span class="t_high">11</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">3</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 38</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-18 22:50</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00029','T00020');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('38');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Harim</span>
+                                        <span class="t_set">2</span>
+                                        <span class="t_high">   1.423</span>
+                                        <span class="t_high">12</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Hana Card</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   2.259</span>
+                                        <span class="t_high">12</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">2</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 39</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-15 14:10</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00020','T00030');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('39');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Hana Card</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.000</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">2</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Breakers</span>
+                                        <span class="t_set">2</span>
+                                        <span class="t_high">   1.136</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 40</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-17 14:17</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00022','T00021');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('40');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Woori Financial Capital</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.275</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">3</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">SY</span>
+                                        <span class="t_set">3</span>
+                                        <span class="t_high">   1.500</span>
+                                        <span class="t_high">7</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 41</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-16 17:22</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00021','T00029');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('41');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">SY</span>
+                                        <span class="t_set">3</span>
+                                        <span class="t_high">   1.292</span>
+                                        <span class="t_high">11</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Harim</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.083</span>
+                                        <span class="t_high">7</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">3</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 42</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-14 14:08</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00030','T00021');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('42');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Breakers</span>
+                                        <span class="t_set">2</span>
+                                        <span class="t_high">   1.024</span>
+                                        <span class="t_high">9</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">SY</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.256</span>
+                                        <span class="t_high">7</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">2</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 43</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-13 17:40</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00022','T00029');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('43');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Woori Financial Capital</span>
+                                        <span class="t_set">3</span>
+                                        <span class="t_high">   1.192</span>
+                                        <span class="t_high">7</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Harim</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.019</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">3</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 44</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-11 00:33</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00022','T00030');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('44');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Woori Financial Capital</span>
+                                        <span class="t_set">3</span>
+                                        <span class="t_high">   1.055</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Breakers</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.109</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">3</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="set_box">
+                    <div class="content_block_set bg_col01 br5px">
+                        <div class="proud_box_set">
+                            
+                                <span class="no_order t15" style="">No 45</span>
+                                <span class="t14"><span class='right_mt10'>2026-09-11 19:52</span></span>
+                                
+                                <a href="#" onclick="viewRanktOther('T00029','T00030');" class="btn_detail" style="display:block;right: 83px;background-color: #446ab9">Relative</a>
+                                
+                                <a href="#" onclick="viewResult('45');" class="btn_detail">Details</a>
+                            
+                        </div>
+
+                        <div class="play_info_box">
+                            <div class="dynamic-box02">
+                                <ul class="win_lost_block01_set">
+                                    <li style="border-bottom:1px #efefef solid;background-image:none">
+                                        <span class="t_order" style="color:#4f4f4f">Result</span>
+                                        <span class="t_name" style="text-align:center;color:#4f4f4f">Team</span>
+                                        <span class="t_set" style="color:#4f4f4f">Win</span>
+                                        <span class="t_high" style="color:#4f4f4f">AVG</span>
+                                        <span class="t_high" style="color:#4f4f4f">HR</span>
+                                        <span class="t_avg" style="color:#4f4f4f">Draw</span>
+                                        <span class="t_high" style="color:#4f4f4f">Loss</span>
+                                    </li>
+
+                                    <li class="player_end">
+                                        <span class="t_order">
+                                            <span class="icon_win">
+                                                W
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Harim</span>
+                                        <span class="t_set">4</span>
+                                        <span class="t_high">   1.359</span>
+                                        <span class="t_high">6</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">1</span>
+                                    </li>
+
+                                    <li>
+                                        <span class="t_order">
+                                            <span class="">
+                                                &nbsp;
+                                            </span>
+                                        </span>
+                                        <span class="t_name">Breakers</span>
+                                        <span class="t_set">1</span>
+                                        <span class="t_high">   0.946</span>
+                                        <span class="t_high">5</span>
+                                        <span class="t_avg">0</span>
+                                        <span class="t_high">4</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
