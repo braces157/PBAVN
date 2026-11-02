@@ -1,0 +1,75 @@
+name: diag-cdp
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/match-cards-turn-by-turn]
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Baseline facts
+        run: |
+          echo "TEMP=[${TEMP-unset}] TMPDIR=[${TMPDIR-unset}] RUNNER_TEMP=[${RUNNER_TEMP-unset}]"
+          google-chrome --version
+          ls -l /usr/bin/google-chrome
+          readlink -f /usr/bin/google-chrome
+          id
+          df -h /tmp /dev/shm | cat
+
+      - name: Launch with TEMP fallback (/tmp) and no concurrency
+        run: |
+          profile="/tmp/pba-verify-profile"
+          rm -rf "$profile"
+          google-chrome --headless=new --disable-gpu --no-first-run --no-default-browser-check \
+            --remote-debugging-port=9222 --user-data-dir="$profile" about:blank \
+            > chrome.log 2>&1 &
+          pid=$!
+          for i in $(seq 1 40); do
+            if curl -sf http://127.0.0.1:9222/json/version; then echo "CDP UP after $i"; break; fi
+            sleep 0.25
+          done
+          echo "--- chrome alive? ---"
+          kill -0 $pid 2>&1 && echo alive || echo dead
+          echo "--- chrome.log ---"
+          cat chrome.log
+          echo "--- live chrome procs ---"
+          pgrep -af chrome | head -5 || true
+
+      - name: Launch WITHOUT --user-data-dir
+        run: |
+          pkill -f chrome || true
+          sleep 1
+          google-chrome --headless=new --disable-gpu --no-first-run --remote-debugging-port=9223 about:blank > chrome2.log 2>&1 &
+          for i in $(seq 1 40); do
+            if curl -sf http://127.0.0.1:9223/json/version; then echo "CDP UP after $i"; break; fi
+            sleep 0.25
+          done
+          echo "--- chrome2.log ---"
+          cat chrome2.log
+
+      - name: Launch with --no-sandbox and RUNNER_TEMP
+        run: |
+          pkill -f chrome || true
+          sleep 1
+          profile="$RUNNER_TEMP/pba-verify-profile"
+          google-chrome --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --no-first-run --no-default-browser-check \
+            --remote-debugging-port=9224 --user-data-dir="$profile" about:blank > chrome3.log 2>&1 &
+          for i in $(seq 1 40); do
+            if curl -sf http://127.0.0.1:9224/json/version; then echo "CDP UP after $i"; break; fi
+            sleep 0.25
+          done
+          echo "--- chrome3.log ---"
+          cat chrome3.log
