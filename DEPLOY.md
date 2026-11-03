@@ -18,8 +18,9 @@ FETCH FAIL  221ms  https://www.pbatour.org/en/ajax/leagueInfoList  => UNABLE_TO_
 ```
 
 Browsers hide this by fetching the missing link themselves. Node does not, which is why
-`src/lib/pba/http.ts` falls back to `node:https` with `rejectUnauthorized: false`. Any
-runtime that will not let you disable verification cannot read the data at all. That
+`src/lib/pba/http.ts` falls back to `node:https` with the missing intermediate pinned
+into its CA list (`src/lib/pba/certs.ts`) and verification left fully on. Any runtime
+that cannot drive `node:https` with a custom `ca` list cannot read the data at all. That
 counts out Cloudflare Workers and Pages, Deno Deploy, and every edge runtime.
 
 **2. The site is server rendered, not static.** `next build` reports 16 of 19 routes as
@@ -90,11 +91,11 @@ Both of these have failed on this stack before, and both degrade quietly rather 
 crashing.
 
 1. **Photos are still WebP.** Open any player page and check that an `/api/photo?…` request
-   returns `Content-Type: image/webp`. The `package-lock.json` in this repo carries only
-   the Windows `@img/sharp-win32-x64` native package. If Vercel's Linux install does not
-   resolve `@img/sharp-linux-x64-gnu`, the route catches the failure and serves the raw
-   110 KB JPEG instead. The page still looks correct, it just gets 25 times heavier. Fix by
-   pinning the natives in `optionalDependencies`.
+   returns `Content-Type: image/webp`. This once failed because the lockfile carried only
+   the Windows `@img/sharp-win32-x64` native package; the current lockfile resolves the
+   Linux natives and a Vercel install gets them. If sharp ever fails to load there, the
+   route catches the failure and serves the raw 640px JPEG instead — the page still looks
+   correct, it just gets 25 times heavier.
 2. **`/api/live` answers**, even when idle. Right now it returns
    `{"available":false,"lines":[],…}`, which is correct for "no table active". A 500 means
    the `app.pbatour.org` fragment fetch broke, not the JSON API.
@@ -112,9 +113,15 @@ crashing.
 | Oracle Cloud Always Free, Cloud Run | Cheapest over five years, but a VM or container to babysit and a card on file |
 | `cloudflared tunnel --url` | Fastest way to show someone the site from this PC, and it dies with the laptop |
 
-## One thing worth fixing regardless of host
+## TLS, one more time
 
-`rejectUnauthorized: false` on `src/lib/pba/http.ts:143` accepts any certificate for those
-hosts, so anyone on the path between the host and Korea can rewrite what the site shows.
-Pin the missing intermediate into a `ca` bundle instead and the fallback keeps full
-verification. That would also make Cloudflare a viable host later.
+This used to end with "pin the missing intermediate into a `ca` bundle" as a TODO. It is
+done: `src/lib/pba/certs.ts` commits the GlobalSign intermediate the upstream omits,
+`src/lib/pba/http.ts` trusts only the system store plus that pin, and
+`rejectUnauthorized` stays `true` everywhere. The MITM risk of
+`rejectUnauthorized: false` is gone, and a TLS-inspecting proxy can still add itself via
+`NODE_EXTRA_CA_CERTS`.
+
+Cloudflare remains unviable regardless: Workers cannot run `node:https` with a custom
+`ca` list at all, so the fallback path — the only one that can read the upstream — does
+not exist there.
