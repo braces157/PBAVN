@@ -6,9 +6,11 @@ import {
   getPlayerCareerRank,
   getPlayerChampionships,
   getPlayerSeasonRank,
-  getPlayerSeasonStats,
   getPlayerTourStats,
+  readPlayerSeasonStats,
+  trackFailures,
 } from "@/lib/pba/api";
+import { getRequestFailures } from "@/lib/pba/failures";
 import { getCurrentSeason, getSeasonList } from "@/lib/pba/service";
 import {
   hasStatData,
@@ -24,6 +26,7 @@ import { SafeImage } from "@/components/ui/safe-image";
 import { Chip, EmptyState, RankBadge, Stat, TextLink, cn } from "@/components/ui/primitives";
 import { FilterRow } from "@/components/domain/filter-bar";
 import { PlayerSubNav } from "@/components/domain/player-sub-nav";
+import { DataStatus } from "@/components/site/data-status";
 
 export const revalidate = 900;
 
@@ -60,31 +63,41 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
 
   // A pinned season is honoured as-is. Otherwise the page opens on the most
   // recent season that actually has recorded statistics, so a mid-season
-  // profile does not greet readers with an empty board.
+  // profile does not greet readers with an empty board. That fallback only
+  // runs when the current season genuinely has none: a failed request would
+  // otherwise present an older season as this season's figures.
   const requestedSeason =
     seasonParam && seasons.some((s) => s.SeasonCode === seasonParam) ? seasonParam : null;
   let seasonCode = requestedSeason ?? currentSeason.SeasonCode;
-  let seasonStat = await getPlayerSeasonStats({ memCode, seasonCode, pbaType });
-  if (!requestedSeason && !hasStatData(normalizePlayerStat(seasonStat))) {
+  const first = await readPlayerSeasonStats({ memCode, seasonCode, pbaType });
+  let seasonStat = first.stat;
+  if (first.answered && !requestedSeason && !hasStatData(normalizePlayerStat(seasonStat))) {
     for (const candidate of seasons.filter((s) => s.SeasonCode !== currentSeason.SeasonCode).slice(0, 4)) {
-      const probe = await getPlayerSeasonStats({ memCode, seasonCode: candidate.SeasonCode, pbaType });
-      if (hasStatData(normalizePlayerStat(probe))) {
+      const probe = await readPlayerSeasonStats({ memCode, seasonCode: candidate.SeasonCode, pbaType });
+      if (!probe.answered) break;
+      if (hasStatData(normalizePlayerStat(probe.stat))) {
         seasonCode = candidate.SeasonCode;
-        seasonStat = probe;
+        seasonStat = probe.stat;
         break;
       }
     }
   }
 
-  const [tourStats, championships, seasonRank, careerRank] = await Promise.all([
-    getPlayerTourStats({ memCode, seasonCode, pbaType }),
-    getPlayerChampionships(memCode),
-    getPlayerSeasonRank({ memCode, seasonCode, pbaType }),
-    getPlayerCareerRank(memCode),
-  ]);
+  const [tourStats, championships, seasonRank, careerRank, failures] = await trackFailures(async () => {
+    const [tourStats, championships, seasonRank, careerRank] = await Promise.all([
+      getPlayerTourStats({ memCode, seasonCode, pbaType }),
+      getPlayerChampionships(memCode),
+      getPlayerSeasonRank({ memCode, seasonCode, pbaType }),
+      getPlayerCareerRank(memCode),
+    ]);
+    return [tourStats, championships, seasonRank, careerRank, getRequestFailures()] as const;
+  });
 
   const line = normalizePlayerStat(seasonStat);
   const hasData = hasStatData(line);
+  // The board never answered, so "no statistics this season" would be a
+  // claim we cannot make — the stat grid and the notice below say so instead.
+  const seasonUnavailable = !first.answered;
   const rate = winRate(player);
   const age = player.birth ? new Date().getFullYear() - new Date(player.birth).getFullYear() : null;
 
@@ -247,6 +260,11 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                   this season.
                 </p>
               </>
+            ) : seasonUnavailable ? (
+              <DataStatus
+                className="mt-6"
+                failures={failures.length > 0 ? failures : ["season statistics"]}
+              />
             ) : (
               <EmptyState
                 className="mt-6"
