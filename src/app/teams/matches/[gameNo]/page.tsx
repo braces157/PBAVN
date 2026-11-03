@@ -392,7 +392,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
                           </tbody>
                         </table>
                         <p className="border-t border-ink-800 px-4 py-2 text-[11px] leading-relaxed text-fog-600">
-                          Score is the inning&apos;s own points; Total runs through the bout. A dash
+                          Score is the inning's own points; Total runs through the bout. A dash
                           means that side had stopped playing.
                         </p>
                       </div>
@@ -413,7 +413,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
             href={`/teams/matches?season=${encodeURIComponent(season?.시즌코드 ?? "")}&round=${encodeURIComponent(roundCode)}`}
             className="text-fog-400 underline-offset-2 hover:underline"
           >
-            Back to the round&apos;s fixtures
+            Back to the round's fixtures
           </Link>
           {selectedBout === null && selectedSet !== null
             ? " — this bout number has no record in the fixture."

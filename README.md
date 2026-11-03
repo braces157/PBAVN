@@ -26,8 +26,9 @@ npm run build
 npm start          # http://localhost:3100
 ```
 
-Requires Node 20.9+ to run the site, and Node 22.6+ for `npm test`, which runs its TypeScript
-sources directly through Node's type stripping (built and tested on Node 22 and Node 25).
+Requires Node 20.9+ to run the site, and Node 22.6+ for `npm test`, `npm run refresh-data` and
+`npm run build-calendar`, which run TypeScript sources directly through Node's type stripping
+(built and tested on Node 22 and Node 25).
 
 To check the site the way CI does, with a browser driving the real pages:
 
@@ -41,6 +42,80 @@ npm run verify     # launches headless Chrome, asserts 25 interactions
 
 `npm run refresh-data` rebuilds the two committed translation lookups described under
 [Translation artefacts](#translation-artefacts). CI fails when they are stale.
+`npm run build-calendar` rebuilds the committed event calendar the console reads (see
+[Event calendar](#event-calendar)); `refresh-data` runs it too.
+
+---
+
+## Reading the site
+
+The web client is laid out like a scoreboard site rather than a brochure: the reader is
+usually mid-tournament and wants to know what is on now, what is next, and what happened,
+in that order. Three shapes carry that across every page.
+
+- **A date rail** down the left of `/` and `/schedule`, so a day is one click away and the
+  page never spends a screen explaining itself.
+- **A scoreboard row** — a 42 px state gutter (live / date / kickoff), the two sides with
+  crests, the score right-aligned in a tabular column, and a per-set strip beside it. It is
+  the same row for a scheduled, live and finished match.
+- **Panels** with a one-line title bar, used for every block below the fold.
+
+An event page opens on **now and next** before it opens on results: a live block when the
+scoring terminal reports a table in play, the next unplayed fixture with its distance
+("Today 18:30", "Tomorrow", "Thu 05 Nov"), and the event window. Results, the full draw and
+event facts hang off a tab strip (`Results / Bracket / Overview`) instead of stacking into
+one long column.
+
+---
+
+## Event calendar
+
+`src/lib/pba/data/calendar.json` is every event the association has published, all seasons,
+normalised at build time. It exists because `/` and `/schedule` put a whole season on one
+screen — a rail, a season picker, circuit counts — and the schedule feed only answers one
+season per request; eight upstream calls per render is not a page load.
+
+It holds only what changes when a date is published: title, circuit, season, dates, venue,
+sponsor, prize wording, entrant counts, crest path. Anything that moves **during** a
+tournament — the match code, the winner, the broadcast list, live state, fixtures, the draw —
+is still read from the feed at request time. `npm run build-calendar` refreshes the file; it
+is committed, and CI checks it is current the same way it checks the translation artefacts.
+
+---
+
+## Today's matches
+
+"Today" means **every match of today** — played, on the table, and still to come — not the
+events whose dates include today. An eight-day event says nothing about which of its 45
+fixtures fall on the day being looked at, so the calendar cannot answer it; the feeds can.
+
+`src/lib/pba/matches-on-day.ts` reads it. Each row carries a state, and all three states share
+one row shape (`3 finals · 2 live · 4 to come` is the panel's summary):
+
+| State | Meaning | Shown |
+| --- | --- | --- |
+| `next` | kickoff later today | kickoff clock, no score |
+| `live` | kicked off, no final result recorded yet | live mark, no score |
+| `final` | result recorded | sets, averages, high runs |
+
+- Only events whose dates contain the day are asked about. A Team League round is read as
+  fixtures on the team terminal; a tour event as bracket rows on the scoring terminal.
+- Each bracket depth 2–32 is read **twice** from the same endpoint: the Korean response,
+  which is the only one publishing the match **date** and the win/loss mark, and the English
+  one, which supplies Latin names. They are joined on the match code, never on a name.
+- Brackets arrive newest first, so the read stops at the first depth whose rows predate the
+  day. A 128-draw's early rounds are days behind and are never fetched.
+- The terminal's stamp is the association's own local time and is compared as written: a
+  23:19 result belongs to the evening it was played.
+
+Two bugs shaped this, both now covered: the kickoff is published as `YY-MM-DD HH:MM`, and a
+mis-grouped regex once wrote `2026-undefined-10`, which made every day look empty
+(`npm test`, `tests/fixtures/bracket-dated-ko.html`); and building the day from *results* only
+hid five fixtures that had kicked off but not closed, which is why `next` and `live` exist.
+
+The panel streams behind `<Suspense>` on `/` and `/schedule`, so the rest of the page never
+waits on it. `partial` shows when a read failed rather than rendering an empty day as if
+nothing had been played.
 
 ---
 
@@ -48,10 +123,10 @@ npm run verify     # launches headless Chrome, asserts 25 interactions
 
 | Route | What it shows |
 | --- | --- |
-| `/` | Live status, current/next event, prize-money leader, PBA + LPBA tables, team-league standings, season leaders, news |
+| `/` | Scoreboard index: date rail, today's matches, live wire, next up, last out, prize tables, team-league standings, season leaders, news |
 | `/live` | Scoreboard wire (polled every 20s), events in progress, current team-league round, recent finals, broadcast links |
-| `/schedule` | Full calendar by season and circuit, grouped into On now / Upcoming / Results |
-| `/schedule/[seq]` | One event: dates, venue, prize money, defending champion, broadcast, equipment, event guide |
+| `/schedule` | Calendar with a date rail, season and circuit selectors, the day's matches, upcoming and results by month |
+| `/schedule/[seq]` | One event: now/next strip, results by round, full bracket, round fixtures, event facts, competition days |
 | `/players` | 1,700+ professionals, searchable by name (English or Korean), filterable by circuit and initial |
 | `/players/[memCode]` | Player profile: season stats with per-metric rank, tour-by-tour results, titles, career totals |
 | `/players/[memCode]/matches` | Player match history: every recorded individual-tour match of a season, newest first, each row linking to its match card |
@@ -118,15 +193,58 @@ Korean label and an `_EN` field, so this app always requests `en` and prefers th
 | `/media/press/ajax/list`, `/detail` | Press |
 | `/media/video/ajax/list`, `/media/gallery/ajax/list` | Video, galleries |
 | `/award/ajax/tour` | Awards |
-| `app.pbatour.org/mob/contest_new/code_behind/live_info.asp` | Live scoreboard fragment |
+| `app.pbatour.org/mob/contest_new/code_behind/live_info.asp` | Live scoreboard fragment — **tour circuits only**; answers an empty stub for a Team League round |
 | `app.pbatour.org/mob/contest_new/admin_en/live_info_setview.asp` | One match: sets, points/innings, average, high run |
 | `app.pbatour.org/mob/contest_new/code_behind/contest_result_set_help.asp` | Match totals (innings, points, 1P/2P, success rates) |
 | `app.pbatour.org/mob/contest_new/code_behind/contest_result_set_record.asp` | One set, turn by turn |
 | `app.pbatour.org/mob/contest_new/code_behind/contest_result_sur.asp` | Every match of an event, by bracket depth; with `txt_Search=`, one player's matches within an event |
+| `team.pbatour.org/mob/ko/live.asp` | **The live board for Team League**: clubs, fixture score, the bout on the table, the player, and the broadcast link |
 | `team.pbatour.org/mob/code_behind/getPlanDetailEnd_new2.asp` | Team-league round fixtures (plain-HTTP POST) |
 | `team.pbatour.org/mob/code_behind/getPlanResult_new.asp` | One fixture's score board and bouts (POST) |
 | `team.pbatour.org/mob/ko/planResultDetail.asp` | One bout's record-sheet codes |
 | `team.pbatour.org/mob/code_behind/getPlanResultDetail.asp` | One bout's per-inning chain as JSON (POST) |
+
+### Two live boards, not one
+
+`/live` used to report "no match in play" while a Team League fixture was being
+scored, because it read only the tour board — which is empty for that circuit by
+design, not by accident. `src/lib/pba/live.ts` now reads both surfaces and merges
+them behind one `LiveMatch` shape:
+
+| Circuit | Surface | Carries |
+| --- | --- | --- |
+| PBA / LPBA | `app…/live_info.asp` → scorecard by `PSTCode` | sets, points, innings per set |
+| Team League | `team…/mob/ko/live.asp` | fixture score, bout on the table, player, club logos, broadcast |
+
+Club names need a three-hop join because no single feed holds both spellings:
+the live page publishes Korean and sometimes a logo named after the standings
+code (`T00020_LOGO_300.png`); the **Korean** standings table maps name → code;
+the English standings table the site already reads maps code → the English name
+it prints everywhere. A club that cannot be traced keeps its published name.
+
+### The live match is the page
+
+`/live` leads with the match being scored, at full size: both sides with crests,
+the fixture score, the bout on the table with its race format, and then **every
+bout the terminal lists** — played and announced:
+
+```
+Set 4  GP9   13:19   Jae-geun KIM, Jung-suk LIM   2P / 7   0.286 · HR 2
+                     Jung-ju SHIN, Seul-gi HAN     9P / 8   1.125 · HR 3   W
+```
+
+Everything below it — events in progress, standings, recent finals — is reference
+material, and is pushed down accordingly.
+
+A team fixture is a series of six bouts, so its headline is the **fixture score**
+and the bout being played is the detail underneath; the per-bout set counts would
+otherwise read 0–0 at the start of every bout. A bout not yet played still has a
+line-up, so it is listed with `–` in the score columns rather than hidden.
+
+Player names resolve through two indexes: the committed directory (PBA members,
+no network) and the team-league roster, whose `외국이름` field holds the Korean
+spelling of squad members — that is where the LPBA players on a doubles pairing
+come from. The directory wins where it already knows the name.
 
 ### Match cards and turn-by-turn scoring
 

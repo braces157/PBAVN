@@ -271,10 +271,14 @@ check("every set publishes its turn-by-turn rows", turnRows > 50, `${turnRows} t
 const cardScore = await evaluate(`document.querySelector('dl dd .tnum')?.textContent?.trim()`);
 check("the card leads with the sets won", /\d/.test(cardScore ?? ""), cardScore);
 
-// The event page is the only route into a card that a person can find by clicking.
+// The event page opens on the latest rounds of the draw. The full tree is one
+// click away on ?all=1, and that page is the only route into any match card.
 await navigate("/schedule/tour2026051210390860", 8000);
 const cardLinks = await waitFor(`document.querySelectorAll('a[href^="/matches/"]').length || 0`);
-check("an event page links every drawn match to its card", cardLinks > 20, `${cardLinks} cards`);
+check("an event page links its latest rounds to their cards", cardLinks > 0, `${cardLinks} cards`);
+await navigate("/schedule/tour2026051210390860?all=1", 8000);
+const allCardLinks = await waitFor(`document.querySelectorAll('a[href^="/matches/"]').length || 0`);
+check("the event's full draw links every match card", allCardLinks > 20, `${allCardLinks} cards`);
 
 // A team-league event has no bracket on the scoring terminal: its MATCH_CODE is
 // the team-league round code, and the same number on the scoring terminal is a

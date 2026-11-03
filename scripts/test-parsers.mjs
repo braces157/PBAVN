@@ -20,6 +20,8 @@ import {
   parseLiveBoard,
 } from "../src/lib/pba/scoreboard-parse.ts";
 import { bracketRound, parseBracketRows } from "../src/lib/pba/bracket-parse.ts";
+import { normaliseStamp, parseDatedBracketRows, roundName } from "../src/lib/pba/bracket-dated-parse.ts";
+import { parseLiveTeamFixtures } from "../src/lib/pba/team-live-parse.ts";
 import { parseSearchRows } from "../src/lib/pba/search-parse.ts";
 import {
   parseFixtureBouts,
@@ -628,6 +630,145 @@ check("the season fallback is gated on the feed answering, not just on emptiness
   );
 });
 
+// ---------------------------------------------------------------- dated bracket rows
+//
+// The "what happened on this day" read depends on two facts about the Korean
+// bracket response that the English one silently drops: the full kickoff, and
+// the win mark. Both are asserted here against saved markup, because a
+// regression in either turns a day's results into an empty list.
+
+const datedHtml = fixture("bracket-dated-ko.html");
+const undatedHtml = fixture("bracket-en-undated.html");
+
+check("a dated bracket row carries the full kickoff", () => {
+  const rows = parseDatedBracketRows(datedHtml, 4);
+  assert.equal(rows.length, 2);
+  for (const row of rows) {
+    assert.match(row.at, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+    assert.equal(row.day, row.at.slice(0, 10));
+  }
+});
+
+check("the two-digit year is expanded, not invented", () => {
+  assert.equal(normaliseStamp("26-10-27 00:08"), "2026-10-27 00:08");
+  assert.equal(normaliseStamp("2026-10-27 09:05"), "2026-10-27 09:05");
+  assert.equal(normaliseStamp("00:08"), null, "a bare clock is not a date");
+});
+
+check("a dated row keeps both sides and exactly one winner", () => {
+  for (const row of parseDatedBracketRows(datedHtml, 4)) {
+    assert.equal(row.sides.length, 2);
+    assert.equal(row.sides.filter((side) => side.won).length, 1);
+    for (const side of row.sides) {
+      assert.ok(side.nameKo.length > 0, "a side always names its player");
+      assert.ok(side.memCode, "the member code is what the name join uses");
+    }
+  }
+});
+
+check("a dated row names its round from the bracket depth", () => {
+  const rows = parseDatedBracketRows(datedHtml, 4);
+  assert.equal(rows[0].round, "Semi-final");
+  assert.equal(roundName(2), "Final");
+  assert.equal(roundName(128), "Round of 128");
+});
+
+check("the English response publishes a clock but no date, so it cannot place a match on a day", () => {
+  const rows = parseDatedBracketRows(undatedHtml, 4);
+  assert.equal(rows.length, 2, "the rows are still read");
+  for (const row of rows) {
+    assert.equal(row.at, null, "a bare clock must not be turned into a date");
+    assert.equal(row.day, null);
+    assert.equal(row.sides.length, 2);
+  }
+  // The English rows are what supply the Latin names, so they must parse too.
+  assert.equal(parseBracketRows(undatedHtml, 4).length, 2);
+});
+
+check("the Korean and English responses agree on the match codes", () => {
+  const ko = parseDatedBracketRows(datedHtml, 4).map((row) => row.pstCode).sort();
+  const en = parseBracketRows(undatedHtml, 4).map((row) => row.pstCode).sort();
+  assert.deepEqual(ko, en);
+});
+// ------------------------------------------------ the Team League live board
+//
+// The tour live board answers an empty fragment for a team-league round, so the
+// only surface that publishes a running franchise fixture is
+// team.pbatour.org/mob/ko/live.asp. A site that reads only the tour board says
+// "no match in play" during a live round; these checks pin the parse that keeps
+// that from silently regressing to an empty list.
+
+const teamLiveHtml = fixture("team-live-in-progress.html");
+
+check("the team live page yields the fixture on the table", () => {
+  const live = parseLiveTeamFixtures(teamLiveHtml);
+  assert.equal(live.length, 1);
+  assert.equal(live[0].sides.length, 2);
+});
+
+check("a live team fixture carries both clubs, their codes and the fixture score", () => {
+  const [fixtureRow] = parseLiveTeamFixtures(teamLiveHtml);
+  const [home, away] = fixtureRow.sides;
+  assert.ok(home.nameKo.length > 0 && away.nameKo.length > 0);
+  assert.ok(home.clubCode && away.clubCode, "club codes are the join candidate for English names");
+  assert.equal(typeof home.sets, "number");
+  assert.equal(typeof away.sets, "number");
+});
+
+check("a live team fixture names the player on the table for each club", () => {
+  const [fixtureRow] = parseLiveTeamFixtures(teamLiveHtml);
+  assert.ok(fixtureRow.sides.every((side) => typeof side.player === "string" && side.player.length > 0));
+  assert.ok(fixtureRow.sides.some((side) => side.average !== null));
+});
+
+check("a live team fixture reads the set being played and its innings", () => {
+  const [fixtureRow] = parseLiveTeamFixtures(teamLiveHtml);
+  assert.ok(fixtureRow.setNo !== null, "the set number drives the header");
+  assert.ok(fixtureRow.setLabel && /Set$/i.test(fixtureRow.setLabel));
+  assert.ok(fixtureRow.innings !== null);
+});
+
+check("a live team fixture keeps the broadcast link", () => {
+  const [fixtureRow] = parseLiveTeamFixtures(teamLiveHtml);
+  assert.match(fixtureRow.watchUrl ?? "", /^https?:\/\//);
+});
+
+check("an idle team page yields no fixture rather than a half row", () => {
+  assert.equal(parseLiveTeamFixtures(teamLiveHtml.replace(/class="in-progress"/g, 'class="idle"')).length, 0);
+  assert.equal(parseLiveTeamFixtures(null).length, 0);
+  assert.equal(parseLiveTeamFixtures("").length, 0);
+});
+check("a live team fixture lists every bout, played and announced", () => {
+  const [fixtureRow] = parseLiveTeamFixtures(teamLiveHtml);
+  assert.ok(fixtureRow.bouts.length >= 4, "the fixture is six bouts; the page lists them all");
+  const played = fixtureRow.bouts.filter((bout) => bout.status === "final");
+  assert.ok(played.length >= 1, "at least one bout has a result");
+  // A scheduled bout is still a line-up: two named sides, no score.
+  for (const bout of fixtureRow.bouts.filter((entry) => entry.status !== "final")) {
+    assert.equal(bout.sides.length, 2);
+    assert.ok(bout.sides.every((side) => side.name.length > 0));
+    assert.ok(bout.sides.every((side) => side.points === null));
+  }
+});
+
+check("a played bout carries its format, kickoff and points over innings", () => {
+  const [fixtureRow] = parseLiveTeamFixtures(teamLiveHtml);
+  for (const bout of fixtureRow.bouts.filter((entry) => entry.status === "final")) {
+    assert.match(bout.format ?? "", /^GP\d+$/);
+    assert.match(bout.playedAt ?? "", /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+    for (const side of bout.sides) {
+      assert.equal(typeof side.points, "number");
+      assert.equal(typeof side.innings, "number");
+    }
+    assert.equal(bout.sides.filter((side) => side.won).length, 1, "exactly one side wins a bout");
+  }
+});
+
+check("bouts are ordered newest first so the live one is at the top of the list", () => {
+  const [fixtureRow] = parseLiveTeamFixtures(teamLiveHtml);
+  const numbers = fixtureRow.bouts.map((bout) => bout.setNo ?? 0);
+  assert.deepEqual(numbers, [...numbers].sort((a, b) => b - a));
+});
 console.log(`\n${passed}/${passed + failures.length} parser checks passed`);
 if (failures.length > 0) {
   console.log(`failing: ${failures.join(", ")}`);

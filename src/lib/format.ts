@@ -9,6 +9,9 @@ export function toDate(value: DateLike): Date | null {
   if (!value) return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
   if (typeof value === "string") {
+    // A date-only key is a calendar day, not a UTC instant: `new Date` would
+    // read it as UTC midnight and push a host west of UTC to the previous day.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return parseIsoDay(value);
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
@@ -65,6 +68,150 @@ export function daysUntil(value: DateLike): number | null {
   const date = toDate(value);
   if (!date) return null;
   return Math.round((atMidnight(date).getTime() - atMidnight(new Date()).getTime()) / 86_400_000);
+}
+
+/* ------------------------------------------------------------ calendar rails */
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** Monday-first, which is how a European tour calendar is read. */
+const WEEKDAYS_MON = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/** The first day of the week containing `value`, Monday. */
+export function startOfWeek(value: DateLike): Date | null {
+  const date = toDate(value);
+  if (!date) return null;
+  const monday = atMidnight(date);
+  const offset = (monday.getDay() + 6) % 7;
+  monday.setDate(monday.getDate() - offset);
+  return monday;
+}
+
+/** Index of a day within its Monday-first week: 0 = Monday. */
+export function weekIndex(value: DateLike): number {
+  const date = toDate(value);
+  if (!date) return 0;
+  return (date.getDay() + 6) % 7;
+}
+
+/** "Mon" … "Sun", Monday first, for a day key. */
+export function weekdayMon(value: DateLike): string {
+  const date = toDate(value);
+  if (!date) return "—";
+  return WEEKDAYS_MON[weekIndex(date)];
+}
+
+/** `2026-10-20`, in local time, as the rail's stable key. */
+export function isoDay(value: DateLike): string | null {
+  const date = toDate(value);
+  if (!date) return null;
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/** A `YYYY-MM-DD` string read back as local midnight, or null. */
+export function parseIsoDay(value: string | null | undefined): Date | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0);
+}
+
+/** Midnight today — the anchor every "today" test uses. */
+export function startOfToday(now = new Date()): Date {
+  return atMidnight(now);
+}
+
+/** The calendar date in Korea, the clock the association schedules on. A UTC
+ * server would otherwise open "today" nine hours early. */
+export function kstDay(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/** Shift a day key by whole days, staying on local midnight across DST. */
+export function shiftIsoDay(day: string, days: number): string {
+  const base = parseIsoDay(day) ?? atMidnight(new Date());
+  base.setDate(base.getDate() + days);
+  return isoDay(base) as string;
+}
+
+/** "Tue" / "Tuesday" for a day key. */
+export function weekdayOf(value: DateLike, long = false): string {
+  const date = toDate(value);
+  if (!date) return "—";
+  return (long ? WEEKDAYS_LONG : WEEKDAYS)[date.getDay()];
+}
+
+/** The small two-line date block used by rails and row gutters. */
+export function dateParts(value: DateLike): { day: string; month: string; weekday: string } {
+  const date = toDate(value);
+  if (!date) return { day: "—", month: "", weekday: "" };
+  return {
+    day: String(date.getDate()).padStart(2, "0"),
+    month: MONTHS[date.getMonth()].toUpperCase(),
+    weekday: WEEKDAYS_MON[weekIndex(date)],
+  };
+}
+
+/** "Today", "Tomorrow", "Yesterday", else "Tue 17 Nov". */
+export function relativeDay(value: DateLike): string {
+  const date = toDate(value);
+  if (!date) return "Date to be announced";
+  const diff = daysUntil(date) ?? 0;
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  if (diff === -1) return "Yesterday";
+  return `${weekdayOf(date)} ${date.getDate()} ${MONTHS[date.getMonth()]}`;
+}
+
+/** Inclusive list of day keys from start to end, capped so a long event cannot run away. */
+export function dayKeys(start: DateLike, end: DateLike, cap = 40): string[] {
+  const first = startOfToday(toDate(start) ?? new Date());
+  const last = startOfToday(toDate(end) ?? first);
+  const keys: string[] = [];
+  const cursor = new Date(first.getTime());
+  while (cursor.getTime() <= last.getTime() && keys.length < cap) {
+    keys.push(isoDay(cursor) as string);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return keys;
+}
+
+/** How far through an event a day key sits: 1-based day number, or null outside it. */
+export function dayOfEvent(day: string, start: DateLike, end: DateLike): number | null {
+  const target = parseIsoDay(day);
+  const first = toDate(start);
+  const last = toDate(end);
+  if (!target || !first || !last) return null;
+  const from = atMidnight(first).getTime();
+  const to = atMidnight(last).getTime();
+  const at = atMidnight(target).getTime();
+  if (at < from || at > to) return null;
+  return Math.round((at - from) / 86_400_000) + 1;
+}
+
+/** "18:30", from a local `YYYY-MM-DD HH:MM` stamp or a Date. */
+export function clockLabel(value: string | Date | null | undefined): string | null {
+  if (!value) return null;
+  const match = typeof value === "string" ? value.match(/(\d{1,2}):(\d{2})\s*$/) : null;
+  if (match) return `${match[1].padStart(2, "0")}:${match[2]}`;
+  if (value instanceof Date) {
+    return `${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")}`;
+  }
+  return null;
+}
+
+/** The date half of a local `YYYY-MM-DD HH:MM` stamp. */
+export function stampDay(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : null;
 }
 
 /* ------------------------------------------------------------------ numbers */

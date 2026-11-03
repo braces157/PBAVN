@@ -149,12 +149,12 @@ export default function AboutPage() {
               owners.
             </p>
             <p>
-              Statistics are reproduced from the association&apos;s own public data service for
+              Statistics are reproduced from the association's own public data service for
               informational purposes. If a figure here disagrees with the official site, the official
               site is correct.
             </p>
             <p>
-              Live scores are read from the association&apos;s scoring terminal. When no table is
+              Live scores are read from the association's scoring terminal. When no table is
               active the feed is empty, and this site reports idle rather than inferring a result.
             </p>
           </div>

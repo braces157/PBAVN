@@ -12,7 +12,8 @@
     "test:parsers": "node --experimental-strip-types scripts/test-parsers.mjs",
     "test:match": "node --experimental-strip-types scripts/test-match.mjs",
     "verify": "node scripts/verify-interactions.mjs",
-    "refresh-data": "node scripts/refresh-data.mjs"
+    "refresh-data": "node scripts/refresh-data.mjs && node --experimental-strip-types scripts/build-calendar.mjs",
+    "build-calendar": "node --experimental-strip-types scripts/build-calendar.mjs"
   },
   "dependencies": {
     "next": "15.5.28",

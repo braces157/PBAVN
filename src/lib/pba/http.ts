@@ -393,6 +393,34 @@ export async function fetchHtmlFragment(
   });
 }
 
+/*
+ * Reading a match without reading its date.
+ *
+ * The terminal localises a bracket row in two independent ways:
+ *
+ *   LangCode=en   names in Latin script, but the kickoff is cut to "HH:MM" and
+ *                 the win/loss mark is dropped from the result cell;
+ *   LangCode=ko   names in Korean, but the kickoff is the full "YY-MM-DD HH:MM"
+ *                 and the W/L mark is there.
+ *
+ * A screen that needs to know *when* a match was played therefore has to read
+ * the Korean variant and translate the names afterwards. The two are kept apart
+ * deliberately: `fetchHtmlFragment` is the English form every existing caller
+ * uses, and this one exists only for the calendar reads in `./matches-on-day`.
+ */
+export async function fetchDatedHtmlFragment(
+  path: string,
+  options: { revalidate?: number; timeoutMs?: number } = {},
+): Promise<string | null> {
+  const url = path.startsWith("http") ? path : `${APP_ORIGIN}${path}`;
+  return getText(url, {
+    revalidate: options.revalidate ?? 10,
+    timeoutMs: options.timeoutMs ?? 8_000,
+    accept: "text/html, */*",
+    referer: `${APP_ORIGIN}/mob/contest_new/admin_en/live_info.asp`,
+  });
+}
+
 /* ------------------------------------------------------------ team terminal */
 
 /**

@@ -21,3 +21,5 @@ next-env.d.ts
 # local working artefacts, never committed
 shots/
 research/
+.audit/
+.wt/

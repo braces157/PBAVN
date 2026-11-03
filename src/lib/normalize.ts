@@ -23,21 +23,37 @@ import type {
 export interface League {
   code: string;
   name: string;
+  /** The 2-4 letter circuit mark on scoreboard gutters and crest fallbacks. */
+  tag: string;
   tagline: string;
   /** Tailwind-friendly accent token used for chips and rails. */
   tone: "lime" | "rose" | "cyan" | "amber" | "violet";
 }
 
 export const LEAGUES: League[] = [
-  { code: "PBA1", name: "PBA Tour", tagline: "The top men's professional tour", tone: "lime" },
-  { code: "LPBA1", name: "LPBA Tour", tagline: "The women's professional tour", tone: "rose" },
-  { code: "PBA2", name: "Dream Tour", tagline: "Development tier", tone: "cyan" },
-  { code: "PBA3", name: "Challenge Tour", tagline: "Entry tier", tone: "amber" },
-  { code: "TLG", name: "Team League", tagline: "Franchise team competition", tone: "violet" },
+  { code: "PBA1", name: "PBA Tour", tag: "PBA", tagline: "The top men's professional tour", tone: "lime" },
+  { code: "LPBA1", name: "LPBA Tour", tag: "LPBA", tagline: "The women's professional tour", tone: "rose" },
+  { code: "PBA2", name: "Dream Tour", tag: "DRM", tagline: "Development tier", tone: "cyan" },
+  { code: "PBA3", name: "Challenge Tour", tag: "CHL", tagline: "Entry tier", tone: "amber" },
+  { code: "TLG", name: "Team League", tag: "TLG", tagline: "Franchise team competition", tone: "violet" },
 ];
 
 export function leagueByCode(code: string | null | undefined): League {
-  return LEAGUES.find((l) => l.code === code) ?? { code: code ?? "", name: code ?? "—", tagline: "", tone: "lime" };
+  return (
+    LEAGUES.find((l) => l.code === code) ?? {
+      code: code ?? "",
+      name: code ?? "—",
+      tag: code ?? "—",
+      tagline: "",
+      tone: "lime",
+    }
+  );
+}
+
+/** The circuit mark for a league code ("LPBA1" → "LPBA"), or the code itself. */
+export function leagueShort(code: string | null | undefined): string {
+  if (!code) return "—";
+  return leagueByCode(code).tag || code;
 }
 
 export function leagueName(code: string | null | undefined): string {

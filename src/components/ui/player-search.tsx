@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "./primitives";
 
@@ -60,6 +60,7 @@ function search(rows: IndexRow[], term: string): IndexRow[] {
 
 export function PlayerSearch({ variant = "header" }: { variant?: "header" | "page" }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [rows, setRows] = useState<IndexRow[] | null>(null);
@@ -67,6 +68,13 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
   const [cursor, setCursor] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // The header survives client-side navigation, so a click elsewhere on the
+  // page — a link out of the panel or the keyboard shortcut — has to reset it.
+  useEffect(() => {
+    setOpen(false);
+    setTerm("");
+  }, [pathname]);
 
   // The index is fetched once, on first focus, so it costs nothing until needed.
   const load = useCallback(async () => {
@@ -93,13 +101,24 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
     setCursor(0);
   }, [term]);
 
+  // A panel only ever opens for a real query, so it must close the moment the
+  // field loses its text or its focus. Otherwise it keeps covering the top of
+  // whatever page was navigated to — which is exactly why a click on the first
+  // event row under the header used to land on a search hit instead.
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: MouseEvent) => {
       if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
     };
+    const onFocusIn = (event: FocusEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
     document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
+    document.addEventListener("focusin", onFocusIn);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("focusin", onFocusIn);
+    };
   }, [open]);
 
   useEffect(() => {

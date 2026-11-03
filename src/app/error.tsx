@@ -22,7 +22,7 @@ export default function RouteError({
       <p className="eyebrow">Something broke</p>
       <h1 className="display-md mt-3 text-fog-100">This page could not be rendered</h1>
       <p className="mt-3 max-w-md text-[13.5px] leading-relaxed text-fog-500">
-        The association&apos;s data service may be unreachable, or a response arrived in a shape this
+        The association's data service may be unreachable, or a response arrived in a shape this
         page did not expect. Retrying usually works; the official site is the source of truth.
       </p>
       {error.digest && (
