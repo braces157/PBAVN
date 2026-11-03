@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getHeadToHead, getPlayer, getPlayerSeasonStats, getPlayers } from "@/lib/pba/api";
-import { getCurrentSeason, getSeasonList } from "@/lib/pba/service";
+import { getCurrentSeason, getSeasonList, getRankingBoard } from "@/lib/pba/service";
 import {
   hasStatData,
   leagueByCode,
@@ -11,6 +11,7 @@ import {
   type Player,
 } from "@/lib/normalize";
 import { average, grouped, percent, pick } from "@/lib/format";
+import { asset, isRealAsset } from "@/lib/pba/http";
 import { PlayerAvatar, NationPlate } from "@/components/ui/media";
 import { Chip, EmptyState, SectionHeading, cn } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/domain/filter-bar";
@@ -73,6 +74,13 @@ export default async function ComparePage({ searchParams }: PageProps) {
   const lineA = normalizePlayerStat(statA);
   const lineB = normalizePlayerStat(statB);
 
+  // On the empty view, offer the money-list leaders as one-click pairings so
+  // the page demonstrates what a comparison looks like before any input.
+  const suggestions =
+    !playerA && !playerB
+      ? (await getRankingBoard({ kind: "prize", leagueCode: "PBA1", season: seasonCode })).slice(0, 4)
+      : [];
+
   return (
     <>
       <PageHeader
@@ -99,7 +107,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
           />
           <button
             type="submit"
-            className="rounded-md bg-lime-400 px-4 py-2 text-[12.5px] font-semibold text-ink-950 transition-colors hover:bg-lime-300"
+            className="press rounded-md bg-lime-400 px-4 py-2 text-[12.5px] font-semibold text-ink-950 transition-colors hover:bg-lime-300"
           >
             Compare
           </button>
@@ -108,18 +116,65 @@ export default async function ComparePage({ searchParams }: PageProps) {
 
       <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-10">
         {!playerA && !playerB ? (
-          <EmptyState
-            title="Pick two players"
-            description="Search by name above — English or Korean both work. You can also open any player profile and use the compare link."
-            action={
-              <Link
-                href="/players"
-                className="mt-1 rounded-md border border-ink-700 px-3 py-1.5 text-[12.5px] text-fog-300 hover:border-ink-500 hover:text-fog-100"
-              >
-                Browse the directory
-              </Link>
-            }
-          />
+          <div>
+            <EmptyState
+              title="Pick two players"
+              description="Search by name above — English or Korean both work. You can also open any player profile and use the compare link."
+              action={
+                <Link
+                  href="/players"
+                  className="mt-1 rounded-md border border-ink-700 px-3 py-1.5 text-[12.5px] text-fog-300 hover:border-ink-500 hover:text-fog-100"
+                >
+                  Browse the directory
+                </Link>
+              }
+            />
+            {suggestions.length >= 2 && (
+              <section className="mt-6">
+                <p className="eyebrow mb-3">Or start from the money list</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[0, 2].map((start) => {
+                    const a = suggestions[start];
+                    const b = suggestions[start + 1];
+                    if (!a || !b) return null;
+                    return (
+                      <Link
+                        key={`${a.MemCode}-${b.MemCode}`}
+                        href={`/compare?a=${a.MemCode}&b=${b.MemCode}&season=${seasonCode}`}
+                        className="surface card-hover flex items-center justify-between gap-3 p-4"
+                      >
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <PlayerAvatar
+                            path={a.ImgURL}
+                            src={isRealAsset(a.ImgURL) ? asset(a.ImgURL) : null}
+                            name={pick(a.PlayerNameEN, a.PlayerNameKO)}
+                            size="sm"
+                          />
+                          <span className="truncate text-[13px] font-semibold text-fog-100">
+                            {pick(a.PlayerNameEN, a.PlayerNameKO)}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-[10.5px] font-bold uppercase tracking-[0.1em] text-fog-600">
+                          vs
+                        </span>
+                        <span className="flex min-w-0 items-center justify-end gap-2.5">
+                          <span className="truncate text-[13px] font-semibold text-fog-100">
+                            {pick(b.PlayerNameEN, b.PlayerNameKO)}
+                          </span>
+                          <PlayerAvatar
+                            path={b.ImgURL}
+                            src={isRealAsset(b.ImgURL) ? asset(b.ImgURL) : null}
+                            name={pick(b.PlayerNameEN, b.PlayerNameKO)}
+                            size="sm"
+                          />
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+          </div>
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2">

@@ -173,7 +173,7 @@ export default function AboutPage() {
                 href="https://www.pbatour.org/en/index"
                 target="_blank"
                 rel="noreferrer noopener"
-                className="rounded-lg bg-lime-400 px-4 py-2 text-[13px] font-semibold text-ink-950 transition-colors hover:bg-lime-300"
+                className="press rounded-lg bg-lime-400 px-4 py-2 text-[13px] font-semibold text-ink-950 transition-colors hover:bg-lime-300"
               >
                 pbatour.org ↗
               </a>

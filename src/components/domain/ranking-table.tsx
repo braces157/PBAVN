@@ -64,6 +64,7 @@ export function RankingTable({
   dense = false,
   className,
   maxHeight,
+  hideSortBar = false,
 }: {
   rows: RawRankingRow[];
   metric?: "prize" | "point";
@@ -71,12 +72,14 @@ export function RankingTable({
   dense?: boolean;
   className?: string;
   maxHeight?: string;
+  hideSortBar?: boolean;
 }) {
   const visible = typeof limit === "number" ? rows.slice(0, limit) : rows;
 
   return (
     <DataTable
       className={className}
+      hideSortBar={hideSortBar}
       payload={{
         columns: buildRankingColumns(metric, dense),
         rows: buildRankingRows(visible, metric, dense),

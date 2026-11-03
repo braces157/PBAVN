@@ -197,11 +197,31 @@ export async function getRankingTours(params: {
 
 /* -------------------------------------------------------- player statistics */
 
+/**
+ * Reads one player's season line.
+ *
+ * A `null` here is ambiguous on its own: it is both "the request failed" and
+ * "the feed answered with no stats". Callers that must tell those apart use
+ * `readPlayerSeasonStats`, which keeps the answer.
+ */
 export async function getPlayerSeasonStats(params: {
   memCode: string;
   seasonCode: string;
   pbaType: string;
 }): Promise<RawPlayerStat | null> {
+  return (await readPlayerSeasonStats(params)).stat;
+}
+
+/**
+ * `getPlayerSeasonStats` that also reports whether the feed answered at all,
+ * so a caller can skip work on an outage instead of mistaking it for an empty
+ * season. An empty season is `{ result: { list: [] } }`, not a `null`.
+ */
+export async function readPlayerSeasonStats(params: {
+  memCode: string;
+  seasonCode: string;
+  pbaType: string;
+}): Promise<{ answered: boolean; stat: RawPlayerStat | null }> {
   const data = await fetchJson<PbaEnvelope<RawPlayerStat>>(
     `/stats/service/season${qs({
       seasonCode: params.seasonCode,
@@ -211,7 +231,7 @@ export async function getPlayerSeasonStats(params: {
     })}`,
     { revalidate: CACHE.stats },
   );
-  return rows(data)[0] ?? null;
+  return { answered: data !== null, stat: rows(data)[0] ?? null };
 }
 
 export async function getPlayerTourStats(params: {

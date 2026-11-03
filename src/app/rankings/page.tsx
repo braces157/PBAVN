@@ -179,7 +179,7 @@ export default async function RankingsPage({ searchParams }: PageProps) {
                   {metric === "prize" ? "Sorted by prize money" : "Sorted by ranking points"}
                 </p>
               </div>
-              <RankingTable rows={rows} metric={metric} maxHeight="72vh" />
+              <RankingTable rows={rows} metric={metric} />
             </div>
           </>
         )}

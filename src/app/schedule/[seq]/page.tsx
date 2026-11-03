@@ -140,7 +140,7 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
                     href={event.guideUrl}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="inline-flex items-center gap-2 rounded-lg bg-lime-400 px-4 py-2 text-[13px] font-semibold text-ink-950 transition-colors hover:bg-lime-300"
+                    className="press inline-flex items-center gap-2 rounded-lg bg-lime-400 px-4 py-2 text-[13px] font-semibold text-ink-950 transition-colors hover:bg-lime-300"
                   >
                     Event guide ↗
                   </a>
@@ -211,26 +211,11 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
       </section>
 
       <div className="mx-auto max-w-[1440px] px-4 py-12 sm:px-6 lg:px-10">
-        <div className="grid gap-10 lg:grid-cols-[1.35fr_0.65fr] lg:gap-14">
+        <div className="grid gap-10 lg:grid-cols-[1fr_340px] lg:gap-14">
           <div>
-            <h2 className="display-md text-fog-100">Event facts</h2>            <dl className="mt-5 grid gap-x-10 sm:grid-cols-2">
-              {facts.map((fact) => (
-                <KeyValue key={fact.label} label={fact.label}>
-                  <span className="line-clamp-3">{fact.value}</span>
-                </KeyValue>
-              ))}
-            </dl>
-
-            {event.broadcast && !isPlaceholder(event.broadcast) && (
-              <div className="mt-8 rounded-[14px] border border-ink-750 bg-ink-900 p-5">
-                <p className="eyebrow">Where to watch</p>
-                <p className="mt-2 text-[13.5px] leading-relaxed text-fog-300">{event.broadcast}</p>
-              </div>
-            )}
-
             {isTeamLeague
               ? teamEvent && teamEvent.fixtures.length > 0 && (
-                  <section className="mt-10">
+                  <section>
                     <div className="flex flex-wrap items-end justify-between gap-3">
                       <div>
                         <p className="eyebrow">Results</p>
@@ -251,7 +236,7 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
                   </section>
                 )
               : matches.length > 0 && (
-                  <section className="mt-10">
+                  <section>
                     <div className="flex flex-wrap items-end justify-between gap-3">
                       <div>
                         <p className="eyebrow">Results</p>
@@ -274,28 +259,50 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
                     )}
                   </section>
                 )}
+
+            {event.broadcast && !isPlaceholder(event.broadcast) && (
+              <div className="mt-10 rounded-[14px] border border-ink-750 bg-ink-900 p-5">
+                <p className="eyebrow">Where to watch</p>
+                <p className="mt-2 text-[13.5px] leading-relaxed text-fog-300">{event.broadcast}</p>
+              </div>
+            )}
           </div>
 
-          <aside>
-            <h2 className="font-display text-lg font-bold text-fog-100">Around this event</h2>
-            {siblings.length > 0 ? (
-              <div className="mt-3 surface px-4 py-1">
-                {siblings.map((sibling) => (
-                  <EventRow key={sibling.id} event={sibling} />
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                className="mt-3"
-                title="No neighbouring events"
-                description="This circuit has no other published events in this season."
-              />
+          <aside className="space-y-8">
+            {facts.length > 6 && (
+              <section>
+                <h2 className="font-display text-lg font-bold text-fog-100">Event facts</h2>
+                <dl className="mt-2">
+                  {facts.slice(6).map((fact) => (
+                    <KeyValue key={fact.label} label={fact.label}>
+                      <span className="line-clamp-3">{fact.value}</span>
+                    </KeyValue>
+                  ))}
+                </dl>
+              </section>
             )}
-            <div className="mt-4">
-              <TextLink href={`/schedule?season=${event.season}&league=${event.league}`}>
-                All {league.name} events
-              </TextLink>
-            </div>
+
+            <section>
+              <h2 className="font-display text-lg font-bold text-fog-100">Around this event</h2>
+              {siblings.length > 0 ? (
+                <div className="mt-3 surface px-4 py-1">
+                  {siblings.map((sibling) => (
+                    <EventRow key={sibling.id} event={sibling} />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  className="mt-3"
+                  title="No neighbouring events"
+                  description="This circuit has no other published events in this season."
+                />
+              )}
+              <div className="mt-4">
+                <TextLink href={`/schedule?season=${event.season}&league=${event.league}`}>
+                  All {league.name} events
+                </TextLink>
+              </div>
+            </section>
           </aside>
         </div>
       </div>

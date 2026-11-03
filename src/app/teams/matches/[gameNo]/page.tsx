@@ -7,7 +7,7 @@ import { FIXTURES_ARCHIVE_TTL, FIXTURES_IN_PLAY_TTL, getBoutInnings, getFixtureB
 import { average } from "@/lib/format";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
 import { TeamLogo } from "@/components/ui/media";
-import { Chip, EmptyState, cn } from "@/components/ui/primitives";
+import { Chip, EmptyState, LiveChip, cn } from "@/components/ui/primitives";
 
 export const revalidate = 300;
 
@@ -158,13 +158,76 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
 
       <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-10">
         {/* -------------------------------------------------- score board */}
-        <div className="surface p-5">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-            <div className="flex min-w-0 items-center justify-end gap-3">
+        <div className="surface p-5 sm:p-7">
+          {/* Phone: one row per team, score on the right. A name squeezed
+              beside a crest and a big score truncates into single letters. */}
+          <div className="space-y-3 sm:hidden">
+            {([
+              {
+                name: bouts.homeName,
+                logo: bouts.homeLogo,
+                avg: bouts.homeAverage,
+                hr: bouts.homeHighRun,
+                sets: bouts.homeSets,
+                won: bouts.winner === "home",
+              },
+              {
+                name: bouts.awayName,
+                logo: bouts.awayLogo,
+                avg: bouts.awayAverage,
+                hr: bouts.awayHighRun,
+                sets: bouts.awaySets,
+                won: bouts.winner === "away",
+              },
+            ] as const).map((side, index) => (
+              // An unparsed board leaves both names "", so the two fixed rows
+              // are keyed by position instead.
+              <div key={index} className="flex items-center gap-3">
+                <TeamLogo src={side.logo} name={side.name} size="md" />
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={cn(
+                      "truncate font-display text-[15px] font-bold",
+                      side.won ? "text-lime-300" : "text-fog-100",
+                    )}
+                  >
+                    {side.name || "—"}
+                  </p>
+                  {side.avg !== null && (
+                    <p className="tnum mt-0.5 truncate text-[11px] text-fog-500">
+                      AVG {side.avg.toFixed(3)} · HR {side.hr ?? "—"}
+                    </p>
+                  )}
+                </div>
+                {side.won && <Chip tone="lime">Winner</Chip>}
+                <span
+                  className={cn(
+                    "tnum font-display text-3xl font-extrabold",
+                    side.won ? "text-lime-400" : "text-fog-100",
+                  )}
+                >
+                  {side.sets ?? "–"}
+                </span>
+              </div>
+            ))}
+            {!bouts.winner && (
+              <div className="flex justify-center pt-1">
+                <LiveChip label="In play" />
+              </div>
+            )}
+          </div>
+
+          <div className="hidden grid-cols-[1fr_auto_1fr] items-center gap-4 sm:grid sm:gap-6">
+            <div className="flex min-w-0 items-center justify-end gap-3 sm:gap-4">
               <div className="min-w-0 text-right">
+                {bouts.winner === "home" && (
+                  <Chip tone="lime" className="mb-1.5 max-sm:hidden">
+                    Winner
+                  </Chip>
+                )}
                 <p
                   className={cn(
-                    "truncate font-display text-[15px] font-bold",
+                    "truncate font-display text-[15px] font-bold sm:text-base",
                     bouts.winner === "home" ? "text-lime-300" : "text-fog-100",
                   )}
                 >
@@ -179,25 +242,32 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
               <TeamLogo src={bouts.homeLogo} name={bouts.homeName} size="lg" />
             </div>
             <div className="text-center">
-              <p className="tnum font-display text-3xl font-extrabold text-fog-100">
-                {bouts.homeSets ?? "–"}–{bouts.awaySets ?? "–"}
+              <p className="tnum font-display text-4xl font-extrabold leading-none tracking-tight sm:text-5xl">
+                <span className={bouts.winner === "home" ? "text-lime-400" : "text-fog-100"}>
+                  {bouts.homeSets ?? "–"}
+                </span>
+                <span className="mx-1.5 align-middle text-[0.6em] font-bold text-ink-500">–</span>
+                <span className={bouts.winner === "away" ? "text-lime-400" : "text-fog-100"}>
+                  {bouts.awaySets ?? "–"}
+                </span>
               </p>
-              {bouts.winner ? (
-                <Chip tone="violet" className="mt-1">
-                  Winner
-                </Chip>
-              ) : (
-                <Chip tone="live" className="mt-1">
-                  In play
-                </Chip>
+              {!bouts.winner && (
+                <div className="mt-2">
+                  <LiveChip label="In play" />
+                </div>
               )}
             </div>
-            <div className="flex min-w-0 items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
               <TeamLogo src={bouts.awayLogo} name={bouts.awayName} size="lg" />
               <div className="min-w-0">
+                {bouts.winner === "away" && (
+                  <Chip tone="lime" className="mb-1.5 max-sm:hidden">
+                    Winner
+                  </Chip>
+                )}
                 <p
                   className={cn(
-                    "truncate font-display text-[15px] font-bold",
+                    "truncate font-display text-[15px] font-bold sm:text-base",
                     bouts.winner === "away" ? "text-lime-300" : "text-fog-100",
                   )}
                 >

@@ -29,6 +29,7 @@ import {
 } from "../src/lib/pba/team-matches-parse.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
+const root = join(here, "..");
 const fixture = (name) => readFileSync(join(here, "..", "tests", "fixtures", name), "utf8");
 
 let passed = 0;
@@ -597,6 +598,34 @@ check("an unparseable innings answer yields an empty chain", () => {
   assert.deepEqual(parseInnings(null), { maxInnings: 0, rows: [] });
   assert.deepEqual(parseInnings("<html>oops</html>"), { maxInnings: 0, rows: [] });
   assert.deepEqual(parseInnings("{}"), { maxInnings: 0, rows: [] });
+});
+
+// A player profile falls back to an older season when the current one is empty.
+// That fallback must not fire on an outage, or an unreachable feed is quoted as
+// the previous season's figures. The two cases differ upstream: an empty season
+// is an envelope with an empty list, an outage is no envelope at all. This test
+// reads the page source, because the consequence lives in that branch — a local
+// re-statement of the rule would pass even after the guard was deleted.
+check("the season fallback is gated on the feed answering, not just on emptiness", () => {
+  const page = readFileSync(
+    join(root, "src/app/players/[memCode]/page.tsx"),
+    "utf8",
+  );
+  assert.match(
+    page,
+    /if \(first\.answered && !requestedSeason && !hasStatData/,
+    "the older-season fallback must require first.answered",
+  );
+  assert.match(
+    page,
+    /seasonUnavailable/,
+    "an unanswered current season must render the partial-data notice",
+  );
+  assert.match(
+    page,
+    /if \(!probe\.answered\) break/,
+    "a failed probe must stop the walk instead of continuing on stale seasons",
+  );
 });
 
 console.log(`\n${passed}/${passed + failures.length} parser checks passed`);
