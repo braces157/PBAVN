@@ -284,7 +284,7 @@ function PlayerCard({ player }: { player: Player }) {
         </div>
       </div>
 
-      {player.wins === 0 && player.losses === 0 && player.prize === 0 ? (
+      {player.wins === 0 && player.losses === 0 && player.draws === 0 && player.prize === 0 ? (
         <div className="border-t border-ink-800 px-3 py-2.5 text-center">
           <p className="text-[10.5px] text-fog-600">No recorded matches yet</p>
         </div>

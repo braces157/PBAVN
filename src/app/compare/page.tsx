@@ -140,7 +140,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
                     return (
                       <Link
                         key={`${a.MemCode}-${b.MemCode}`}
-                        href={`/compare?a=${a.MemCode}&b=${b.MemCode}`}
+                        href={`/compare?a=${a.MemCode}&b=${b.MemCode}&season=${seasonCode}`}
                         className="surface card-hover flex items-center justify-between gap-3 p-4"
                       >
                         <span className="flex min-w-0 items-center gap-2.5">

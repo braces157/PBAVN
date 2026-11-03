@@ -179,8 +179,10 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
                 sets: bouts.awaySets,
                 won: bouts.winner === "away",
               },
-            ] as const).map((side) => (
-              <div key={side.name} className="flex items-center gap-3">
+            ] as const).map((side, index) => (
+              // An unparsed board leaves both names "", so the two fixed rows
+              // are keyed by position instead.
+              <div key={index} className="flex items-center gap-3">
                 <TeamLogo src={side.logo} name={side.name} size="md" />
                 <div className="min-w-0 flex-1">
                   <p

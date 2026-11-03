@@ -31,7 +31,7 @@ export function EventMatches({
   }
 
   return (
-    <div className="md:columns-2 md:gap-8 [&>section]:mb-7 [&>section]:break-inside-avoid md:[&>section:last-child]:mb-0">
+    <div className="md:columns-2 md:gap-8 lg:columns-1 xl:columns-2 [&>section]:mb-7 [&>section]:break-inside-avoid md:[&>section:last-child]:mb-0">
       {rounds.map((group) => (
         <section key={group.round}>
           <div className="flex items-baseline justify-between gap-3 border-b border-ink-750 pb-2">
