@@ -385,6 +385,29 @@ export async function getTeamStandings(params: {
   return rows(data);
 }
 
+/**
+ * The same table in Korean.
+ *
+ * Used to bridge the team terminal's live page, which names clubs in Korean
+ * ("크라운해태 라온"), to the English spelling the site prints. The English
+ * feed reports the club as `CROWN HAITAI LAON`; nothing in it remembers the
+ * Korean any more, so the join key has to come from the localized request.
+ */
+export async function getTeamStandingsKorean(params: {
+  seasonCode: string;
+  leagueCode: string;
+  roundCode?: string;
+}): Promise<RawTeamStat[]> {
+  const { seasonCode, leagueCode, roundCode = "0" } = params;
+  const data = await fetchJson<PbaEnvelope<RawTeamStat>>(
+    `https://www.pbatour.org/ko/teamLeague/stats/ajax/seasonTeam${qs(
+      teamParams(seasonCode, leagueCode, roundCode, { orderBy: "", orderDirection: "", langCode: "ko" }),
+    )}`,
+    { revalidate: CACHE.stats },
+  );
+  return rows(data);
+}
+
 export async function getTeamPlayerStats(params: {
   seasonCode: string;
   leagueCode: string;

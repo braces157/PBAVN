@@ -334,3 +334,127 @@ export function KeyValue({ label, children }: { label: string; children: ReactNo
     </div>
   );
 }
+
+/* ------------------------------------------------------- console building blocks */
+
+/**
+ * The panel that every console page is built from: a 1px hairline card with a
+ * compact title bar. Matches the sheet-like blocks on a scoreboard site —
+ * content first, chrome kept to a single line of type.
+ */
+export function Panel({
+  title,
+  meta,
+  action,
+  children,
+  className,
+  bodyClassName,
+  id,
+  stickyHead = false,
+}: {
+  title?: ReactNode;
+  meta?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  bodyClassName?: string;
+  id?: string;
+  /**
+   * Keep the title bar under the site header while the panel body scrolls past.
+   * On short panels the browser clamps the offset, which inside an
+   * `overflow-hidden` ancestor hides the header entirely — so only long panels
+   * ask for it.
+   */
+  stickyHead?: boolean;
+}) {
+  return (
+    <section
+      id={id}
+      className={cn(
+        // `overflow-hidden` makes the section a scroll container, which stops the
+        // sticky header from ever pinning; clip cuts without that side effect.
+        "rounded-[10px] border border-ink-750 bg-ink-900",
+        stickyHead ? "overflow-clip" : "overflow-hidden",
+        className,
+      )}
+    >
+      {(title || action) && (
+        <header
+          className={cn(
+            "flex min-h-[38px] items-center justify-between gap-3 border-b border-ink-800 px-3 py-2",
+            stickyHead && "sticky top-16 z-30 bg-ink-900",
+          )}
+        >
+          <div className="flex min-w-0 items-baseline gap-2">
+            <h2 className="truncate font-display text-[12.5px] font-bold uppercase tracking-[0.09em] text-fog-100">
+              {title}
+            </h2>
+            {meta && <span className="tnum shrink-0 text-[11px] text-fog-600">{meta}</span>}
+          </div>
+          {action && <div className="shrink-0">{action}</div>}
+        </header>
+      )}
+      <div className={bodyClassName}>{children}</div>
+    </section>
+  );
+}
+
+/**
+ * A strip of tabs rendered as links, so every view stays addressable.
+ * The active tab keeps the restrained lime underline rather than a filled pill:
+ * a scoreboard reader scans labels, not buttons.
+ */
+export function TabStrip({
+  items,
+  className,
+  sticky = false,
+}: {
+  items: { href: string; label: string; count?: number; active?: boolean }[];
+  className?: string;
+  sticky?: boolean;
+}) {
+  return (
+    <nav
+      aria-label="Section tabs"
+      className={cn(
+        "flex items-stretch gap-0 overflow-x-auto border-b border-ink-800",
+        sticky && "sticky top-16 z-30 bg-ink-950/92 backdrop-blur-xl",
+        className,
+      )}
+    >
+      {items.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          aria-current={item.active ? "page" : undefined}
+          data-active={item.active ? "true" : undefined}
+          className={cn(
+            "relative -mb-px shrink-0 border-b-2 px-3.5 py-2.5 text-[12.5px] font-semibold transition-colors",
+            item.active
+              ? "border-lime-400 text-fog-100"
+              : "border-transparent text-fog-500 hover:border-ink-600 hover:text-fog-200",
+          )}
+        >
+          {item.label}
+          {typeof item.count === "number" && (
+            <span className="tnum ml-1.5 text-[10.5px] text-fog-600">{item.count}</span>
+          )}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/** Small right-aligned count badge for a list row, e.g. "3M" matches in a round. */
+export function CountTag({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "tnum inline-block rounded-[4px] border border-ink-700 bg-ink-850 px-1.5 py-[1px] text-[10px] font-semibold text-fog-500",
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
+}

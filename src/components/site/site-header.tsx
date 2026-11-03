@@ -16,7 +16,13 @@ const NAV = [
   { href: "/news", label: "News" },
 ];
 
+/**
+ * A match card is reached from an event, so the Schedule nav stays lit for
+ * `/matches/*` — otherwise the header loses its position on the way to the card
+ * and the reader has to work out where they are.
+ */
 function isActive(pathname: string, href: string) {
+  if (href === "/schedule" && pathname.startsWith("/matches")) return true;
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -123,10 +129,14 @@ export function SiteHeader() {
         </div>
       </div>
 
-      {/* mobile drawer */}
+      {/* Mobile drawer. `invisible` when closed, not just `max-h-0`: a
+          zero-height overflow container still leaves its boxes hit-testable in
+          one-column layouts, which made every nav link look clickable while it
+          was covered by the page behind it. */}
       <div
+        aria-hidden={!open}
         className={`overflow-hidden border-t border-ink-750 bg-ink-950/97 backdrop-blur-xl transition-[max-height,opacity] duration-300 lg:hidden ${
-          open ? "max-h-[520px] opacity-100" : "max-h-0 opacity-0"
+          open ? "max-h-[520px] opacity-100" : "invisible max-h-0 opacity-0"
         }`}
       >
         <div className="mx-auto max-w-[1440px] px-4 pt-3 sm:px-6 md:hidden">

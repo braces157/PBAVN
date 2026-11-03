@@ -11,7 +11,7 @@ import {
 import { youtubeId } from "@/lib/format";
 import { MatchHeader, MatchTotals } from "@/components/domain/match/match-summary";
 import { SetNav, SetPanel } from "@/components/domain/match/set-panel";
-import { EmptyState, TextLink } from "@/components/ui/primitives";
+import { EmptyState, Panel, TextLink } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/domain/filter-bar";
 import type { MatchTotalRow } from "@/lib/pba/scoreboard";
 
@@ -160,19 +160,18 @@ export default async function MatchPage({
           <aside className="space-y-4">
             <MatchTotals rows={rows} names={names} />
 
-            <div className="surface p-4">
-              <p className="eyebrow">About this card</p>
-              <p className="mt-2 text-[12px] leading-relaxed text-fog-500">
+            <Panel title="This card">
+              <p className="px-3 py-2.5 text-[11.5px] leading-relaxed text-fog-500">
                 Sets, points, innings, averages and high runs are published by the scoring terminal.
                 Per-inning runs are read from the same record, so a turn is one visit to the table.
               </p>
               {covered < analysed.length && (
-                <p className="mt-2 text-[12px] leading-relaxed text-fog-500">
+                <p className="border-t border-ink-800 px-3 py-2.5 text-[11.5px] leading-relaxed text-fog-500">
                   {analysed.length - covered} of {analysed.length} sets had no turn record, so only
                   their published score is shown.
                 </p>
               )}
-            </div>
+            </Panel>
           </aside>
         </div>
       </div>

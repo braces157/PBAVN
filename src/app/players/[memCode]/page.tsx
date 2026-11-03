@@ -256,7 +256,7 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                 </div>
 
                 <p className="mt-3 text-[11.5px] leading-relaxed text-fog-600">
-                  Rank shows the player&apos;s position on that metric within the {league.name} table for
+                  Rank shows the player's position on that metric within the {league.name} table for
                   this season.
                 </p>
               </>

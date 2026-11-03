@@ -1,42 +1,51 @@
+import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
-import { getPlayers, getPressList, getTeamStandings } from "@/lib/pba/api";
+import { getPressList, getTeamStandings } from "@/lib/pba/api";
 import {
-  englishSponsor,
-  englishVenue,
   getActiveTeamSeason,
   getCurrentSeason,
   getLeaders,
   getRankingBoard,
-  getSeasonEvents,
-  getSeasonSnapshot,
   seasonLabel,
-  teamLeagueTitle,
 } from "@/lib/pba/service";
-import { normalizeTeam, normalizeArticle, LEADER_CATEGORIES } from "@/lib/normalize";
-import { excerpt, fmtDate, grouped, percent, pick, wonCompact } from "@/lib/format";
+import {
+  calendarEvents,
+  eventsOnDay,
+  nextActiveDay,
+  previousActiveDay,
+  type CalendarEvent,
+} from "@/lib/pba/calendar";
+import { getLiveFeed, type LiveMatch } from "@/lib/pba/live";
+import { LEADER_CATEGORIES, leagueByCode, leagueShort, normalizeArticle, normalizeTeam } from "@/lib/normalize";
+import { excerpt, fmtDate, fmtRange, grouped, isoDay, kstDay, percent, pick, relativeDay, shiftIsoDay, wonCompact } from "@/lib/format";
 import { asset, isRealAsset } from "@/lib/pba/http";
-import { FeaturedEvent, EventRow } from "@/components/domain/event-card";
-import { RankingTable } from "@/components/domain/ranking-table";
-import { StandingsTable } from "@/components/domain/standings-table";
-import { PlayerAvatar } from "@/components/ui/media";
+import { DateRail } from "@/components/domain/date-rail";
+import { TodayBoard, TodayPanelSkeleton } from "@/components/domain/today-panel";
+import { PlayerAvatar, TeamLogo } from "@/components/ui/media";
 import { SafeImage } from "@/components/ui/safe-image";
-import { Chip, EmptyState, LiveChip, SectionHeading, Stat, TextLink, cn } from "@/components/ui/primitives";
+import { Chip, LiveChip, Panel, Stat, TextLink, cn } from "@/components/ui/primitives";
 
-export const revalidate = 600;
+export const revalidate = 300;
+
+export const metadata: Metadata = {
+  title: "Scores, schedule and standings",
+  description:
+    "Today's PBA and LPBA matches, the live scoreboard, the full tour calendar, prize-money standings and team-league tables.",
+};
 
 export default async function HomePage() {
+  const today = kstDay();
   const season = await getCurrentSeason();
   const seasonCode = season.SeasonCode;
 
-  const [snapshot, events, pbaRank, lpbaRank, teamSeason, press, leaders, directory] = await Promise.all([
-    getSeasonSnapshot(seasonCode),
-    getSeasonEvents(seasonCode),
+  const [feed, press, pbaRank, lpbaRank, teamSeason, leaders] = await Promise.all([
+    getLiveFeed(),
+    getPressList(1, 6),
     getRankingBoard({ kind: "prize", leagueCode: "PBA1", season: seasonCode }),
     getRankingBoard({ kind: "prize", leagueCode: "LPBA1", season: seasonCode }),
     getActiveTeamSeason(),
-    getPressList(1, 3),
     getLeaders(seasonCode, "PBA1"),
-    getPlayers({ page: 1, pageSize: 1 }),
   ]);
 
   const standings = teamSeason
@@ -50,338 +59,581 @@ export default async function HomePage() {
 
   const articles = press.list.map(normalizeArticle);
 
-  const currentEvent = snapshot.current;
-  const upcoming = snapshot.upcoming.slice(0, 4);
-  const completed = snapshot.completed.slice(0, 3);
+  const events = calendarEvents();
+  const liveToday = eventsOnDay(today, events).filter((event) => event.status === "live");
+  const startingToday = eventsOnDay(today, events).filter((event) => event.status === "upcoming");
+  // "Next up" repeats the in-progress events when today is active, and never
+  // leaves them behind; the day search skips live events so the panel shows
+  // what has yet to start.
+  const nextDay = nextActiveDay(today, liveToday.length ? events.filter((event) => event.status !== "live") : events);
+  const upcoming = nextDay ? eventsOnDay(nextDay, events).filter((event) => event.status !== "live") : [];
+  // An event that started earlier in the week can still be running; "Last out"
+  // lists only what has finished.
+  const lastDay = previousActiveDay(today, events.filter((event) => event.status === "completed"));
+  const recent = lastDay ? eventsOnDay(lastDay, events).filter((event) => event.status === "completed") : [];
+  const featured = liveToday[0] ?? startingToday[0] ?? upcoming[0] ?? recent[0] ?? events[events.length - 1] ?? null;
 
-  const leaderPicks = LEADER_CATEGORIES.filter((c) => ["에버리지", "하이런", "최다승", "공격성공률"].includes(c.key))
+  // The rail opens a week before today rather than a month: a scoreboard reader
+  // is looking at this week, and the selected day has to be visible without
+  // scrolling a rail that starts in the past.
+  const railFrom = shiftIsoDay(today, -7);
+  const railTo = shiftIsoDay(today, 45);
+  const railDays = dayWindow(railFrom, railTo);
+  const railCounts = new Map<string, number>();
+  for (const event of events) {
+    const start = isoDay(event.start);
+    if (!start) continue;
+    railCounts.set(start, (railCounts.get(start) ?? 0) + 1);
+  }
+
+  const leaderPicks = LEADER_CATEGORIES.filter((category) =>
+    ["에버리지", "하이런", "최다승", "공격성공률"].includes(category.key),
+  )
     .map((category) => ({
       category,
       rows: leaders.filter((row) => row.Category === category.key).sort((a, b) => a.Rank - b.Rank).slice(0, 3),
     }))
     .filter((group) => group.rows.length > 0);
 
-  const prizeLeader = pbaRank[0] ?? null;
-
   return (
-    <>
-      {/* ------------------------------------------------------------- hero */}
-      <section className="relative overflow-hidden border-b border-ink-800">
-        <div className="pointer-events-none absolute inset-0 grid-field opacity-60" aria-hidden="true" />
-        <div
-          className="pointer-events-none absolute -left-40 -top-40 h-[520px] w-[520px] rounded-full opacity-[0.13] blur-[120px]"
-          style={{ background: "var(--color-lime-400)" }}
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute -right-32 top-32 h-[420px] w-[420px] rounded-full opacity-[0.10] blur-[110px]"
-          style={{ background: "var(--color-violet-450)" }}
-          aria-hidden="true"
-        />
+    <div className="mx-auto max-w-[1440px] px-3 pb-10 pt-3 sm:px-5 lg:px-6">
+      {/* -------------------------------------------------------- page head */}
+      <header className="flex flex-wrap items-end justify-between gap-3 px-1 pb-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            {feed.available ? <LiveChip label="Scoring now" /> : null}
+            <Chip tone="neutral">{seasonLabel(season)} season</Chip>
+          </div>
+          <h1 className="display-sm mt-1.5 text-fog-100">Every table, every frame</h1>
+          <p className="mt-1 text-[12px] text-fog-500">
+            {relativeDay(today)} · {feed.matches.length > 0 ? `${feed.matches.length} table${feed.matches.length === 1 ? "" : "s"} live` : "no table live"}
+            {liveToday.length > 0
+              ? ` · ${liveToday.length} event${liveToday.length === 1 ? "" : "s"} in progress`
+              : nextDay
+                ? ` · next event ${relativeDay(nextDay).toLowerCase()}`
+                : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/live"
+            className="press inline-flex items-center gap-1.5 rounded-md bg-lime-400 px-3 py-1.5 text-[12px] font-semibold text-ink-950 transition-colors hover:bg-lime-300"
+          >
+            <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-ink-950" />
+            Match centre
+          </Link>
+          <Link
+            href="/schedule"
+            className="inline-flex items-center gap-1.5 rounded-md border border-ink-700 px-3 py-1.5 text-[12px] font-medium text-fog-300 transition-colors hover:border-ink-500 hover:text-fog-100"
+          >
+            Full schedule
+          </Link>
+        </div>
+      </header>
 
-        <div className="relative mx-auto max-w-[1440px] px-4 py-14 sm:px-6 lg:px-10 lg:py-20">
-          <div className="grid items-start gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-14">
-            <div className="rise">
-              <div className="flex flex-wrap items-center gap-2">
-                {snapshot.live.length > 0 ? <LiveChip label="On now" /> : null}
-                <Chip tone="neutral">{seasonLabel(season)} season</Chip>
-                <Chip tone="neutral">Live pbatour.org data</Chip>
-              </div>
+      <div className="grid gap-4 lg:grid-cols-[116px_minmax(0,1fr)_300px]">
+        {/* ------------------------------------------------------ date rail */}
+        <aside className="hidden lg:block">
+          <DateRail
+            days={railDays}
+            counts={railCounts}
+            selected={today}
+            today={today}
+            hrefFor={(day) => `/schedule?day=${day}`}
+            scrollerId="home-rail"
+            label="Dates"
+          />
+        </aside>
 
-              <h1 className="display-xl mt-6 text-fog-100">
-                Every frame
-                <br />
-                of the tour,
-                <br />
-                <span className="text-lime-400">scored.</span>
-              </h1>
+        {/* ------------------------------------------------------- main col */}
+        <main className="min-w-0 space-y-4">
+          {/* Today: every match of the day — played, on the table, and to come —
+              streamed because the read fans out over every running event. */}
+          <Suspense fallback={<TodayPanelSkeleton day={today} />}>
+            <TodayBoard day={today} />
+          </Suspense>
 
-              <p className="mt-6 max-w-lg text-[15px] leading-relaxed text-fog-400">
-                Three-cushion at professional speed. Live match state, player and team statistics,
-                prize and ranking points, and the full PBA &amp; LPBA calendar — read from the
-                association&apos;s own data service.
-              </p>
+          {liveToday.length > 0 && (
+            <Panel title="Events in progress" meta={String(liveToday.length)}>
+              {liveToday.map((event) => (
+                <EventBoardRow key={event.id} event={event} live />
+              ))}
+            </Panel>
+          )}
 
-              <div className="mt-7 flex flex-wrap gap-2.5">
-                <Link
-                  href="/live"
-                  className="press inline-flex items-center gap-2 rounded-lg bg-lime-400 px-4 py-2.5 text-[13.5px] font-semibold text-ink-950 transition-colors hover:bg-lime-300"
-                >
-                  <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-ink-950" />
-                  Match centre
+          {/* Live wire */}
+          <Panel
+            title="Scoreboard wire"
+            meta={feed.source}
+            action={
+              <Link href="/live" className="text-[11.5px] font-medium text-fog-400 hover:text-lime-300">
+                Open match centre →
+              </Link>
+            }
+          >
+            {feed.matches.length > 0 ? (
+              <ul className="divide-y divide-ink-800/70">
+                {feed.matches.map((match) => (
+                  <li key={match.key}>
+                    <LiveWireRow match={match} />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-3">
+                <p className="text-[12px] text-fog-450">
+                  {feed.reachable
+                    ? "No match is being scored right now."
+                    : "The scoring terminal did not answer this time."}
+                </p>
+                <Link href="/live" className="text-[11.5px] font-medium text-fog-400 hover:text-lime-300">
+                  Watch the wire →
                 </Link>
-                <Link
-                  href="/players"
-                  className="inline-flex items-center gap-2 rounded-lg border border-ink-700 px-4 py-2.5 text-[13.5px] font-semibold text-fog-200 transition-colors hover:border-ink-500 hover:text-fog-100"
-                >
-                  Player directory
-                  <span className="tnum text-[11px] text-fog-600">{grouped(directory.total)}</span>
-                </Link>
               </div>
+            )}
+          </Panel>
 
-              <dl className="mt-10 grid max-w-xl grid-cols-2 gap-x-6 gap-y-5 border-t border-ink-800 pt-7 sm:grid-cols-4">
-                <Stat label="Ranked players" value={grouped(directory.total)} />
-                <Stat label="Tour events" value={grouped(events.length)} />
-                <Stat label="Team clubs" value={grouped(standings.length || 0)} />
+          {/* Next up */}
+          {upcoming.length > 0 && (
+            <Panel
+              title="Next up"
+              meta={relativeDay(nextDay)}
+              action={
+                <Link
+                  href={`/schedule?day=${nextDay}`}
+                  className="text-[11.5px] font-medium text-fog-400 hover:text-lime-300"
+                >
+                  All events →
+                </Link>
+              }
+            >
+              <div className="divide-y divide-ink-800/70">
+                {upcoming.slice(0, 5).map((event) => (
+                  <EventBoardRow key={event.id} event={event} showDate />
+                ))}
+              </div>
+            </Panel>
+          )}
+
+          {/* Results */}
+          {recent.length > 0 && (
+            <Panel
+              title="Last out"
+              meta={relativeDay(lastDay)}
+              action={
+                <Link
+                  href={`/schedule?day=${lastDay}`}
+                  className="text-[11.5px] font-medium text-fog-400 hover:text-lime-300"
+                >
+                  Results →
+                </Link>
+              }
+            >
+              <div className="divide-y divide-ink-800/70">
+                {recent.map((event) => (
+                  <EventBoardRow key={event.id} event={event} showDate />
+                ))}
+              </div>
+            </Panel>
+          )}
+
+          {/* Rankings */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Panel
+              title="Prize money · PBA"
+              action={<TextLink href="/rankings?league=PBA1">All</TextLink>}
+            >
+              <RankList rows={pbaRank.slice(0, 8)} />
+            </Panel>
+            <Panel
+              title="Prize money · LPBA"
+              action={<TextLink href="/rankings?league=LPBA1">All</TextLink>}
+            >
+              <RankList rows={lpbaRank.slice(0, 8)} />
+            </Panel>
+          </div>
+
+          {/* Team league */}
+          {standings.length > 0 && (
+            <Panel
+              title={teamSeason ? `Team League · Round ${teamSeason.liveRound?.라운드 ?? "—"}` : "Team League"}
+              meta={`${standings.length} clubs`}
+              action={<TextLink href="/teams">All clubs</TextLink>}
+            >
+              <ul className="divide-y divide-ink-800/70">
+                {standings.slice(0, 8).map((team, index) => (
+                  <li key={team.code || index}>
+                    <Link href={`/teams/${encodeURIComponent(team.code)}`} className="row-hover flex items-center gap-2.5 px-3 py-[7px]">
+                      <span className="tnum w-4 shrink-0 text-right text-[11px] font-bold text-fog-600">
+                        {index + 1}
+                      </span>
+                      <TeamLogo src={team.logo} name={team.name} size="xs" className="!h-[18px] !w-[18px] !rounded-[3px] !p-0.5" />
+                      <span className="min-w-0 flex-1 truncate text-[12px] text-fog-200">{team.name}</span>
+                      <span className="tnum shrink-0 text-[10.5px] text-fog-550">
+                        {team.wins}–{team.losses}
+                      </span>
+                      <span className="tnum w-6 shrink-0 text-right font-display text-[12px] font-bold text-lime-400">
+                        {team.points}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          )}
+
+          {/* Leaders */}
+          {leaderPicks.length > 0 && (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {leaderPicks.map(({ category, rows }) => (
+                <Panel key={category.key} title={category.label} meta="PBA">
+                  <ul className="divide-y divide-ink-800/70">
+                    {rows.map((row) => (
+                      <li key={`${category.key}-${row.MemCode}-${row.Rank}`}>
+                        <Link href={`/players/${row.MemCode}`} className="row-hover flex items-center gap-2 px-3 py-[6px]">
+                          <span className="tnum w-3 shrink-0 text-[10.5px] text-fog-600">{row.Rank}</span>
+                          <span className="min-w-0 flex-1 truncate text-[12px] text-fog-200">
+                            {row.MemNameEn || row.MemName}
+                          </span>
+                          <span className="tnum shrink-0 font-display text-[12px] font-bold text-fog-100">
+                            {formatLeaderValue(category.unit, row.Value)}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </Panel>
+              ))}
+            </div>
+          )}
+
+          {/* News */}
+          {articles.length > 0 && (
+            <Panel title="Newsroom" action={<TextLink href="/news">All news</TextLink>}>
+              <ul className="divide-y divide-ink-800/70">
+                {articles.slice(0, 4).map((article) => (
+                  <li key={article.seq}>
+                    <Link href={`/news/${article.seq}`} className="row-hover flex items-center gap-3 px-3 py-2">
+                      <span className="h-[44px] w-[66px] shrink-0 overflow-hidden rounded-[4px] bg-ink-800">
+                        <SafeImage
+                          src={article.image}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          fallback={<span className="block h-full w-full bg-ink-850" />}
+                        />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="line-clamp-2 text-[12.5px] font-medium leading-snug text-fog-100">
+                          {article.title}
+                        </span>
+                        <span className="tnum mt-0.5 block text-[10.5px] text-fog-600">
+                          {fmtDate(article.date)} · {excerpt(article.body, 70)}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          )}
+        </main>
+
+        {/* ----------------------------------------------------------- rail */}
+        <aside className="order-first space-y-4 lg:order-none">
+          {featured && <FeaturedCard event={featured} />}
+
+          <Panel title="Tour calendar" action={<TextLink href="/schedule">Open</TextLink>}>
+            <ul className="divide-y divide-ink-800/70">
+              {upcoming.length === 0
+                ? recent.slice(0, 4).map((event) => (
+                    <li key={event.id}>
+                      <CompactEventRow event={event} />
+                    </li>
+                  ))
+                : events
+                    .filter((event) => (isoDay(event.start) ?? "") >= today)
+                    .slice(0, 8)
+                    .map((event) => (
+                      <li key={event.id}>
+                        <CompactEventRow event={event} />
+                      </li>
+                    ))}
+            </ul>
+          </Panel>
+
+          <Panel title="Season at a glance">
+            <dl className="grid grid-cols-2 gap-px bg-ink-750">
+              <div className="bg-ink-900 p-3">
+                <Stat label="Events" value={grouped(events.filter((e) => e.season === seasonCode).length)} />
+              </div>
+              <div className="bg-ink-900 p-3">
+                <Stat label="Clubs" value={grouped(standings.length)} />
+              </div>
+              <div className="bg-ink-900 p-3">
                 <Stat
-                  label="Season prize"
+                  label="Purse"
                   value={teamSeason ? wonCompact(teamSeason.season.상금) : "—"}
                   accent
                 />
-              </dl>
-            </div>
-
-            <div className="rise space-y-3" style={{ animationDelay: "90ms" }}>
-              {currentEvent ? (
-                <FeaturedEvent event={currentEvent} />
-              ) : (
-                <EmptyState
-                  title="No events published yet"
-                  description="The association has not published a calendar for this season."
-                />
-              )}
-
-              {upcoming.length > 0 && (
-                <div className="surface px-4 py-2">
-                  <p className="eyebrow px-1 pb-1 pt-2">Next up</p>
-                  {upcoming.map((event) => (
-                    <EventRow key={event.id} event={event} />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------- leader strip */}
-      {prizeLeader && (
-        <section className="border-b border-ink-800 bg-ink-900/40">
-          <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-8 gap-y-4 px-4 py-5 sm:px-6 lg:px-10">
-            <p className="eyebrow shrink-0">Prize-money leader</p>
-            <Link
-              href={`/players/${prizeLeader.MemCode}`}
-              className="group flex items-center gap-3"
-            >
-              <PlayerAvatar
-                path={prizeLeader.ImgURL}
-                src={isRealAsset(prizeLeader.ImgURL) ? asset(prizeLeader.ImgURL) : null}
-                name={prizeLeader.PlayerNameEN || prizeLeader.PlayerNameKO}
-                size="sm"
-                ring
-              />
-              <span>
-                <span className="block text-[14px] font-semibold text-fog-100 group-hover:text-lime-300">
-                  {pick(prizeLeader.PlayerNameEN, prizeLeader.PlayerNameKO)}
-                </span>
-                <span className="tnum block text-[11.5px] text-fog-500">
-                  {wonCompact(prizeLeader.Prize)} · {grouped(prizeLeader.RankingPoint)} pts
-                </span>
-              </span>
-            </Link>
-            <div className="ml-auto flex flex-wrap items-center gap-x-6 gap-y-2 text-[11.5px] text-fog-500">
-              <span className="tnum">
-                <span className="text-fog-300">{grouped(pbaRank.length)}</span> PBA ranked
-              </span>
-              <span className="tnum">
-                <span className="text-fog-300">{grouped(lpbaRank.length)}</span> LPBA ranked
-              </span>
-              {completed[0] && (
-                <span>
-                  Last final:{" "}
-                  <span className="text-fog-300">{completed[0].title}</span>
-                </span>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ---------------------------------------------------------- rankings */}
-      <section className="mx-auto max-w-[1440px] px-4 py-14 sm:px-6 lg:px-10 lg:py-16">
-        <SectionHeading
-          eyebrow="Standings"
-          title="Who is banking the most"
-          description="Prize money and ranking points for the current season, straight from the association's ranking tables."
-          action={<TextLink href="/rankings">All rankings</TextLink>}
-        />
-
-        <div className="mt-7 grid gap-4 lg:grid-cols-2">
-          <RankingPanel
-            title="PBA Tour"
-            subtitle="Men's top tier"
-            tone="lime"
-            href="/rankings?league=PBA1"
-            rows={pbaRank}
-            metric="prize"
-          />
-          <RankingPanel
-            title="LPBA Tour"
-            subtitle="Women's top tier"
-            tone="rose"
-            href="/rankings?league=LPBA1"
-            rows={lpbaRank}
-            metric="prize"
-          />
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------ team */}
-      {standings.length > 0 && (
-        <section className="border-y border-ink-800 bg-ink-900/30">
-          <div className="mx-auto max-w-[1440px] px-4 py-14 sm:px-6 lg:px-10 lg:py-16">
-            <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14">
-              <div>
-                <SectionHeading
-                  eyebrow="Team league"
-                  title="Franchise standings"
-                  description={
-                    teamSeason
-                      ? `${teamLeagueTitle(teamSeason.season.시즌명)}${teamSeason.liveRound ? ` · Round ${teamSeason.liveRound.라운드}` : ""}`
-                      : undefined
-                  }
-                  action={<TextLink href="/teams">All teams</TextLink>}
-                />
-                <div className="mt-6 grid grid-cols-2 gap-4">
-                  <Stat
-                    label="Leader"
-                    value={standings[0]?.shortName ?? "—"}
-                    hint={`${standings[0]?.points ?? 0} points`}
-                  />
-                  <Stat
-                    label="Round"
-                    value={teamSeason?.liveRound ? `R${teamSeason.liveRound.라운드}` : "—"}
-                    hint={teamSeason?.liveRound ? englishVenue(teamSeason.liveRound.경기장소) : ""}
-                  />
-                </div>
-                <dl className="mt-6 space-y-0">
-                  {[
-                    { label: "Season", value: teamSeason?.season.시즌명 ?? "—" },
-                    { label: "Sponsor", value: teamSeason ? englishSponsor(teamSeason.season.스폰서) : "—" },
-                    {
-                      label: "Window",
-                      value: teamSeason
-                        ? `${teamSeason.season.리그시작일자} → ${teamSeason.season.리그종료일자}`
-                        : "—",
-                    },
-                  ].map((row) => (
-                    <div
-                      key={row.label}
-                      className="flex items-baseline justify-between gap-4 border-b border-ink-800 py-2.5 last:border-0"
-                    >
-                      <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-fog-600">
-                        {row.label}
-                      </dt>
-                      <dd className="text-right text-[13px] text-fog-200">{row.value}</dd>
-                    </div>
-                  ))}
-                </dl>
               </div>
-
-              <div className="surface overflow-hidden">
-                <StandingsTable rows={standings} limit={8} compact />
-                <div className="border-t border-ink-800 px-4 py-3">
-                  <TextLink href="/teams">Full team league tables</TextLink>
-                </div>
+              <div className="bg-ink-900 p-3">
+                <Stat label="Ranked" value={grouped(pbaRank.length + lpbaRank.length)} />
               </div>
-            </div>
-          </div>
-        </section>
-      )}
+            </dl>
+          </Panel>
 
-      {/* ---------------------------------------------------------- leaders */}
-      {leaderPicks.length > 0 && (
-        <section className="mx-auto max-w-[1440px] px-4 py-14 sm:px-6 lg:px-10 lg:py-16">
-          <SectionHeading
-            eyebrow="Season leaders"
-            title="The numbers that decide titles"
-            description="Top three in each headline statistical category across the PBA Tour this season."
-            action={<TextLink href="/records">Full record book</TextLink>}
-          />
-          <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {leaderPicks.map(({ category, rows }) => (
-              <div key={category.key} className="surface p-4">
-                <div className="flex items-baseline justify-between">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-fog-500">
-                    {category.label}
-                  </p>
-                  <Chip tone="neutral" className="!text-[9.5px]">
-                    PBA
-                  </Chip>
-                </div>
-                <ul className="mt-3 space-y-2.5">
-                  {rows.map((row) => (
-                    <li key={`${category.key}-${row.MemCode}-${row.Rank}`}>
-                      <Link
-                        href={`/players/${row.MemCode}`}
-                        className="group flex items-center justify-between gap-2"
-                      >
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span className="tnum w-4 shrink-0 text-[11px] text-fog-600">{row.Rank}</span>
-                          <span className="truncate text-[12.5px] text-fog-200 group-hover:text-lime-300">
-                            {row.MemNameEn || row.MemName}
-                          </span>
-                        </span>
-                        <span className="tnum shrink-0 font-display text-[12.5px] font-bold text-fog-100">
-                          {formatLeaderValue(category.unit, row.Value)}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ------------------------------------------------------------- news */}
-      {articles.length > 0 && (
-        <section className="border-t border-ink-800 bg-ink-900/30">
-          <div className="mx-auto max-w-[1440px] px-4 py-14 sm:px-6 lg:px-10 lg:py-16">
-            <SectionHeading
-              eyebrow="Newsroom"
-              title="From the association"
-              action={<TextLink href="/news">All news</TextLink>}
-            />
-            <div className="mt-7 grid gap-4 md:grid-cols-3">
-              {articles.map((article) => (
-                <Link
-                  key={article.seq}
-                  href={`/news/${article.seq}`}
-                  className="surface card-hover group overflow-hidden"
-                >
-                  <div className="h-40 w-full overflow-hidden bg-ink-800">
-                    <SafeImage
-                      src={article.image}
-                      alt={article.title}
-                      className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                      fallback={
-                        <div className="grid h-40 w-full place-items-center">
-                          <span className="eyebrow">PBA Newsroom</span>
-                        </div>
-                      }
-                    />
-                  </div>
-                  <div className="p-4">
-                    <p className="tnum text-[10.5px] uppercase tracking-[0.1em] text-fog-600">
-                      {fmtDate(article.date)}
-                    </p>
-                    <h3 className="mt-2 line-clamp-2 font-display text-[15px] font-semibold leading-snug text-fog-100 group-hover:text-lime-300">
-                      {article.title}
-                    </h3>
-                    <p className="mt-2 line-clamp-2 text-[12.5px] leading-relaxed text-fog-500">
-                      {excerpt(article.body, 120)}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-    </>
+          {pbaRank[0] && <PrizeLeader row={pbaRank[0]} />}
+        </aside>
+      </div>
+    </div>
   );
+}
+
+/* ------------------------------------------------------------------ pieces */
+
+/**
+ * One match on the live wire.
+ *
+ * A tour match links to its scorecard. A Team League fixture has no scorecard on
+ * the tour terminal (`pstCode` is empty), so its row carries no link at all —
+ * `/matches/${""}` would be a bare `/matches`, which is not a route and lands the
+ * reader on the not-found page.
+ */
+function LiveWireRow({ match }: { match: LiveMatch }) {
+  const body = (
+    <span className="flex items-start gap-3">
+      <span className="flex w-[42px] shrink-0 flex-col items-start gap-1">
+        <span className="inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-[0.08em] text-live-400">
+          <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
+          Live
+        </span>
+        <span className="tnum text-[10.5px] text-fog-500">
+          {match.latestSet.setNo > 0 ? `Set ${match.latestSet.setNo}` : "In play"}
+        </span>
+      </span>
+      <span className="min-w-0 flex-1">
+        {match.sides.map((side, index) => (
+          <span key={`${side.name}-${index}`} className="flex h-[21px] items-center gap-2">
+            <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-fog-100">
+              {side.name || `Player ${index + 1}`}
+            </span>
+            {match.fixtureScore && match.players?.[index] && (
+              <span className="hidden shrink-0 truncate text-[10px] text-fog-500 sm:inline">
+                {match.players[index]}
+              </span>
+            )}
+            {!match.fixtureScore && side.innings !== null && side.innings !== undefined && (
+              <span className="tnum shrink-0 text-[10px] text-fog-550">{side.innings} inn</span>
+            )}
+          </span>
+        ))}
+      </span>
+      <span className="flex w-[26px] shrink-0 flex-col items-end">
+        {match.sides.map((side, index) => (
+          <span
+            key={`p-${index}`}
+            className="score-cell flex h-[21px] items-center text-[13px] text-live-400"
+          >
+            {match.fixtureScore ? match.fixtureScore[index] : side.points}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+
+  if (!match.pstCode) {
+    return <div className="px-3 py-2">{body}</div>;
+  }
+  return (
+    <Link href={`/matches/${match.pstCode}?live=1`} className="row-hover block px-3 py-2">
+      {body}
+    </Link>
+  );
+}
+
+/** One event as a scoreboard line: crest, title, circuit, dates, state. */
+function EventBoardRow({
+  event,
+  live = false,
+  showDate = false,
+}: {
+  event: CalendarEvent;
+  live?: boolean;
+  showDate?: boolean;
+}) {
+  const league = leagueByCode(event.league);
+  return (
+    <Link href={`/schedule/${event.id}`} className="row-hover flex items-center gap-2.5 px-3 py-2">
+      <span className="flex w-[42px] shrink-0 flex-col items-start gap-0.5">
+        {live ? (
+          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-[0.08em] text-live-400">
+            <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
+            Live
+          </span>
+        ) : (
+          <span className="text-[9.5px] font-semibold uppercase tracking-[0.08em] text-fog-550">
+            {showDate && event.start
+              ? event.start.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+              : "Upcoming"}
+          </span>
+        )}
+        <span className={cn("text-[9px] font-bold uppercase tracking-[0.06em]", league.tone === "rose" ? "text-rose-450" : league.tone === "violet" ? "text-violet-450" : league.tone === "cyan" ? "text-cyan-450" : league.tone === "amber" ? "text-amber-450" : "text-lime-400")}>
+          {leagueShort(event.league)}
+        </span>
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[12.5px] font-medium text-fog-100">{event.title}</span>
+        <span className="mt-0.5 block truncate text-[10.5px] text-fog-550">
+          {fmtRange(event.start, event.end)}
+          <span className="mx-1 text-ink-600">·</span>
+          {event.venue}
+        </span>
+      </span>
+      <span className="hidden shrink-0 text-right sm:block">
+        <span className="block text-[10px] text-fog-600">Prize</span>
+        <span className="tnum block text-[11px] text-fog-300">{compactPrize(event.prizePool)}</span>
+      </span>
+    </Link>
+  );
+}
+
+function CompactEventRow({ event }: { event: CalendarEvent }) {
+  const league = leagueByCode(event.league);
+  const start = event.start
+    ? event.start.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+    : "TBA";
+  return (
+    <Link href={`/schedule/${event.id}`} className="row-hover flex items-center gap-2 px-3 py-[7px]">
+      <span className="tnum w-[44px] shrink-0 text-[11px] font-semibold text-fog-400">{start}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[11.5px] text-fog-200">{event.title}</span>
+        <span className={cn("block text-[9.5px] font-semibold uppercase tracking-[0.06em]", toneText(league.tone))}>
+          {league.name}
+        </span>
+      </span>
+      {event.status === "live" && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-live-500" aria-label="Live" />}
+    </Link>
+  );
+}
+
+function FeaturedCard({ event }: { event: CalendarEvent }) {
+  const league = leagueByCode(event.league);
+  return (
+    <Panel title="In focus" action={<TextLink href={`/schedule/${event.id}`}>Open</TextLink>}>
+      <div className="px-3 py-3">
+        <div className="flex items-center gap-2">
+          {event.status === "live" ? <LiveChip /> : <Chip tone={league.tone}>{league.name}</Chip>}
+        </div>
+        <p className="mt-2 font-display text-[15px] font-bold leading-snug text-fog-100">{event.title}</p>
+        <p className="tnum mt-1 text-[11.5px] text-fog-450">{fmtRange(event.start, event.end)}</p>
+        <p className="mt-0.5 text-[11px] text-fog-550">{event.venue}</p>
+        <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-ink-800 pt-2.5">
+          <div>
+            <dt className="micro-label">Prize pool</dt>
+            <dd className="tnum mt-0.5 text-[11.5px] text-fog-200">{compactPrize(event.prizePool)}</dd>
+          </div>
+          <div>
+            <dt className="micro-label">Champion</dt>
+            <dd className="mt-0.5 truncate text-[11.5px] text-fog-200">
+              {event.defendingChampion !== "—" ? event.defendingChampion : "TBD"}
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </Panel>
+  );
+}
+
+function PrizeLeader({ row }: { row: Awaited<ReturnType<typeof getRankingBoard>>[number] }) {
+  return (
+    <Panel title="Prize-money leader">
+      <Link href={`/players/${row.MemCode}`} className="row-hover flex items-center gap-2.5 px-3 py-2.5">
+        <PlayerAvatar
+          path={row.ImgURL}
+          src={isRealAsset(row.ImgURL) ? asset(row.ImgURL) : null}
+          name={pick(row.PlayerNameEN, row.PlayerNameKO)}
+          size="sm"
+          ring
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[12.5px] font-semibold text-fog-100">
+            {pick(row.PlayerNameEN, row.PlayerNameKO)}
+          </span>
+          <span className="tnum block text-[10.5px] text-fog-550">
+            {row.PlayerNameKO} · {grouped(row.RankingPoint)} pts
+          </span>
+        </span>
+        <span className="tnum shrink-0 font-display text-[13px] font-bold text-lime-400">
+          {compactPrize(String(row.Prize))}
+        </span>
+      </Link>
+    </Panel>
+  );
+}
+
+function RankList({ rows }: { rows: Awaited<ReturnType<typeof getRankingBoard>> }) {
+  if (rows.length === 0) {
+    return <p className="px-3 py-3 text-[11.5px] text-fog-500">No ranking published for this season yet.</p>;
+  }
+  return (
+    <ul className="divide-y divide-ink-800/70">
+      {rows.map((row, index) => (
+        <li key={`${row.MemCode}-${row.Rank}-${index}`}>
+          <Link href={`/players/${row.MemCode}`} className="row-hover flex items-center gap-2 px-3 py-[6px]">
+            <span className="tnum w-4 shrink-0 text-right text-[10.5px] font-bold text-fog-600">
+              {row.Rank || index + 1}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[12px] text-fog-200">
+              {pick(row.PlayerNameEN, row.PlayerNameKO)}
+            </span>
+            <span className="tnum shrink-0 text-[9.5px] uppercase text-fog-600">{row.NationCode}</span>
+            <span className="tnum w-[54px] shrink-0 text-right font-display text-[11.5px] font-bold text-fog-100">
+              {compactPrize(String(row.Prize))}
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* ------------------------------------------------------------------ utils */
+
+function dayWindow(from: string, to: string): string[] {
+  const days: string[] = [];
+  let cursor = from;
+  for (let index = 0; index < 60 && cursor <= to; index += 1) {
+    days.push(cursor);
+    cursor = shiftIsoDay(cursor, 1);
+  }
+  return days;
+}
+
+/** "KRW 250 Million", "2억 5천만원", "₩250,000,000" → "₩250M" or the raw words. */
+function compactPrize(value: string): string {
+  const text = value.trim();
+  if (!text || text === "—") return "—";
+  const numeric = Number(text.replace(/[^\d.]/g, ""));
+  if (/^\d+$/.test(text.replace(/\s/g, "")) && Number.isFinite(numeric) && numeric > 1000) {
+    if (numeric >= 1_000_000_000) return `₩${(numeric / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}B`;
+    if (numeric >= 1_000_000) return `₩${(numeric / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  }
+  // The feed already writes these in words ("Final Winner: KRW 100 million");
+  // the winner figure is the one people quote.
+  const winner = text.match(/(?:winner|우승)[^\d]*([\d.,]+\s*(?:million|billion|억원?|만원?))/i);
+  if (winner) return winner[1].replace(/million/i, "M").replace(/billion/i, "B");
+  return text.length > 22 ? `${text.slice(0, 20)}…` : text;
+}
+
+function toneText(tone: string): string {
+  const map: Record<string, string> = {
+    lime: "text-lime-400",
+    rose: "text-rose-450",
+    cyan: "text-cyan-450",
+    amber: "text-amber-450",
+    violet: "text-violet-450",
+  };
+  return map[tone] ?? "text-fog-500";
 }
 
 function formatLeaderValue(unit: "avg" | "int" | "pct", value: number | string | null | undefined): string {
@@ -391,45 +643,4 @@ function formatLeaderValue(unit: "avg" | "int" | "pct", value: number | string |
   if (unit === "avg") return n.toFixed(3);
   if (unit === "pct") return percent(n);
   return grouped(n);
-}
-
-function RankingPanel({
-  title,
-  subtitle,
-  tone,
-  href,
-  rows,
-  metric,
-}: {
-  title: string;
-  subtitle: string;
-  tone: "lime" | "rose";
-  href: string;
-  rows: Awaited<ReturnType<typeof getRankingBoard>>;
-  metric: "prize" | "point";
-}) {
-  const accent = tone === "lime" ? "text-lime-400" : "text-rose-450";
-  return (
-    <div className="surface overflow-hidden">
-      <div className="flex items-center justify-between gap-3 border-b border-ink-800 px-4 py-3.5">
-        <div>
-          <h3 className={cn("font-display text-[15px] font-bold", accent)}>{title}</h3>
-          <p className="mt-0.5 text-[11px] text-fog-600">{subtitle}</p>
-        </div>
-        <Link
-          href={href}
-          className="rounded-md border border-ink-700 px-2.5 py-1 text-[11.5px] font-medium text-fog-400 transition-colors hover:border-ink-500 hover:text-fog-100"
-        >
-          View all
-        </Link>
-      </div>
-      {rows.length > 0 ? (
-        <RankingTable rows={rows} metric={metric} limit={6} hideSortBar />
-      ) : (
-        <div className="px-4 py-10 text-center text-[13px] text-fog-500">
-          No ranking published for this season yet.
-        </div>
-      )}
-    </div>
-  );
 }

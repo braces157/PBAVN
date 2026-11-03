@@ -105,38 +105,28 @@ export function FeaturedEvent({ event, className }: { event: Event; className?: 
   );
 }
 
-/** Compact list row used on the schedule and home pages. */
+/** Compact list row used on the live page rail and any other dense list. */
 export function EventRow({ event }: { event: Event }) {
   const league = leagueByCode(event.league);
   return (
     <Link
       href={`/schedule/${event.id}`}
-      className={cn(
-        "group grid grid-cols-[auto_1fr_auto] items-center gap-4 border-b border-ink-800 px-1 py-3.5 transition-colors last:border-0 hover:bg-ink-850/60 sm:px-2",
-      )}
+      className={cn("row-hover group flex items-center gap-2.5 border-b border-ink-800/70 px-3 py-2 last:border-0")}
     >
-      <div className="w-[62px] shrink-0">
-        <p className="tnum font-display text-[15px] font-bold leading-none text-fog-100">
+      <div className="w-[46px] shrink-0">
+        <p className="tnum text-[10.5px] font-semibold uppercase tracking-[0.06em] text-fog-450">
           {event.start ? event.start.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "TBA"}
         </p>
-        <p className="tnum mt-1 text-[10.5px] uppercase tracking-[0.1em] text-fog-600">
-          {event.start ? event.start.getFullYear() : ""}
+        <p className={cn("text-[9px] font-bold uppercase tracking-[0.06em]", TONE_TEXT[league.tone])}>
+          {league.name}
         </p>
       </div>
 
-      <div className="min-w-0">
-        <p className="truncate text-[13.5px] font-medium text-fog-100 transition-colors group-hover:text-lime-300">
-          {event.title}
-        </p>
-        <p className="mt-0.5 truncate text-[11.5px] text-fog-500">
-          <span className={cn("font-semibold", TONE_TEXT[league.tone])}>{league.name}</span>
-          {!isPlaceholder(event.venue) && (
-            <>
-              <span className="mx-1.5 text-ink-500">·</span>
-              {event.venue}
-            </>
-          )}
-        </p>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[12px] font-medium text-fog-100">{event.title}</p>
+        {!isPlaceholder(event.venue) && (
+          <p className="mt-0.5 truncate text-[10.5px] text-fog-550">{event.venue}</p>
+        )}
       </div>
 
       <div className="shrink-0">

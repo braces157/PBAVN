@@ -1,4 +1,5 @@
 import { initials } from "@/lib/format";
+import { LEAGUES } from "@/lib/normalize";
 import { SafeImage } from "./safe-image";
 import { cn } from "./primitives";
 
@@ -148,6 +149,65 @@ export function EventLogo({
         className="max-h-full max-w-full object-contain"
         fallback={<span />}
       />
+    </span>
+  );
+}
+
+/**
+ * The crest on a console header or event row. Unlike `EventLogo` it is always
+ * present: an event with no artwork published gets a neutral plate carrying
+ * the circuit's initial, so a long list of events keeps one visual rhythm.
+ */
+export function EventCrest({
+  src,
+  name,
+  league,
+  size = "md",
+  className,
+}: {
+  src?: string | null;
+  name: string;
+  league?: string;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}) {
+  const box = { sm: "h-8 w-8", md: "h-11 w-11", lg: "h-14 w-14" }[size];
+  const px = { sm: 32, md: 44, lg: 56 }[size];
+  return (
+    <span
+      className={cn(
+        "relative grid shrink-0 place-items-center overflow-hidden rounded-[8px] border border-ink-750 bg-ink-800",
+        box,
+        className,
+      )}
+    >
+      {src ? (
+        <SafeImage
+          src={src}
+          alt={name}
+          className="h-full w-full object-contain p-1"
+          fallback={<CrestFallback label={league ?? name} />}
+        />
+      ) : (
+        <CrestFallback label={league ?? name} />
+      )}
+    </span>
+  );
+}
+
+function CrestFallback({ label }: { label: string }) {
+  // A circuit code ("TLG", "PBA1") reads better as its mark ("TLG", "PBA") than
+  // the initials of a long event title, which are often the sponsor's first
+  // two letters.
+  const raw = label.trim();
+  const circuit = LEAGUES.find((league) => league.code === raw);
+  const mark = circuit?.tag ?? (/^[A-Z]{2,4}$/.test(raw) ? raw : initials(raw || "PBA"));
+  return (
+    <span
+      aria-hidden="true"
+      className="grid h-full w-full place-items-center bg-gradient-to-br from-ink-700 to-ink-850 font-display text-[10px] font-bold tracking-[0.02em] text-fog-500"
+    >
+      {mark}
     </span>
   );
 }

@@ -184,7 +184,7 @@ export default async function PlayerMatchesPage({ params, searchParams }: PagePr
 
             <p className="mt-3 text-[11.5px] leading-relaxed text-fog-600">
               Rows are matched on member code, so a shared surname cannot leak another
-              player&apos;s results in here.
+              player's results in here.
             </p>
           </>
         )}

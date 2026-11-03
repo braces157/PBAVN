@@ -23,6 +23,8 @@ import { fetchBinary } from "@/lib/pba/http";
 export const runtime = "nodejs";
 
 const SRC = /^\/players\/[\w-]+\/(?:small|big)\/[\w.\-]+\.(?:jpe?g|png|webp)$/i;
+/** Tournament and sponsor artwork; a flat PNG plate, resized on the way out. */
+const TOURNAMENT_SRC = /^\/(?:resources\/upload\/)?tournament\/[\w./-]+\.(?:png|jpe?g|webp)$/i;
 
 /** Roughly 400 thumbs at ~20 KB — small enough to keep resident. */
 const RESULT_CACHE_LIMIT = 400;
@@ -44,6 +46,15 @@ function clampWidth(raw: string | null): number {
   const value = Number(raw);
   if (!Number.isFinite(value) || value <= 0) return 320;
   return Math.min(768, Math.max(48, Math.round(value)));
+}
+
+/**
+ * Tournament artwork is one file with no sibling size, so the only candidate
+ * is the path itself. It is also the only artwork served with transparency
+ * kept: a sponsor crest sits on the dark header, not on a plate.
+ */
+function isTournamentArt(src: string): boolean {
+  return TOURNAMENT_SRC.test(src);
 }
 
 /**
@@ -70,13 +81,13 @@ function ancestorsOf(path: string): string[] {
   ];
 }
 
-async function toWebp(input: Buffer, width: number): Promise<Buffer | null> {
+async function toWebp(input: Buffer, width: number, keepAlpha = false): Promise<Buffer | null> {
   try {
     const { default: sharp } = await import("sharp");
     return await sharp(input)
       .rotate() // honour EXIF orientation before measuring
       .resize({ width, withoutEnlargement: true, fit: "inside", kernel: "lanczos3" })
-      .webp({ quality: 82, effort: 4 })
+      .webp({ quality: 82, effort: 4, ...(keepAlpha ? { alphaQuality: 100 } : {}) })
       .toBuffer();
   } catch {
     // Sharp is optional at runtime (it ships with Next as an optional
@@ -88,7 +99,13 @@ async function toWebp(input: Buffer, width: number): Promise<Buffer | null> {
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const src = params.get("src") ?? "";
-  if (!SRC.test(src)) {
+  const tournament = isTournamentArt(src);
+  if (!tournament && !SRC.test(src)) {
+    return new NextResponse(null, { status: 400, headers: { "Cache-Control": "public, max-age=3600" } });
+  }
+  // The patterns allow `.` and `/`, so a `..` segment would walk out of the
+  // artwork subtree once the URL resolver collapses it.
+  if (src.split("/").includes("..")) {
     return new NextResponse(null, { status: 400, headers: { "Cache-Control": "public, max-age=3600" } });
   }
 
@@ -102,12 +119,14 @@ export async function GET(request: Request) {
     });
   }
 
-  const candidates = ancestorsOf(src);
+  // Tournament art may arrive with the upload prefix already on it; fetchBinary
+  // prepends it again, so strip it here first.
+  const candidates = tournament ? [src.replace(/^\/resources\/upload(?=\/)/, "")] : ancestorsOf(src);
   for (const candidate of candidates) {
     const asset = await fetchBinary(`https://pbatour.org/resources/upload${candidate}`);
     if (!asset) continue;
 
-    const webp = await toWebp(asset.body, width);
+    const webp = await toWebp(asset.body, width, tournament);
     const body = webp ?? asset.body;
     const contentType = webp ? "image/webp" : asset.contentType || "image/jpeg";
 
