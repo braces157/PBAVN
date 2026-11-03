@@ -26,19 +26,30 @@ build.
 If you touched anything under `src/lib/pba/data/`, run `npm run refresh-data` and commit
 the result. CI fails when those artefacts are stale.
 
+## Screenshots
+
+The images in the README are real captures of a running dev server, not mock-ups. To
+refresh one:
+
+```bash
+npm run dev                                                    # terminal 1
+chrome --headless=new --remote-debugging-port=9222 about:blank # terminal 2
+node scripts/shot.mjs http://localhost:3100/ shots/home.png 1440 900
+```
+
+`shot.mjs` needs a Chrome already listening on port 9222, and it removes the Next.js
+dev-tools bubble before capturing. The committed versions live under `docs/screenshots/`
+as WebP, cropped from the full-page PNGs.
+
 ## Reviews
 
-Every pull request gets a CodeRabbit review on the diff, from
-`.github/workflows/coderabbit-review.yml`: it runs the CodeRabbit CLI when the pull
-request opens and again on every push, and leaves one comment that is rewritten in place
-rather than one comment per push. Each run reads the whole diff from the merge base, so a
-push that breaks an earlier hunk is caught as well as the hunk itself. The CodeRabbit
-GitHub App, if it is installed, may review alongside it.
-
-The workflow needs a `CODERABBIT_API_KEY` repository secret. Without it the job says so
-and skips rather than failing every pull request. Both reviews are advisory: they raise
-findings, they do not gate. The gates are `npm run lint`, `npm test`, `npm run build`
-and `npm run verify` in `ci.yml`, and a finding worth keeping belongs in a commit.
+Every pull request gets a CodeRabbit review. `.github/workflows/coderabbit-trigger.yml`
+comments `@coderabbitai review` on a pull request when it opens, reopens or is marked
+ready for review, and the CodeRabbit app picks the mention up and reviews the diff.
+Drafts are skipped. The workflow uses `pull_request_target` only so its token can comment
+on PRs from forks; it never checks out or runs PR code. The review is advisory: it raises
+findings, it does not gate. The gates are `npm run lint`, `npm test`, `npm run build` and
+`npm run verify` in `ci.yml`, and a finding worth keeping belongs in a commit.
 
 `.coderabbit.yaml` carries the conventions from below, so a reviewer that has not read
 this file still notices when a change breaks them.

@@ -47,6 +47,12 @@ await send("Page.navigate", { url });
 // Give the app time to hydrate images and fonts.
 await new Promise((resolve) => setTimeout(resolve, 5000));
 
+// The Next.js dev-tools bubble is a development aid, not part of the UI.
+await send("Runtime.evaluate", {
+  expression:
+    "document.querySelectorAll('nextjs-portal').forEach((el) => el.remove())",
+});
+
 const metrics = await send("Page.getLayoutMetrics");
 const contentHeight = Math.ceil(
   metrics.result?.cssContentSize?.height ?? metrics.result?.contentSize?.height ?? height,
