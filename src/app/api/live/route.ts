@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json(feed, {
     headers: {
-      "Cache-Control": "public, max-age=0, s-maxage=10, stale-while-revalidate=20",
+      "Cache-Control": "no-store",
     },
   });
 }

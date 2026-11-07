@@ -93,7 +93,7 @@ export default async function EventPage({ params, searchParams }: PageProps) {
       ? getEventTeamFixtures({ matchCode, seasonCode: entry.season })
       : Promise.resolve(null),
     !isTeamLeague && matchCode
-      ? getEventMatches(matchCode, { settled: false })
+      ? getEventMatches(matchCode, { settled: entry.status === "completed" && Boolean(entry.end && Date.now() - entry.end.getTime() > 2 * 86_400_000) })
       : Promise.resolve([]),
   ]);
 

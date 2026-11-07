@@ -144,10 +144,10 @@ export default async function MatchPage({
               live={context.live}
             />
 
-            <nav aria-label="Jump to set" className="surface flex flex-wrap items-center gap-2 p-3">
+            {analysed.length > 1 && <div className="surface flex flex-wrap items-center gap-2 p-3">
               <span className="mr-2 text-xs font-semibold text-fog-400">Jump to set</span>
               <SetNav sets={analysed} />
-            </nav>
+            </div>}
 
             {analysed.map((set) => (
               <SetPanel key={set.setNo} set={set} />
