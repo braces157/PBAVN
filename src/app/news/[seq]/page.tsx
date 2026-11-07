@@ -69,12 +69,12 @@ export default async function ArticlePage({ params }: PageProps) {
         {article.image && (
           /* The frame reserves the image's box so the article text does not
              jump when the picture arrives late. */
-          <div className="mb-8 aspect-[16/9] overflow-hidden rounded-[14px] border border-ink-750 bg-ink-850">
+          <div className="mb-8 aspect-[16/9] overflow-hidden rounded-[14px] border border-ink-750 bg-ink-850 has-[span]:hidden">
             <SafeImage
               src={article.image}
               alt={article.title}
               loading="eager"
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
               fallback={<span />}
             />
           </div>

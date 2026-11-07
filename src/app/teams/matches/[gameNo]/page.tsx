@@ -187,7 +187,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
       return <>
         <PageHeader failures={failures} eyebrow="Team league" title={`${fixtureInfo.home.name} vs ${fixtureInfo.away.name}`} description="The detailed scorecard is unavailable. The fixture and round statistics are shown below." />
         <div className="mx-auto max-w-[1440px] px-4 pb-10 sm:px-6 lg:px-10">
-          <MatchPreview notStarted={!fixtureInfo.played} kickoffDate={date} kickoffTime={time} venue={venue} homeRow={homeRow} awayRow={awayRow} homeCode={homeCode} awayCode={awayCode} homeSquad={homeSquad} awaySquad={awaySquad} h2hCell={h2hCell} h2hFirstCode={h2hFirstCode} />
+          <MatchPreview seasonCode={season.시즌코드} roundCode={roundCode} notStarted={!fixtureInfo.played} kickoffDate={date} kickoffTime={time} venue={venue} homeRow={homeRow} awayRow={awayRow} homeCode={homeCode} awayCode={awayCode} homeSquad={homeSquad} awaySquad={awaySquad} h2hCell={h2hCell} h2hFirstCode={h2hFirstCode} />
           <div className="mt-5"><TextLink href={`/teams/matches?season=${season.시즌코드}&round=${roundCode}`}>Back to round fixtures</TextLink></div>
         </div>
       </>;
@@ -421,6 +421,8 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
             — comes from the season feeds and renders here. */}
         {!bouts.winner && (
           <MatchPreview
+            seasonCode={season.시즌코드}
+            roundCode={roundCode}
             notStarted={notStarted}
             kickoffDate={kickoffDate}
             kickoffTime={kickoffTime}
@@ -614,6 +616,8 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
  * read behind it is a cached season feed shared with the other team pages.
  */
 function MatchPreview({
+  seasonCode,
+  roundCode,
   notStarted,
   kickoffDate,
   kickoffTime,
@@ -627,6 +631,8 @@ function MatchPreview({
   h2hCell,
   h2hFirstCode,
 }: {
+  seasonCode: string;
+  roundCode: string;
   notStarted: boolean;
   kickoffDate: string | null;
   kickoffTime: string | null;
@@ -662,8 +668,8 @@ function MatchPreview({
         </header>
 
         <div className="grid gap-px bg-ink-800 sm:grid-cols-2">
-          <PreviewSide row={homeRow} code={homeCode} squad={homeSquad} align="left" />
-          <PreviewSide row={awayRow} code={awayCode} squad={awaySquad} align="right" />
+          <PreviewSide row={homeRow} code={homeCode} squad={homeSquad} align="left" seasonCode={seasonCode} roundCode={roundCode} />
+          <PreviewSide row={awayRow} code={awayCode} squad={awaySquad} align="right" seasonCode={seasonCode} roundCode={roundCode} />
         </div>
 
         {h2hCell && h2hCell.played > 0 && h2hHome !== null && h2hAway !== null && (
@@ -685,11 +691,15 @@ function MatchPreview({
 
 /** One club's season figures and the players likeliest to take the table. */
 function PreviewSide({
+  seasonCode,
+  roundCode,
   row,
   code,
   squad,
   align,
 }: {
+  seasonCode: string;
+  roundCode: string;
   row: TeamStanding | null;
   code: string | null;
   squad: TeamPlayer[];
@@ -716,7 +726,7 @@ function PreviewSide({
             <TeamLogo src={row.logo} name={row.name} size="sm" />
             <div className="min-w-0">
               <Link
-                href={`/teams/${encodeURIComponent(row.code)}`}
+                href={`/teams/${encodeURIComponent(row.code)}?season=${encodeURIComponent(seasonCode)}&round=${encodeURIComponent(roundCode)}`}
                 className="block truncate text-[13px] font-semibold text-fog-100 transition-colors hover:text-lime-300"
               >
                 {row.name}

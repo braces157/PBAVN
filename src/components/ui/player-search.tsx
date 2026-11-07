@@ -224,7 +224,7 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
               </Link>
             </div>
           ) : (
-            <ul className="max-h-[336px] overflow-y-auto py-1">
+            <ul className="max-h-[min(336px,calc(100dvh-180px))] overflow-y-auto py-1">
               {results.map((row, index) => (
                 <li key={row.c}>
                   <button

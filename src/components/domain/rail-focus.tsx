@@ -30,19 +30,31 @@ export function RailFocus({
     const scroller = target.closest<HTMLElement>("[data-rail-scroll]");
     if (!scroller) return;
 
+    let wasVisible = scroller.clientWidth > 0 && scroller.clientHeight > 0;
+    const observer = new ResizeObserver(() => {
+      const visible = scroller.clientWidth > 0 && scroller.clientHeight > 0;
+      if (visible && !wasVisible) {
+        const left = target.getBoundingClientRect().left - scroller.getBoundingClientRect().left + scroller.scrollLeft;
+        if (axis === "x") scroller.scrollLeft = Math.max(0, left - offset);
+      }
+      wasVisible = visible;
+    });
+    observer.observe(scroller);
+
     if (axis === "x") {
       const targetLeft =
         target.getBoundingClientRect().left - scroller.getBoundingClientRect().left + scroller.scrollLeft;
       const visible =
         targetLeft >= scroller.scrollLeft && targetLeft + target.offsetWidth <= scroller.scrollLeft + scroller.clientWidth;
       if (!visible) scroller.scrollLeft = Math.max(0, targetLeft - offset);
-      return;
+      return () => observer.disconnect();
     }
 
     const targetTop =
       target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
     const visible = targetTop >= scroller.scrollTop && targetTop <= scroller.scrollTop + scroller.clientHeight - 24;
     if (!visible) scroller.scrollTop = Math.max(0, targetTop - offset);
+    return () => observer.disconnect();
   }, [id, offset, axis]);
 
   return null;
