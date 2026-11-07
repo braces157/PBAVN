@@ -30,7 +30,7 @@ import { average, clockLabel, fmtDate } from "@/lib/format";
 import { DataStatus } from "@/components/site/data-status";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
 import { PlayerAvatar, TeamLogo } from "@/components/ui/media";
-import { Chip, EmptyState, LiveChip, cn } from "@/components/ui/primitives";
+import { Chip, EmptyState, LiveChip, TextLink, cn } from "@/components/ui/primitives";
 
 export const revalidate = 300;
 
@@ -181,6 +181,17 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
     }));
 
   if (!bouts) {
+    if (fixtureInfo) {
+      const date = fixtureInfo.playedAt?.slice(0, 10) ?? null;
+      const time = clockLabel(fixtureInfo.playedAt);
+      return <>
+        <PageHeader failures={failures} eyebrow="Team league" title={`${fixtureInfo.home.name} vs ${fixtureInfo.away.name}`} description="The detailed scorecard is unavailable. The fixture and round statistics are shown below." />
+        <div className="mx-auto max-w-[1440px] px-4 pb-10 sm:px-6 lg:px-10">
+          <MatchPreview notStarted={!fixtureInfo.played} kickoffDate={date} kickoffTime={time} venue={venue} homeRow={homeRow} awayRow={awayRow} homeCode={homeCode} awayCode={awayCode} homeSquad={homeSquad} awaySquad={awaySquad} h2hCell={h2hCell} h2hFirstCode={h2hFirstCode} />
+          <div className="mt-5"><TextLink href={`/teams/matches?season=${season.시즌코드}&round=${roundCode}`}>Back to round fixtures</TextLink></div>
+        </div>
+      </>;
+    }
     return (
       <>
         <PageHeader
@@ -214,7 +225,8 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
     bouts.winner === "home" ? bouts.homeName : bouts.winner === "away" ? bouts.awayName : null;
   const kickoffDate = fixtureInfo?.playedAt ? fixtureInfo.playedAt.slice(0, 10) : null;
   const kickoffTime = clockLabel(fixtureInfo?.playedAt ?? null);
-  const notStarted = Boolean(fixtureInfo && !fixtureInfo.played && !winnerName);
+  const hasPlay = bouts.bouts.some((bout) => bout.sides.some((side) => (side.innings ?? 0) > 0 || (side.points ?? 0) > 0)) || (bouts.homeSets ?? 0) > 0 || (bouts.awaySets ?? 0) > 0;
+  const notStarted = Boolean(fixtureInfo && !fixtureInfo.played && !winnerName && !hasPlay);
   const startedLabel = winnerName
     ? `, won by ${winnerName}`
     : notStarted
@@ -642,7 +654,7 @@ function MatchPreview({
           </h2>
           <p className="tnum text-[11px] text-fog-500">
             {notStarted && kickoffDate
-              ? `Starts ${fmtDate(kickoffDate)}${kickoffTime ? ` · ${kickoffTime} KST` : ""}`
+              ? `Starts ${fmtDate(kickoffDate)}${kickoffTime ? ` · ${kickoffTime} KST` : ""}${venue ? ` · ${venue}` : ""}`
               : venue
                 ? venue
                 : null}

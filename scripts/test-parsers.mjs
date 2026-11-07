@@ -62,6 +62,14 @@ check("a blank final turn retains the player's last running score", () => {
   assert.equal(innings.rows[1].sides[1].total, 3);
 });
 
+check("a scoring turn with a missing total advances the previous score", () => {
+  const innings = parseSetInnings(`<table><tbody>
+    <tr><td>1</td><td>3</td><td>0</td><td>3</td><td>1</td><td>0</td><td>1</td></tr>
+    <tr><td>2</td><td>0</td><td>1</td><td></td><td>0</td><td>0</td><td>1</td></tr>
+  </tbody></table>`);
+  assert.equal(innings.rows[1].sides[0].total, 5);
+});
+
 check("match page yields every set", () => {
   assert.equal(scorecard.sets.length, 5);
 });

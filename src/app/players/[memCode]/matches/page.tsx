@@ -120,16 +120,14 @@ async function HistorySection({
   seasonCode: string;
   pbaType: string;
 }) {
-  const history = await trackFailures(() =>
-    getPlayerMatchHistory({ memCode, nameEn, nameEnShort, seasonCode, pbaType }),
-  );
-  const failures = getRequestFailures();
+  const { history, failures } = await trackFailures(async () => {
+    const history = await getPlayerMatchHistory({ memCode, nameEn, nameEnShort, seasonCode, pbaType });
+    return { history, failures: getRequestFailures() };
+  });
 
   // The search streams each tour newest round first; newest tour first on top
   // of that keeps the table strictly newest first without a trustworthy date.
-  const matches = [...history.matches].sort(
-    (a, b) => (Number(b.tourCode) || 0) - (Number(a.tourCode) || 0),
-  );
+  const matches = history.matches;
   const everyTourFailed = history.toursSearched > 0 && history.toursFailed === history.toursSearched;
 
   return (

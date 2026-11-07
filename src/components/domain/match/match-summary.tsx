@@ -40,7 +40,7 @@ export function MatchHeader({
           {round && <Chip tone="neutral">{round}</Chip>}
           {/* A finished match already names its round, so this says what the
               reader wants to know rather than repeating it. */}
-          {live ? <Chip tone="rose">Live</Chip> : decided && <Chip tone="gold">Result</Chip>}
+          {!live && decided && <Chip tone="gold">Result</Chip>}
           {summary.playedOn && <span className="tnum text-[11px] text-fog-600">{summary.playedOn}</span>}
         </div>
 

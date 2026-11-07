@@ -116,10 +116,11 @@ export function DateRail({
                         {parts.weekday}
                       </span>
                       {count > 0 && (
-                        <span className="flex shrink-0 items-center gap-[2px]" aria-hidden="true">
+                        <span className="flex shrink-0 items-center gap-[2px]">
                           {Array.from({ length: Math.min(count, 3) }, (_, index) => (
                             <span
                               key={index}
+                              aria-hidden="true"
                               className={cn(
                                 "h-[3px] w-[3px] rounded-full",
                                 active ? "bg-ink-950" : isToday ? "bg-lime-400" : "bg-ink-500",
@@ -191,7 +192,7 @@ export function DateStrip({
               )}
             >
               <span className="text-[8.5px] font-semibold uppercase tracking-[0.08em] text-fog-550">
-                {parts.weekday.slice(0, 3)}
+                {parts.weekday.slice(0, 3)} {day.slice(5, 7)}
               </span>
               <span
                 className={cn(

@@ -22,7 +22,7 @@ import { LiveChip, Panel, TextLink } from "@/components/ui/primitives";
  * the only volatile part, it streams on request and the client then polls it
  * every 20 seconds — so the route itself does not need to re-render often.
  */
-export const revalidate = 300;
+export const revalidate = 10;
 
 export const metadata: Metadata = {
   title: "Live match centre",

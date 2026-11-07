@@ -34,9 +34,11 @@ async function RecentMatches({ memCode, nameEn, nameEnShort, seasonCode, pbaType
   memCode: string; nameEn: string | null | undefined; nameEnShort: string | null | undefined;
   seasonCode: string; pbaType: string;
 }) {
-  const history = await trackFailures(() => getPlayerMatchHistory({ memCode, nameEn, nameEnShort, seasonCode, pbaType }));
-  const failures = getRequestFailures();
-  const matches = [...history.matches].sort((a, b) => (Number(b.tourCode) || 0) - (Number(a.tourCode) || 0)).slice(0, 5);
+  const { history, failures } = await trackFailures(async () => {
+    const history = await getPlayerMatchHistory({ memCode, nameEn, nameEnShort, seasonCode, pbaType });
+    return { history, failures: getRequestFailures() };
+  });
+  const matches = history.matches.slice(0, 5);
   return <div className="surface overflow-hidden">
     <DataStatus failures={failures} className="m-3" />
     {matches.length === 0 ? <p className="p-4 text-sm text-fog-400">{failures.length || history.toursFailed ? "Match history is temporarily unavailable." : !history.searchTerm ? "Match history is unavailable for this player's published name." : "No individual-tour matches found for this season."}</p> :
@@ -108,11 +110,12 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
     ),
   ]);
   let seasonStat = first.stat;
+  let fallbackUnavailable = false;
   if (first.answered && !requestedSeason && !hasStatData(normalizePlayerStat(seasonStat))) {
-    const winnerIndex = probes.findIndex(
-      (probe) => probe.answered && hasStatData(normalizePlayerStat(probe.stat)),
-    );
-    if (winnerIndex >= 0) {
+    const winnerIndex = probes.findIndex((probe) => probe.answered && hasStatData(normalizePlayerStat(probe.stat)));
+    const firstFailure = probes.findIndex((probe) => !probe.answered);
+    fallbackUnavailable = firstFailure >= 0 && (winnerIndex < 0 || firstFailure < winnerIndex);
+    if (winnerIndex >= 0 && !fallbackUnavailable) {
       seasonCode = candidates[winnerIndex].SeasonCode;
       seasonStat = probes[winnerIndex].stat;
     }
@@ -132,7 +135,7 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
   const hasData = hasStatData(line);
   // The board never answered, so "no statistics this season" would be a
   // claim we cannot make — the stat grid and the notice below say so instead.
-  const seasonUnavailable = !first.answered;
+  const seasonUnavailable = !first.answered || fallbackUnavailable;
   const seasonPrizeRank = seasonRank?.상금순위 ?? 0;
 
   return (

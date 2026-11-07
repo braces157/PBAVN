@@ -20,6 +20,7 @@ export function MatchFilters({ matches, className }: {
       ))}
       <span className="ml-auto text-[11px] text-fog-400">Times in KST</span>
     </div>
+    <p className="sr-only" role="status">{visible.length} matches shown</p>
     {visible.length ? <ul className={cn("divide-y divide-ink-800/70", className)}>{visible.map((match) => match.row)}</ul>
       : <p className="px-3 py-4 text-xs text-fog-400">No matches in this category on this date.</p>}
   </>;

@@ -57,8 +57,8 @@ export default async function SchedulePage({ searchParams }: PageProps) {
   const upcoming = scoped.filter((event) => (isoDay(event.start) ?? "") >= today);
   const done = scoped.filter((event) => event.status === "completed").reverse();
 
-  const railFrom = shiftIsoDay(today, -14);
-  const railTo = shiftIsoDay(today, 60);
+  const railFrom = shiftIsoDay(focusDay, -14);
+  const railTo = shiftIsoDay(focusDay, 60);
   const railDays = daysBetween(railFrom, railTo);
   // Count each rail day with the same day-in-range rule the selected-day panel
   // uses, so a day inside a multi-day event carries the event's marker too.

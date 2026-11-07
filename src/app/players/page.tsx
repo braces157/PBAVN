@@ -58,7 +58,8 @@ export default async function PlayersPage({ searchParams }: PageProps) {
   // A search without an explicit circuit looks everywhere; a browse defaults to the top tier.
   const league = params.league ?? (query ? "" : "PBA1");
   const initial = (params.initial ?? "").toUpperCase();
-  const page = Math.max(1, Number(params.page ?? 1) || 1);
+  const requestedPage = Number(params.page ?? 1);
+  const page = Number.isFinite(requestedPage) ? Math.max(1, Math.floor(requestedPage)) : 1;
   const pageSize = 24;
 
   const season = await getCurrentSeason();

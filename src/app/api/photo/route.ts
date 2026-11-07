@@ -13,8 +13,7 @@
  *     asked for and re-encodes as WebP, which also gives us a resizable edge
  *     instead of a browser-side downscale.
  *
- * A miss returns 404 with a short cache so the client can settle on the initials
- * plate instead of a broken image icon.
+ * An unavailable image returns a non-cached error so a later request can retry.
  */
 
 import { NextResponse } from "next/server";
@@ -29,10 +28,6 @@ const TOURNAMENT_SRC = /^\/(?:resources\/upload\/)?tournament\/[\w./-]+\.(?:png|
 /** Roughly 400 thumbs at ~20 KB — small enough to keep resident. */
 const RESULT_CACHE_LIMIT = 400;
 const RESULT_TTL_MS = 6 * 60 * 60 * 1000;
-/** A photo the upstream never had, remembered briefly so one busy page view
- * does not re-walk all five candidate URLs on every render. */
-const MISS_TTL_MS = 5 * 60 * 1000;
-const MISS_CACHE_LIMIT = 800;
 
 interface Rendered {
   expires: number;
@@ -41,7 +36,6 @@ interface Rendered {
 }
 
 const rendered = new Map<string, Rendered>();
-const misses = new Map<string, number>();
 
 /**
  * Expired entries leave first, then the least recently used one pays for the
@@ -60,19 +54,6 @@ function storeRendered(key: string, entry: Rendered): void {
     rendered.delete(oldest);
   }
   rendered.set(key, entry);
-}
-
-function storeMiss(key: string): void {
-  const now = Date.now();
-  for (const [k, expires] of misses) {
-    if (expires <= now) misses.delete(k);
-  }
-  while (misses.size >= MISS_CACHE_LIMIT) {
-    const oldest = misses.keys().next().value;
-    if (oldest === undefined) break;
-    misses.delete(oldest);
-  }
-  misses.set(key, now + MISS_TTL_MS);
 }
 
 const HIT_HEADERS = {
@@ -149,14 +130,6 @@ export async function GET(request: Request) {
   const width = clampWidth(params.get("w"));
   const key = `${src}@${width}`;
 
-  const missExpiry = misses.get(key);
-  if (missExpiry && missExpiry > Date.now()) {
-    return new NextResponse(null, {
-      status: 404,
-      headers: { "Cache-Control": "public, max-age=600" },
-    });
-  }
-
   const cached = rendered.get(key);
   if (cached && cached.expires > Date.now()) {
     rendered.delete(key);
@@ -184,9 +157,8 @@ export async function GET(request: Request) {
     });
   }
 
-  storeMiss(key);
   return new NextResponse(null, {
-    status: 404,
-    headers: { "Cache-Control": "public, max-age=600" },
+    status: 503,
+    headers: { "Cache-Control": "no-store" },
   });
 }

@@ -34,7 +34,7 @@ export function RailFocus({
       const targetLeft =
         target.getBoundingClientRect().left - scroller.getBoundingClientRect().left + scroller.scrollLeft;
       const visible =
-        targetLeft >= scroller.scrollLeft && targetLeft <= scroller.scrollLeft + scroller.clientWidth - 24;
+        targetLeft >= scroller.scrollLeft && targetLeft + target.offsetWidth <= scroller.scrollLeft + scroller.clientWidth;
       if (!visible) scroller.scrollLeft = Math.max(0, targetLeft - offset);
       return;
     }

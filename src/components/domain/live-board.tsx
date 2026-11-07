@@ -38,8 +38,10 @@ function useLiveFeed(initial: LiveFeed, tourCode?: string) {
   const [refreshing, setRefreshing] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date>(new Date(initial.fetchedAt));
   const mounted = useRef(true);
+  const requestId = useRef(0);
 
   const refresh = useCallback(async () => {
+    const id = ++requestId.current;
     setRefreshing(true);
     try {
       const response = await fetch(`/api/live${tourCode ? `?tour=${encodeURIComponent(tourCode)}` : ""}`, {
@@ -47,15 +49,15 @@ function useLiveFeed(initial: LiveFeed, tourCode?: string) {
       });
       if (response.ok) {
         const next = (await response.json()) as LiveFeed;
-        if (mounted.current) {
+        if (mounted.current && id === requestId.current) {
           setFeed(next);
-          setLastChecked(new Date());
+          setLastChecked(new Date(next.fetchedAt));
         }
       }
     } catch {
       // A dropped poll is not worth surfacing; the next tick retries.
     } finally {
-      if (mounted.current) setRefreshing(false);
+      if (mounted.current && id === requestId.current) setRefreshing(false);
     }
   }, [tourCode]);
 
@@ -81,6 +83,7 @@ function useLiveFeed(initial: LiveFeed, tourCode?: string) {
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       mounted.current = false;
+      requestId.current++;
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
     };

@@ -93,7 +93,7 @@ export default async function EventPage({ params, searchParams }: PageProps) {
       ? getEventTeamFixtures({ matchCode, seasonCode: entry.season })
       : Promise.resolve(null),
     !isTeamLeague && matchCode
-      ? getEventMatches(matchCode, { settled: entry.status === "completed" })
+      ? getEventMatches(matchCode, { settled: false })
       : Promise.resolve([]),
   ]);
 
@@ -133,7 +133,7 @@ export default async function EventPage({ params, searchParams }: PageProps) {
       <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-10">
         <NowNextStrip
           event={entry}
-          live={liveMatch ? <LiveBlock match={liveMatch} /> : <LiveIdle />}
+          live={liveMatch ? <LiveBlock match={liveMatch} /> : <LiveIdle unavailable={entry.status === "live" && (!liveFeed || !liveFeed.reachable)} />}
           next={next}
         />
 

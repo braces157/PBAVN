@@ -40,35 +40,21 @@ function getStore(): Store | null {
   return store;
 }
 
-/**
- * Fallback used where `AsyncLocalStorage` is unavailable: still tracked, just
- * global. Routes that never enter `trackFailures` (the API handlers) would push
- * into this forever, so it holds a bounded window.
- */
-const FALLBACK_LIMIT = 64;
-let fallback: string[] = [];
-
 /** Run a unit of work with its own failure record. The store follows awaited work. */
 export function trackFailures<T>(fn: () => Promise<T>): Promise<T> {
   const active = getStore();
-  if (!active) {
-    fallback = [];
-    return fn();
-  }
+  if (!active) return fn();
   return active.run([], fn);
 }
 
 export function recordFailure(url: string): void {
   const active = getStore();
-  if (!active) {
-    if (fallback.length < FALLBACK_LIMIT) fallback.push(url);
-    return;
-  }
+  if (!active) return;
   active.getStore()?.push(url);
 }
 
 export function getRequestFailures(): string[] {
   const active = getStore();
-  if (!active) return fallback;
+  if (!active) return [];
   return active.getStore() ?? [];
 }

@@ -18,6 +18,7 @@ import {
   getTeamStandings,
   getTournaments,
   getPlayerTourStats,
+  getTourHistory,
   type RankingKind,
 } from "./api";
 import { byStart, eventStatus, normalizeEvent, normalizeTeam, type Event } from "../normalize";
@@ -200,17 +201,19 @@ export const getPlayerMatchHistory = cache(async (params: {
   });
   if (tours.length === 0) return { ...empty, searchTerm };
 
-  const result = await getPlayerSeasonMatches({
+  const [result, tourHistory] = await Promise.all([getPlayerSeasonMatches({
     memCode: params.memCode,
     searchName: searchTerm,
     tours: tours.map((tour) => ({
       code: String(tour.TourCode ?? ""),
       title: tour.TourTitleEn || tour.TourTitle || "",
     })),
-  });
+  }), getTourHistory()]);
+  const dates = new Map(tourHistory.map((tour) => [String(tour.투어코드), tour.투어시작일자]));
+  const ordered = [...result.matches].sort((a, b) => (dates.get(b.tourCode) ?? "").localeCompare(dates.get(a.tourCode) ?? ""));
 
   return {
-    matches: result.matches,
+    matches: ordered,
     toursSearched: result.searched,
     toursFailed: result.toursFailed,
     partial: result.partial,

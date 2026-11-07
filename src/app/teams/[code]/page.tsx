@@ -319,7 +319,7 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
                       <div key={other.code} className="flex items-center gap-2.5 px-3 py-2">
                         <TeamLogo src={other.logo} name={other.name} size="xs" />
                         <span className="min-w-0 flex-1 truncate text-[12px] text-fog-300">
-                          {profileIndex.get(other.code)?.shortName ?? other.shortName}
+                          {profileIndex.get(other.code)?.shortName || other.shortName || other.name}
                         </span>
                         <span
                           className={`tnum shrink-0 text-[12px] font-semibold ${
