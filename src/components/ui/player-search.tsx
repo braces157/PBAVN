@@ -66,6 +66,12 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
   const [rows, setRows] = useState<IndexRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [cursor, setCursor] = useState(0);
+  // The shortcut fires on Ctrl too; the hint names the platform's actual key.
+  // Server render assumes ⌘K and the effect corrects it after hydration.
+  const [isMac, setIsMac] = useState(true);
+  useEffect(() => {
+    setIsMac(/mac|iphone|ipad|ipod/i.test(navigator.userAgent));
+  }, []);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -140,6 +146,7 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Escape") {
+      if (open) event.stopPropagation();
       setOpen(false);
       inputRef.current?.blur();
       return;
@@ -187,12 +194,13 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
           aria-label="Search players"
           role="combobox"
           aria-expanded={showPanel}
-          aria-controls="player-search-results"
+          aria-controls={showPanel ? "player-search-results" : undefined}
+          aria-activedescendant={showPanel && results.length > 0 ? `player-search-option-${cursor}` : undefined}
           aria-autocomplete="list"
           className="field !py-1.5 !pl-8 !pr-14 text-[13px]"
         />
         <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-ink-650 bg-ink-800 px-1 py-0.5 font-sans text-[9.5px] font-semibold text-fog-600 lg:block">
-          ⌘K
+          {isMac ? "⌘K" : "Ctrl K"}
         </kbd>
       </div>
 
@@ -216,12 +224,13 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
               </Link>
             </div>
           ) : (
-            <ul className="max-h-[336px] overflow-y-auto py-1">
+            <ul className="max-h-[min(336px,calc(100dvh-180px))] overflow-y-auto py-1">
               {results.map((row, index) => (
                 <li key={row.c}>
                   <button
                     type="button"
                     role="option"
+                    id={`player-search-option-${index}`}
                     aria-selected={index === cursor}
                     onMouseEnter={() => setCursor(index)}
                     onClick={() => go(row)}

@@ -24,9 +24,9 @@ export function SetPanel({ set }: { set: AnalysedSet }) {
     >
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-800 px-4 py-3">
         <div className="flex items-center gap-3">
-          <h3 id={`set-${set.setNo}-title`} className="font-display text-[15px] font-bold text-fog-100">
+          <h2 id={`set-${set.setNo}-title`} className="font-display text-[15px] font-bold text-fog-100">
             Set {set.setNo}
-          </h3>
+          </h2>
           {set.gameType && (
             <span className="rounded border border-ink-700 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-fog-500">
               {set.target !== null ? `Race to ${set.target}` : set.gameType}

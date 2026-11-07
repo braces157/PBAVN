@@ -14,18 +14,48 @@ import { useEffect } from "react";
  * `scrollIntoView` is deliberately not used: it scrolls every ancestor,
  * including the document, which would yank the page down on load.
  */
-export function RailFocus({ id, offset = 72 }: { id: string; offset?: number }) {
+export function RailFocus({
+  id,
+  offset = 72,
+  axis = "y",
+}: {
+  id: string;
+  offset?: number;
+  /** `x` for the phone strip, which scrolls sideways to the selected day. */
+  axis?: "x" | "y";
+}) {
   useEffect(() => {
     const target = document.getElementById(id);
     if (!target) return;
     const scroller = target.closest<HTMLElement>("[data-rail-scroll]");
     if (!scroller) return;
 
+    let wasVisible = scroller.clientWidth > 0 && scroller.clientHeight > 0;
+    const observer = new ResizeObserver(() => {
+      const visible = scroller.clientWidth > 0 && scroller.clientHeight > 0;
+      if (visible && !wasVisible) {
+        const left = target.getBoundingClientRect().left - scroller.getBoundingClientRect().left + scroller.scrollLeft;
+        if (axis === "x") scroller.scrollLeft = Math.max(0, left - offset);
+      }
+      wasVisible = visible;
+    });
+    observer.observe(scroller);
+
+    if (axis === "x") {
+      const targetLeft =
+        target.getBoundingClientRect().left - scroller.getBoundingClientRect().left + scroller.scrollLeft;
+      const visible =
+        targetLeft >= scroller.scrollLeft && targetLeft + target.offsetWidth <= scroller.scrollLeft + scroller.clientWidth;
+      if (!visible) scroller.scrollLeft = Math.max(0, targetLeft - offset);
+      return () => observer.disconnect();
+    }
+
     const targetTop =
       target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
     const visible = targetTop >= scroller.scrollTop && targetTop <= scroller.scrollTop + scroller.clientHeight - 24;
     if (!visible) scroller.scrollTop = Math.max(0, targetTop - offset);
-  }, [id, offset]);
+    return () => observer.disconnect();
+  }, [id, offset, axis]);
 
   return null;
 }

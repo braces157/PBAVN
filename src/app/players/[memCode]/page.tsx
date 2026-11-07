@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  getPlayer,
   getPlayerCareerRank,
   getPlayerChampionships,
   getPlayerSeasonRank,
@@ -10,6 +10,7 @@ import {
   readPlayerSeasonStats,
   trackFailures,
 } from "@/lib/pba/api";
+import { getPlayerCached, getPlayerMatchHistory } from "@/lib/pba/service";
 import { getRequestFailures } from "@/lib/pba/failures";
 import { getCurrentSeason, getSeasonList } from "@/lib/pba/service";
 import {
@@ -18,7 +19,6 @@ import {
   normalizePlayer,
   normalizePlayerStat,
   statLeagueCode,
-  winRate,
 } from "@/lib/normalize";
 import { average, grouped, ordinal, percent, wonCompact, won } from "@/lib/format";
 import { InitialsPlate, NationPlate } from "@/components/ui/media";
@@ -30,6 +30,34 @@ import { DataStatus } from "@/components/site/data-status";
 
 export const revalidate = 900;
 
+async function RecentMatches({ memCode, nameEn, nameEnShort, seasonCode, pbaType }: {
+  memCode: string; nameEn: string | null | undefined; nameEnShort: string | null | undefined;
+  seasonCode: string; pbaType: string;
+}) {
+  const { history, failures } = await trackFailures(async () => {
+    const history = await getPlayerMatchHistory({ memCode, nameEn, nameEnShort, seasonCode, pbaType });
+    return { history, failures: getRequestFailures() };
+  });
+  const matches = history.matches.slice(0, 5);
+  return <div className="surface overflow-hidden">
+    <DataStatus failures={failures} className="m-3" />
+    {matches.length === 0 ? <p className="p-4 text-sm text-fog-400">{failures.length || history.toursFailed ? "Match history is temporarily unavailable." : !history.searchTerm ? "Match history is unavailable for this player's published name." : "No individual-tour matches found for this season."}</p> :
+      <ul className="divide-y divide-ink-800">{matches.map((match) => {
+        const own = match.sides.find((side) => side.memCode === memCode);
+        const opponent = match.sides.find((side) => side.memCode !== memCode);
+        if (!own) return null;
+        return <li key={`${match.tourCode}-${match.pstCode}`}>
+          <Link href={`/matches/${match.pstCode}?tour=${encodeURIComponent(match.tourCode)}&round=${encodeURIComponent(match.round)}`} className="row-hover flex items-center gap-3 px-4 py-3">
+            <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-md text-xs font-bold", own.won ? "bg-lime-400/10 text-lime-400" : "bg-ink-800 text-fog-400")}>{own.won ? "W" : "L"}</span>
+            <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-fog-100">vs {opponent?.name ?? "Unknown opponent"}</span><span className="mt-1 block truncate text-xs text-fog-400">{match.tourTitle} · {match.round || "Round unavailable"}{match.scheduledAt ? ` · ${match.scheduledAt} KST` : ""}</span></span>
+            <span className="tnum shrink-0 text-sm font-bold text-fog-100">{own.sets}–{opponent?.sets ?? "—"}</span>
+          </Link>
+        </li>;
+      })}</ul>}
+    {(history.partial || history.toursFailed > 0) && <p className="border-t border-ink-800 px-4 py-2 text-xs text-amber-450">Some matches may be missing from this season.</p>}
+  </div>;
+}
+
 interface PageProps {
   params: Promise<{ memCode: string }>;
   searchParams: Promise<{ season?: string }>;
@@ -37,7 +65,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { memCode } = await params;
-  const raw = await getPlayer(memCode);
+  const raw = await getPlayerCached(memCode);
   if (!raw) return { title: "Player not found" };
   const name = raw.PlayerNameEN || raw.PlayerNameKO;
   return {
@@ -51,7 +79,7 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
   const { season: seasonParam } = await searchParams;
 
   const [raw, seasons, currentSeason] = await Promise.all([
-    getPlayer(memCode),
+    getPlayerCached(memCode),
     getSeasonList(),
     getCurrentSeason(),
   ]);
@@ -65,21 +93,31 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
   // recent season that actually has recorded statistics, so a mid-season
   // profile does not greet readers with an empty board. That fallback only
   // runs when the current season genuinely has none: a failed request would
-  // otherwise present an older season as this season's figures.
+  // otherwise present an older season as this season's figures. The candidate
+  // seasons are probed together rather than one after another — the probes are
+  // independent reads and the pick below still walks them newest-first.
   const requestedSeason =
     seasonParam && seasons.some((s) => s.SeasonCode === seasonParam) ? seasonParam : null;
   let seasonCode = requestedSeason ?? currentSeason.SeasonCode;
-  const first = await readPlayerSeasonStats({ memCode, seasonCode, pbaType });
+  const candidates = requestedSeason
+    ? []
+    : seasons.filter((s) => s.SeasonCode !== currentSeason.SeasonCode).slice(0, 4);
+
+  const [first, ...probes] = await Promise.all([
+    readPlayerSeasonStats({ memCode, seasonCode, pbaType }),
+    ...candidates.map((candidate) =>
+      readPlayerSeasonStats({ memCode, seasonCode: candidate.SeasonCode, pbaType }),
+    ),
+  ]);
   let seasonStat = first.stat;
+  let fallbackUnavailable = false;
   if (first.answered && !requestedSeason && !hasStatData(normalizePlayerStat(seasonStat))) {
-    for (const candidate of seasons.filter((s) => s.SeasonCode !== currentSeason.SeasonCode).slice(0, 4)) {
-      const probe = await readPlayerSeasonStats({ memCode, seasonCode: candidate.SeasonCode, pbaType });
-      if (!probe.answered) break;
-      if (hasStatData(normalizePlayerStat(probe.stat))) {
-        seasonCode = candidate.SeasonCode;
-        seasonStat = probe.stat;
-        break;
-      }
+    const winnerIndex = probes.findIndex((probe) => probe.answered && hasStatData(normalizePlayerStat(probe.stat)));
+    const firstFailure = probes.findIndex((probe) => !probe.answered);
+    fallbackUnavailable = firstFailure >= 0 && (winnerIndex < 0 || firstFailure < winnerIndex);
+    if (winnerIndex >= 0 && !fallbackUnavailable) {
+      seasonCode = candidates[winnerIndex].SeasonCode;
+      seasonStat = probes[winnerIndex].stat;
     }
   }
 
@@ -97,9 +135,8 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
   const hasData = hasStatData(line);
   // The board never answered, so "no statistics this season" would be a
   // claim we cannot make — the stat grid and the notice below say so instead.
-  const seasonUnavailable = !first.answered;
-  const rate = winRate(player);
-  const age = player.birth ? new Date().getFullYear() - new Date(player.birth).getFullYear() : null;
+  const seasonUnavailable = !first.answered || fallbackUnavailable;
+  const seasonPrizeRank = seasonRank?.상금순위 ?? 0;
 
   return (
     <>
@@ -111,12 +148,12 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
           style={{ background: "var(--color-lime-400)" }}
           aria-hidden="true"
         />
-        {player.prizeRank > 0 && player.prizeRank <= 100 && (
+        {seasonPrizeRank > 0 && seasonPrizeRank <= 100 && (
           <span
             className="pointer-events-none absolute -right-6 top-10 hidden select-none font-display text-[220px] font-extrabold leading-none tracking-tighter text-ink-800/60 lg:block"
             aria-hidden="true"
           >
-            {player.prizeRank}
+            {seasonPrizeRank}
           </span>
         )}
 
@@ -147,11 +184,11 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                   fallback={<InitialsPlate name={player.name} />}
                 />
               </div>
-              {player.prizeRank > 0 && (
+              {seasonPrizeRank > 0 && (
                 <div className="absolute -bottom-3 -right-3 grid h-14 w-14 place-items-center rounded-xl border border-gold-400/40 bg-ink-950 text-center">
                   <div>
                     <p className="text-[8px] font-bold uppercase tracking-[0.1em] text-gold-400">Prize</p>
-                    <p className="tnum font-display text-sm font-bold text-fog-100">#{player.prizeRank}</p>
+                    <p className="tnum font-display text-sm font-bold text-fog-100">#{seasonPrizeRank}</p>
                   </div>
                 </div>
               )}
@@ -168,19 +205,18 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
               <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-fog-500">
                 <span className="font-medium text-fog-300">{player.nameKo}</span>
                 <NationPlate code={player.nation} />
-                {age !== null && <span className="tnum">{age} years old</span>}
                 <span className="tnum">#{player.code}</span>
               </p>
 
               <dl className="mt-7 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-ink-800 pt-6 sm:grid-cols-3 lg:grid-cols-5">
-                <Stat label="Season average" value={average(player.average)} accent />
-                <Stat label="High run" value={grouped(player.highRun)} />
-                <Stat label="Win rate" value={percent(rate, 1)} hint={`${player.wins}W · ${player.losses}L`} />
-                <Stat label="Prize money" value={wonCompact(player.prize)} hint={`Rank #${player.prizeRank || "—"}`} />
+                <Stat label="Season average" value={hasData ? average(line.average) : "—"} hint={seasonCode} accent />
+                <Stat label="Season high run" value={hasData ? grouped(line.highRun) : "—"} />
+                <Stat label="Season win rate" value={hasData ? percent(line.winRate, 1) : "—"} hint={hasData ? `${line.wins}W · ${line.losses}L` : undefined} />
+                <Stat label="Season prize money" value={seasonRank ? wonCompact(seasonRank.상금) : "—"} hint={seasonRank ? `Rank #${seasonRank.상금순위 || "—"}` : undefined} />
                 <Stat
-                  label="Ranking points"
-                  value={grouped(player.points)}
-                  hint={`Rank #${player.pointsRank || "—"}`}
+                  label="Season ranking points"
+                  value={seasonRank ? grouped(seasonRank.랭킹포인트) : "—"}
+                  hint={seasonRank ? `Rank #${seasonRank.랭킹포인트순위 || "—"}` : undefined}
                 />
               </dl>
             </div>
@@ -190,6 +226,16 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
 
       <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-10">
         <PlayerSubNav hasSeason={hasData} hasEvents={tourStats.length > 0} hasTitles={championships.length > 0} />
+
+        <section id="matches" className="mb-10 scroll-mt-40">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div><p className="eyebrow">Individual tour</p><h2 className="mt-1 font-display text-xl font-bold text-fog-100">Recent matches</h2></div>
+            <TextLink href={`/players/${memCode}/matches?season=${encodeURIComponent(seasonCode)}`}>All matches →</TextLink>
+          </div>
+          <Suspense fallback={<p className="surface p-4 text-sm text-fog-400">Loading match history…</p>}>
+            <RecentMatches memCode={memCode} nameEn={raw.PlayerNameEN} nameEnShort={raw.PlayerNameENShort} seasonCode={seasonCode} pbaType={pbaType} />
+          </Suspense>
+        </section>
 
         <div className="grid gap-10 lg:grid-cols-[1.4fr_0.6fr] lg:gap-14">
           <div className="min-w-0">
@@ -409,17 +455,6 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                 </ul>
               </div>
             )}
-
-            <div className="surface p-4">
-              <p className="eyebrow">Match history</p>
-              <p className="mt-2 text-[12.5px] leading-relaxed text-fog-500">
-                Every recorded tour match of {player.name.split(" ").slice(-1)[0]}, season by
-                season, each row opening its turn-by-turn card.
-              </p>
-              <div className="mt-3">
-                <TextLink href={`/players/${player.code}/matches`}>Open match history</TextLink>
-              </div>
-            </div>
 
             <div className="surface p-4">
               <p className="eyebrow">Compare</p>

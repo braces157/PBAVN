@@ -8,6 +8,7 @@ import { cache } from "react";
 import {
   getLeagues,
   getPlayers,
+  getPlayer,
   getRanking,
   getSeasonLeaders,
   getSeasons,
@@ -17,6 +18,7 @@ import {
   getTeamStandings,
   getTournaments,
   getPlayerTourStats,
+  getTourHistory,
   type RankingKind,
 } from "./api";
 import { byStart, eventStatus, normalizeEvent, normalizeTeam, type Event } from "../normalize";
@@ -161,6 +163,12 @@ export interface PlayerMatchHistory {
 }
 
 /**
+ * One directory read per request: a profile page's metadata pass and its render
+ * both ask for the same member, and so do both sides of a comparison.
+ */
+export const getPlayerCached = cache(getPlayer);
+
+/**
  * Every recorded individual-tour match of one player in one season.
  *
  * The join runs through `getPlayerTourStats` — one row per tour entered — and
@@ -193,17 +201,19 @@ export const getPlayerMatchHistory = cache(async (params: {
   });
   if (tours.length === 0) return { ...empty, searchTerm };
 
-  const result = await getPlayerSeasonMatches({
+  const [result, tourHistory] = await Promise.all([getPlayerSeasonMatches({
     memCode: params.memCode,
     searchName: searchTerm,
     tours: tours.map((tour) => ({
       code: String(tour.TourCode ?? ""),
       title: tour.TourTitleEn || tour.TourTitle || "",
     })),
-  });
+  }), getTourHistory()]);
+  const dates = new Map(tourHistory.map((tour) => [String(tour.투어코드), tour.투어시작일자]));
+  const ordered = [...result.matches].sort((a, b) => (dates.get(b.tourCode) ?? "").localeCompare(dates.get(a.tourCode) ?? ""));
 
   return {
-    matches: result.matches,
+    matches: ordered,
     toursSearched: result.searched,
     toursFailed: result.toursFailed,
     partial: result.partial,
@@ -319,17 +329,29 @@ import tourTitles from "./data/tour-titles.json";
 import playerNames from "./data/player-names.json";
 
 /** Tour code → English title. */
+let tourTitleIndex: Map<string, TourTitleEntry> | null = null;
+
 export function getTourTitleIndex(): Map<string, TourTitleEntry> {
-  const index = new Map<string, TourTitleEntry>();
-  for (const [key, title] of Object.entries(tourTitles as Record<string, string>)) {
-    if (title) index.set(key, { titleEn: title, titleKo: title, seq: key });
+  // The artefacts are static, so the map is built once per process. This used to
+  // rebuild per call, and the champion columns call it per row.
+  if (!tourTitleIndex) {
+    const index = new Map<string, TourTitleEntry>();
+    for (const [key, title] of Object.entries(tourTitles as Record<string, string>)) {
+      if (title) index.set(key, { titleEn: title, titleKo: title, seq: key });
+    }
+    tourTitleIndex = index;
   }
-  return index;
+  return tourTitleIndex;
 }
 
 /** Korean member name → English member name, for the champion columns. */
+let playerNameIndex: Map<string, string> | null = null;
+
 export function getPlayerNameIndex(): Map<string, string> {
-  return new Map(Object.entries(playerNames as Record<string, string>));
+  if (!playerNameIndex) {
+    playerNameIndex = new Map(Object.entries(playerNames as Record<string, string>));
+  }
+  return playerNameIndex;
 }
 
 /**

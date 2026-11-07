@@ -185,10 +185,9 @@ async function clubIndex(): Promise<ClubIndex> {
   const englishByCode = new Map<string, string>();
   const codeByKorean = new Map<string, string>();
   try {
-    const { getTeamLeagueRounds, getTeamLeagueSeasons, getTeamStandings, getTeamStandingsKorean } =
-      await import("./api");
+    const { getTeamLeagueRounds, getTeamStandings, getTeamStandingsKorean } = await import("./api");
 
-    const seasons = await getTeamLeagueSeasons();
+    const seasons = await sharedTeamSeasons();
     const season = seasons[0];
     if (!season) throw new Error("no team season");
 
@@ -242,11 +241,33 @@ async function clubIndex(): Promise<ClubIndex> {
  * doubles pairing are found. The index wins where it already knows the name, so
  * a PBA member keeps the spelling the rest of the site prints.
  */
+/**
+ * One read of the team-league seasons per flight. `clubIndex` and
+ * `teamPlayerNames` both start from it, and they run concurrently inside every
+ * live poll that found a team fixture — without sharing, a cold window fetches
+ * the same endpoint twice per poll.
+ */
+let teamSeasonsFlight: Promise<Awaited<ReturnType<typeof import("./api").getTeamLeagueSeasons>>> | null =
+  null;
+
+function sharedTeamSeasons() {
+  if (!teamSeasonsFlight) {
+    teamSeasonsFlight = import("./api")
+      .then((api) => api.getTeamLeagueSeasons())
+      .finally(() => {
+        teamSeasonsFlight = null;
+      });
+  }
+  return teamSeasonsFlight;
+}
+
 async function teamPlayerNames(): Promise<Map<string, string>> {
-  const index = getPlayerNameIndex();
+  // A copy: the shared index is a process-wide singleton, and the roster
+  // additions below must not leak into every other consumer of it.
+  const index = new Map(getPlayerNameIndex());
   try {
-    const { getTeamLeagueSeasons, getTeamPlayerStats } = await import("./api");
-    const seasons = await getTeamLeagueSeasons();
+    const { getTeamPlayerStats } = await import("./api");
+    const seasons = await sharedTeamSeasons();
     const season = seasons[0];
     if (!season) return index;
     const rows = await getTeamPlayerStats({
@@ -283,7 +304,7 @@ async function getTeamLive(): Promise<{ matches: LiveMatch[]; reachable: boolean
   };
 }
 
-export async function getLiveFeed(tourCode = ""): Promise<LiveFeed> {
+async function readLiveFeed(tourCode = ""): Promise<LiveFeed> {
   // Both surfaces are read together: which one has a match is not known in
   // advance, and they cost one request each.
   const [board, team] = await Promise.all([getLiveBoard(tourCode), getTeamLive()]);
@@ -320,4 +341,25 @@ export async function getLiveFeed(tourCode = ""): Promise<LiveFeed> {
     source: surfaces.length > 0 ? surfaces.join(" + ") : "app.pbatour.org scoring terminal",
     origin,
   };
+}
+
+/**
+ * Concurrent reads of the same wire share one flight.
+ *
+ * The feed is polled every 20 seconds from every open tab, and the home page
+ * reads it in two places (header and wire panel) of one render. The underlying
+ * `unstable_cache` stores results but does not single-flight a cold or expired
+ * window, so without this guard N simultaneous callers fire N identical fan-outs
+ * at the terminals — a dozen upstream requests each. The map holds only the
+ * promises in flight; it is empty at rest.
+ */
+const inFlight = new Map<string, Promise<LiveFeed>>();
+
+export function getLiveFeed(tourCode = ""): Promise<LiveFeed> {
+  const existing = inFlight.get(tourCode);
+  if (existing) return existing;
+
+  const flight = readLiveFeed(tourCode).finally(() => inFlight.delete(tourCode));
+  inFlight.set(tourCode, flight);
+  return flight;
 }

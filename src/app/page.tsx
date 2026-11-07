@@ -21,6 +21,7 @@ import { LEADER_CATEGORIES, leagueByCode, leagueShort, normalizeArticle, normali
 import { excerpt, fmtDate, fmtRange, grouped, isoDay, kstDay, percent, pick, relativeDay, shiftIsoDay, wonCompact } from "@/lib/format";
 import { asset, isRealAsset } from "@/lib/pba/http";
 import { DateRail } from "@/components/domain/date-rail";
+import { DateStrip } from "@/components/domain/date-rail";
 import { TodayBoard, TodayPanelSkeleton } from "@/components/domain/today-panel";
 import { PlayerAvatar, TeamLogo } from "@/components/ui/media";
 import { SafeImage } from "@/components/ui/safe-image";
@@ -39,23 +40,27 @@ export default async function HomePage() {
   const season = await getCurrentSeason();
   const seasonCode = season.SeasonCode;
 
-  const [feed, press, pbaRank, lpbaRank, teamSeason, leaders] = await Promise.all([
-    getLiveFeed(),
+  // Everything here is cached well beyond the live terminals' windows, and the
+  // standings chain off the team season inside the batch rather than after it —
+  // a third sequential stage here is a third stage before first byte.
+  // The live wire is deliberately absent: it is the slowest read on the page and
+  // every surface that needs it streams below (header chip, status line, wire).
+  const teamSeasonPromise = getActiveTeamSeason();
+  const [press, pbaRank, lpbaRank, teamSeason, leaders, standings] = await Promise.all([
     getPressList(1, 6),
     getRankingBoard({ kind: "prize", leagueCode: "PBA1", season: seasonCode }),
     getRankingBoard({ kind: "prize", leagueCode: "LPBA1", season: seasonCode }),
-    getActiveTeamSeason(),
+    teamSeasonPromise,
     getLeaders(seasonCode, "PBA1"),
+    teamSeasonPromise.then((active) =>
+      active
+        ? getTeamStandings({
+            seasonCode: active.season.시즌코드,
+            leagueCode: String(active.season.리그코드),
+          }).then((rows) => rows.map(normalizeTeam))
+        : [],
+    ),
   ]);
-
-  const standings = teamSeason
-    ? (
-        await getTeamStandings({
-          seasonCode: teamSeason.season.시즌코드,
-          leagueCode: String(teamSeason.season.리그코드),
-        })
-      ).map(normalizeTeam)
-    : [];
 
   const articles = press.list.map(normalizeArticle);
 
@@ -101,12 +106,17 @@ export default async function HomePage() {
       <header className="flex flex-wrap items-end justify-between gap-3 px-1 pb-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            {feed.available ? <LiveChip label="Scoring now" /> : null}
+            <Suspense fallback={null}>
+              <ScoringNowChip />
+            </Suspense>
             <Chip tone="neutral">{seasonLabel(season)} season</Chip>
           </div>
           <h1 className="display-sm mt-1.5 text-fog-100">Every table, every frame</h1>
           <p className="mt-1 text-[12px] text-fog-500">
-            {relativeDay(today)} · {feed.matches.length > 0 ? `${feed.matches.length} table${feed.matches.length === 1 ? "" : "s"} live` : "no table live"}
+            {relativeDay(today)}
+            <Suspense fallback=" · reading the wire…">
+              <WireStatus />
+            </Suspense>
             {liveToday.length > 0
               ? ` · ${liveToday.length} event${liveToday.length === 1 ? "" : "s"} in progress`
               : nextDay
@@ -131,6 +141,19 @@ export default async function HomePage() {
         </div>
       </header>
 
+      {/* Day navigation for phones: the desktop rail column below is hidden
+          under lg, and this strip is the only picker there. */}
+      <div className="mb-4 lg:hidden">
+        <DateStrip
+          days={railDays}
+          counts={railCounts}
+          selected={today}
+          today={today}
+          hrefFor={(day) => `/schedule?day=${day}`}
+          label="Dates"
+        />
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-[116px_minmax(0,1fr)_300px]">
         {/* ------------------------------------------------------ date rail */}
         <aside className="hidden lg:block">
@@ -146,7 +169,7 @@ export default async function HomePage() {
         </aside>
 
         {/* ------------------------------------------------------- main col */}
-        <main className="min-w-0 space-y-4">
+        <div className="min-w-0 space-y-4">
           {/* Today: every match of the day — played, on the table, and to come —
               streamed because the read fans out over every running event. */}
           <Suspense fallback={<TodayPanelSkeleton day={today} />}>
@@ -161,37 +184,11 @@ export default async function HomePage() {
             </Panel>
           )}
 
-          {/* Live wire */}
-          <Panel
-            title="Scoreboard wire"
-            meta={feed.source}
-            action={
-              <Link href="/live" className="text-[11.5px] font-medium text-fog-400 hover:text-lime-300">
-                Open match centre →
-              </Link>
-            }
-          >
-            {feed.matches.length > 0 ? (
-              <ul className="divide-y divide-ink-800/70">
-                {feed.matches.map((match) => (
-                  <li key={match.key}>
-                    <LiveWireRow match={match} />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-3">
-                <p className="text-[12px] text-fog-450">
-                  {feed.reachable
-                    ? "No match is being scored right now."
-                    : "The scoring terminal did not answer this time."}
-                </p>
-                <Link href="/live" className="text-[11.5px] font-medium text-fog-400 hover:text-lime-300">
-                  Watch the wire →
-                </Link>
-              </div>
-            )}
-          </Panel>
+          {/* Live wire. Streamed: a scoring terminal that answers slowly must
+              not hold the rest of the page behind it. */}
+          <Suspense fallback={<WireSkeleton />}>
+            <LiveWirePanel />
+          </Suspense>
 
           {/* Next up */}
           {upcoming.length > 0 && (
@@ -309,7 +306,7 @@ export default async function HomePage() {
 
           {/* News */}
           {articles.length > 0 && (
-            <Panel title="Newsroom" action={<TextLink href="/news">All news</TextLink>}>
+            <Panel title="Newsroom" meta="Korean-language source" action={<TextLink href="/news">All news</TextLink>}>
               <ul className="divide-y divide-ink-800/70">
                 {articles.slice(0, 4).map((article) => (
                   <li key={article.seq}>
@@ -336,10 +333,13 @@ export default async function HomePage() {
               </ul>
             </Panel>
           )}
-        </main>
+        </div>
 
-        {/* ----------------------------------------------------------- rail */}
-        <aside className="order-first space-y-4 lg:order-none">
+        {/* ----------------------------------------------------------- rail
+            Last in the DOM and last on a phone: the day's matches are the
+            reason the page opens; the featured card is seasoning. On desktop
+            the grid parks it in the third column. */}
+        <aside className="space-y-4">
           {featured && <FeaturedCard event={featured} />}
 
           <Panel title="Tour calendar" action={<TextLink href="/schedule">Open</TextLink>}>
@@ -390,6 +390,88 @@ export default async function HomePage() {
 }
 
 /* ------------------------------------------------------------------ pieces */
+
+/**
+ * The header's live chip, table count and wire panel all read the same feed.
+ * Each sits behind its own Suspense boundary so the shell never waits on the
+ * scoring terminals, and the three reads share one `getLiveFeed` flight (the
+ * wire does not answer three times for one page view).
+ */
+
+async function ScoringNowChip() {
+  const feed = await getLiveFeed();
+  return feed.available ? <LiveChip label="Scoring now" /> : null;
+}
+
+async function WireStatus() {
+  const feed = await getLiveFeed();
+  return (
+    <>
+      {" · "}
+      {!feed.reachable ? "match status unavailable" : feed.matches.length > 0
+        ? `${feed.matches.length} table${feed.matches.length === 1 ? "" : "s"} live`
+        : "no matches live"}
+    </>
+  );
+}
+
+async function LiveWirePanel() {
+  const feed = await getLiveFeed();
+  return (
+    <Panel
+      title="Live match scores"
+      // The source string is long; on a phone it would squeeze the title to
+      // nothing, so it shows from `sm` up. The full footer lives on /live.
+      meta={<span className="hidden sm:inline">{feed.source}</span>}
+      action={
+        <Link href="/live" className="text-[11.5px] font-medium text-fog-400 hover:text-lime-300">
+          Open match centre →
+        </Link>
+      }
+    >
+      {feed.matches.length > 0 ? (
+        <ul className="divide-y divide-ink-800/70">
+          {feed.matches.map((match) => (
+            <li key={match.key}>
+              <LiveWireRow match={match} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-3">
+          <p className="text-[12px] text-fog-450">
+            {feed.reachable
+              ? "No match is being scored right now."
+              : "The scoring terminal did not answer this time."}
+          </p>
+          <Link href="/live" className="text-[11.5px] font-medium text-fog-400 hover:text-lime-300">
+            Watch the wire →
+          </Link>
+        </div>
+      )}
+      <p className="border-t border-ink-800 px-3 py-2 text-[11px] text-fog-400">
+        Checked {new Date(feed.fetchedAt).toLocaleTimeString("en-GB", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit" })} KST · <Link href="/live" className="underline hover:text-fog-100">Live scores refresh in match centre</Link>
+      </p>
+    </Panel>
+  );
+}
+
+/** Matches the arriving panel's frame so the swap does not jump the page. */
+function WireSkeleton() {
+  return (
+    <Panel title="Scoreboard wire" meta="reading the terminal…">
+      <div className="space-y-px py-1" aria-hidden="true">
+        {[0, 1, 2].map((row) => (
+          <div key={row} className="flex items-center gap-2.5 px-3 py-2">
+            <span className="h-[10px] w-[34px] rounded bg-ink-800" />
+            <span className="h-[10px] flex-1 rounded bg-ink-800" />
+            <span className="h-[10px] w-[14px] rounded bg-ink-800" />
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
 
 /**
  * One match on the live wire.
@@ -468,7 +550,7 @@ function EventBoardRow({
         {live ? (
           <span className="inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-[0.08em] text-live-400">
             <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
-            Live
+            Event on
           </span>
         ) : (
           <span className="text-[9.5px] font-semibold uppercase tracking-[0.08em] text-fog-550">
@@ -522,7 +604,7 @@ function FeaturedCard({ event }: { event: CalendarEvent }) {
     <Panel title="In focus" action={<TextLink href={`/schedule/${event.id}`}>Open</TextLink>}>
       <div className="px-3 py-3">
         <div className="flex items-center gap-2">
-          {event.status === "live" ? <LiveChip /> : <Chip tone={league.tone}>{league.name}</Chip>}
+          {event.status === "live" ? <LiveChip label="Event in progress" /> : <Chip tone={league.tone}>{league.name}</Chip>}
         </div>
         <p className="mt-2 font-display text-[15px] font-bold leading-snug text-fog-100">{event.title}</p>
         <p className="tnum mt-1 text-[11.5px] text-fog-450">{fmtRange(event.start, event.end)}</p>
@@ -533,7 +615,7 @@ function FeaturedCard({ event }: { event: CalendarEvent }) {
             <dd className="tnum mt-0.5 text-[11.5px] text-fog-200">{compactPrize(event.prizePool)}</dd>
           </div>
           <div>
-            <dt className="micro-label">Champion</dt>
+            <dt className="micro-label">Defending champion</dt>
             <dd className="mt-0.5 truncate text-[11.5px] text-fog-200">
               {event.defendingChampion !== "—" ? event.defendingChampion : "TBD"}
             </dd>
@@ -621,7 +703,10 @@ function compactPrize(value: string): string {
   // The feed already writes these in words ("Final Winner: KRW 100 million");
   // the winner figure is the one people quote.
   const winner = text.match(/(?:winner|우승)[^\d]*([\d.,]+\s*(?:million|billion|억원?|만원?))/i);
-  if (winner) return winner[1].replace(/million/i, "M").replace(/billion/i, "B");
+  if (winner) {
+    const amount = winner[1].replace(/million/i, "M").replace(/billion/i, "B");
+    return /KRW|₩/i.test(text) ? `₩${amount.replace(/\s+/g, "")}` : amount;
+  }
   return text.length > 22 ? `${text.slice(0, 20)}…` : text;
 }
 

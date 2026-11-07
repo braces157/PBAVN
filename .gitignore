@@ -1,5 +1,6 @@
 node_modules/
 .next/
+.next-dev/
 out/
 build/
 dist/
@@ -23,3 +24,5 @@ shots/
 research/
 .audit/
 .wt/
+.vercel
+.env*

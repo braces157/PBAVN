@@ -24,6 +24,9 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
+  // Relative OG/social URLs resolve against this. The canonical host is
+  // whatever this deployment runs on — set NEXT_PUBLIC_SITE_URL there.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3100")),
   title: {
     default: "PBA Hub — Professional Billiards Association",
     template: "%s · PBA Hub",

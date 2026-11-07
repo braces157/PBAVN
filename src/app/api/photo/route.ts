@@ -13,8 +13,7 @@
  *     asked for and re-encodes as WebP, which also gives us a resizable edge
  *     instead of a browser-side downscale.
  *
- * A miss returns 404 with a short cache so the client can settle on the initials
- * plate instead of a broken image icon.
+ * An unavailable image returns a non-cached error so a later request can retry.
  */
 
 import { NextResponse } from "next/server";
@@ -37,6 +36,25 @@ interface Rendered {
 }
 
 const rendered = new Map<string, Rendered>();
+
+/**
+ * Expired entries leave first, then the least recently used one pays for the
+ * newcomer. The old wholesale `clear()` wiped every hot thumb at the limit, and
+ * a page full of faces then re-rendered them all from upstream. Map iteration
+ * is insertion order and hits re-insert, so the oldest key is the coldest.
+ */
+function storeRendered(key: string, entry: Rendered): void {
+  const now = Date.now();
+  for (const [k, v] of rendered) {
+    if (v.expires <= now) rendered.delete(k);
+  }
+  while (rendered.size >= RESULT_CACHE_LIMIT) {
+    const oldest = rendered.keys().next().value;
+    if (oldest === undefined) break;
+    rendered.delete(oldest);
+  }
+  rendered.set(key, entry);
+}
 
 const HIT_HEADERS = {
   "Cache-Control": "public, max-age=604800, stale-while-revalidate=2592000",
@@ -114,6 +132,8 @@ export async function GET(request: Request) {
 
   const cached = rendered.get(key);
   if (cached && cached.expires > Date.now()) {
+    rendered.delete(key);
+    rendered.set(key, cached);
     return new NextResponse(new Uint8Array(cached.body), {
       headers: { ...HIT_HEADERS, "Content-Type": cached.contentType },
     });
@@ -130,8 +150,7 @@ export async function GET(request: Request) {
     const body = webp ?? asset.body;
     const contentType = webp ? "image/webp" : asset.contentType || "image/jpeg";
 
-    if (rendered.size >= RESULT_CACHE_LIMIT) rendered.clear();
-    rendered.set(key, { expires: Date.now() + RESULT_TTL_MS, body, contentType });
+    storeRendered(key, { expires: Date.now() + RESULT_TTL_MS, body, contentType });
 
     return new NextResponse(new Uint8Array(body), {
       headers: { ...HIT_HEADERS, "Content-Type": contentType },
@@ -139,7 +158,7 @@ export async function GET(request: Request) {
   }
 
   return new NextResponse(null, {
-    status: 404,
-    headers: { "Cache-Control": "public, max-age=600" },
+    status: 503,
+    headers: { "Cache-Control": "no-store" },
   });
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LogoLink } from "./wordmark";
 import { PlayerSearch } from "@/components/ui/player-search";
 
@@ -30,6 +30,7 @@ function isActive(pathname: string, href: string) {
 export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -42,6 +43,20 @@ export function SiteHeader() {
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  // Escape closes the drawer, as every disclosure a keyboard user has opened
+  // should.
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) {
+        setOpen(false);
+        menuButton.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   return (
     <header
@@ -102,9 +117,11 @@ export function SiteHeader() {
           </a>
 
           <button
+            ref={menuButton}
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
+            aria-controls="mobile-nav"
             aria-label={open ? "Close menu" : "Open menu"}
             className="grid h-9 w-9 place-items-center rounded-md border border-ink-700 text-fog-300 transition-colors hover:text-fog-100 lg:hidden"
           >
@@ -129,15 +146,23 @@ export function SiteHeader() {
         </div>
       </div>
 
-      {/* Mobile drawer. `invisible` when closed, not just `max-h-0`: a
-          zero-height overflow container still leaves its boxes hit-testable in
-          one-column layouts, which made every nav link look clickable while it
-          was covered by the page behind it. */}
+      <nav aria-label="Quick navigation" className="flex border-t border-ink-800 px-2 lg:hidden">
+        {[{ href: "/", label: "Scores" }, { href: "/live", label: "Live" }, { href: "/schedule", label: "Schedule" }, { href: "/players", label: "Players" }].map((item) => (
+          <Link key={item.href} href={item.href} aria-current={isActive(pathname, item.href) ? "page" : undefined}
+            className={`flex-1 py-2.5 text-center text-xs font-medium ${isActive(pathname, item.href) ? "text-lime-400" : "text-fog-400"}`}>
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+
+      {/* Mobile drawer. The `.drawer` utility owns visibility, height and the
+          transition so the close animation actually plays and a short screen
+          scrolls instead of clipping. */}
       <div
+        id="mobile-nav"
         aria-hidden={!open}
-        className={`overflow-hidden border-t border-ink-750 bg-ink-950/97 backdrop-blur-xl transition-[max-height,opacity] duration-300 lg:hidden ${
-          open ? "max-h-[520px] opacity-100" : "invisible max-h-0 opacity-0"
-        }`}
+        data-open={open}
+        className="drawer border-t border-ink-750 bg-ink-950/97 backdrop-blur-xl lg:hidden"
       >
         <div className="mx-auto max-w-[1440px] px-4 pt-3 sm:px-6 md:hidden">
           <PlayerSearch variant="page" />

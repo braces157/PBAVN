@@ -252,18 +252,24 @@ export function DataTable({
                       className={cn(
                         column.hideBelow && HIDE_CLASS[column.hideBelow],
                         !alignRight && "!text-left",
-                        "cursor-pointer select-none",
+                        "select-none",
                         active && "!text-lime-300",
                       )}
                       aria-sort={active ? (sort?.direction === "desc" ? "descending" : "ascending") : undefined}
-                      onClick={() => toggle(column)}
                     >
-                      <span className="inline-flex items-center gap-1">
+                      {/* A real button inside the header cell: a clickable th has
+                          no keyboard path, and the sort bar above the table does
+                          not render for two-column tables. */}
+                      <button
+                        type="button"
+                        onClick={() => toggle(column)}
+                        className="inline-flex cursor-pointer items-center gap-1 [font:inherit] transition-colors hover:text-fog-100"
+                      >
                         {column.label}
                         <span aria-hidden="true" className={cn("text-[8px] leading-none", active ? "opacity-100" : "opacity-30")}>
                           {active ? (sort?.direction === "desc" ? "▼" : "▲") : "⇅"}
                         </span>
-                      </span>
+                      </button>
                     </th>
                   );
                 })}
