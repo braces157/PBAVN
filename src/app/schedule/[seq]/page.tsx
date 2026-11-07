@@ -59,6 +59,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function EventPage({ params, searchParams }: PageProps) {
   const [{ seq }, search] = await Promise.all([params, searchParams]);
 
+  // The wire is the slowest read on the page and only asked for when the event
+  // is running. The calendar knows the status without a network read, so a live
+  // event starts its wire flight before the detail feed is even asked; events
+  // the calendar does not know yet start it alongside the match reads below
+  // rather than after them. A failed flight degrades to the idle state instead
+  // of erroring the page — the wire is a bonus over the results, not the page.
+  const calEntry = calendarEvent(seq);
+  const wirePromise = calEntry?.status === "live" ? getLiveFeed().catch(() => null) : null;
+
   // The feed still owns the fields that move during a tournament: the match
   // code, the winner, the broadcast list. The calendar supplies the identity.
   const detail = await getTournamentDetail(seq);
@@ -66,7 +75,7 @@ export default async function EventPage({ params, searchParams }: PageProps) {
   // The live board links events the built calendar has not picked up yet, and
   // the detail feed answers for them; without this fallback those links 404
   // until the next calendar rebuild ships.
-  const entry = calendarEvent(seq) ?? (detail ? detailCalendarEntry(detail, seq) : null);
+  const entry = calEntry ?? (detail ? detailCalendarEntry(detail, seq) : null);
   if (!entry) notFound();
 
   const showAll = search.all === "1";
@@ -76,20 +85,25 @@ export default async function EventPage({ params, searchParams }: PageProps) {
 
   const matchCode = detail && /^\d+$/.test(detail.MATCH_CODE ?? "") ? detail.MATCH_CODE : "";
 
-  const teamEvent =
+  // The two match reads are independent of each other, so they ride together.
+  // A settled event's brackets are read under a day-long window; a running one
+  // under ten minutes.
+  const [teamEvent, matches] = await Promise.all([
     isTeamLeague && matchCode
-      ? await getEventTeamFixtures({ matchCode, seasonCode: entry.season })
-      : null;
+      ? getEventTeamFixtures({ matchCode, seasonCode: entry.season })
+      : Promise.resolve(null),
+    !isTeamLeague && matchCode
+      ? getEventMatches(matchCode, { settled: entry.status === "completed" })
+      : Promise.resolve([]),
+  ]);
 
-  const matches = !isTeamLeague && matchCode ? await getEventMatches(matchCode) : [];
-
-  // The wire only covers what is on now; a finished event has no table to
-  // report, so it is not asked for.
-  const feed = entry.status === "live" ? await getLiveFeed() : null;
+  const feed = wirePromise ?? (entry.status === "live" ? getLiveFeed().catch(() => null) : null);
+  const liveFeed = feed ? await feed : null;
   // A fixture from the other terminal cannot belong to this event, so the live
   // block only takes matches from the terminal this event runs on.
   const liveMatch =
-    feed?.matches.find((match) => (isTeamLeague ? match.competition : !match.competition)) ?? null;
+    liveFeed?.matches.find((match) => (isTeamLeague ? match.competition : !match.competition)) ??
+    null;
 
   const fixtures = teamEvent?.fixtures ?? [];
   const days = dayCount(entry.start, entry.end);

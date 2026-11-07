@@ -6,6 +6,30 @@ import type { LiveFeed, LiveMatch } from "@/lib/pba/live";
 import { LiveMatchPanel } from "./live-match";
 
 const POLL_MS = 20_000;
+/** Jitter so every open tab does not hit the wire on the same tick. */
+const POLL_JITTER_MS = 4_000;
+
+/**
+ * One short line a screen reader can announce when the wire moves.
+ *
+ * The poll re-renders every 20 seconds, but an aria-live region only announces
+ * when its text actually changes — so this string is built from the headline
+ * scores alone and stays identical between polls. A quiet terminal is announced
+ * once, a score change the moment it lands.
+ */
+function feedAnnouncement(feed: LiveFeed): string {
+  if (feed.matches.length === 0) {
+    return feed.reachable !== false
+      ? "No match is being scored right now."
+      : "The scoring boards are unreachable.";
+  }
+  const lines = feed.matches.slice(0, 4).map((match) => {
+    const [a, b] = match.sides;
+    const score = match.fixtureScore ?? [a?.setsWon ?? 0, b?.setsWon ?? 0];
+    return `${a?.name || "Home"} ${score[0] ?? 0} to ${score[1] ?? 0}, ${b?.name || "Away"}`;
+  });
+  return `${feed.matches.length} ${feed.matches.length === 1 ? "match" : "matches"} on: ${lines.join("; ")}`;
+}
 
 /** The live feed, re-read every 20 seconds. Every live surface on a page shares
  * this poll so a reader never watches a stale score. */
@@ -37,10 +61,28 @@ function useLiveFeed(initial: LiveFeed, tourCode?: string) {
 
   useEffect(() => {
     mounted.current = true;
-    const timer = setInterval(refresh, POLL_MS);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // A timeout chain rather than an interval, so each tick carries its own
+    // jitter and every open tab does not hit the wire on the same beat. Hidden
+    // tabs skip their polls; the wire does not need to know the score of a page
+    // nobody is looking at.
+    const schedule = () => {
+      timer = setTimeout(() => {
+        if (document.visibilityState === "visible") void refresh();
+        schedule();
+      }, POLL_MS + Math.random() * POLL_JITTER_MS);
+    };
+    schedule();
+    // A tab returning to the foreground gets current scores now, not on the
+    // next tick.
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       mounted.current = false;
-      clearInterval(timer);
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [refresh]);
 
@@ -179,6 +221,10 @@ export function LiveBoard({
 
   return (
     <div className="surface overflow-hidden">
+      {/* Score changes land here for assistive tech; visually the panel is silent. */}
+      <p role="status" className="sr-only">
+        {feedAnnouncement(feed)}
+      </p>
       <div className={compact ? "flex flex-wrap items-center justify-between gap-3 px-4 py-2.5" : "flex flex-wrap items-center justify-between gap-3 border-b border-ink-800 px-4 py-3"}>
         <div className="flex items-center gap-2.5">
           {onTable ? (
@@ -264,6 +310,9 @@ export function LiveMatchBoards({ initial, tourCode }: { initial: LiveFeed; tour
 
   return (
     <div className="space-y-4">
+      <p role="status" className="sr-only">
+        {feedAnnouncement(feed)}
+      </p>
       {feed.matches.map((match) => (
         <LiveMatchPanel key={match.key} match={match} />
       ))}

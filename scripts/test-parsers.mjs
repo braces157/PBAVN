@@ -54,6 +54,14 @@ const totalsHtml = fixture("totals-68308.html");
 
 const scorecard = parseScorecard(scorecardHtml, totalsHtml, "68308");
 
+check("a blank final turn retains the player's last running score", () => {
+  const innings = parseSetInnings(`<table><tbody>
+    <tr><td>1</td><td>2</td><td>0</td><td>2</td><td>3</td><td>0</td><td>3</td></tr>
+    <tr><td>2</td><td>1</td><td>0</td><td>3</td><td></td><td></td><td></td></tr>
+  </tbody></table>`);
+  assert.equal(innings.rows[1].sides[1].total, 3);
+});
+
 check("match page yields every set", () => {
   assert.equal(scorecard.sets.length, 5);
 });
@@ -623,10 +631,13 @@ check("the season fallback is gated on the feed answering, not just on emptiness
     /seasonUnavailable/,
     "an unanswered current season must render the partial-data notice",
   );
+  // The probes fan out together, so there is no walk to stop: the guard now
+  // lives in the pick — an unanswered probe can never be chosen as the
+  // fallback season, which is the same rule with the same consequence.
   assert.match(
     page,
-    /if \(!probe\.answered\) break/,
-    "a failed probe must stop the walk instead of continuing on stale seasons",
+    /probe\.answered && hasStatData/,
+    "a probe that did not answer can never be chosen as the fallback season",
   );
 });
 

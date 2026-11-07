@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -24,6 +25,7 @@ import { Chip, EmptyState, KeyValue, SectionHeading, Stat, TextLink } from "@/co
 import { TeamStatGrid } from "@/components/domain/standings-table";
 import { FixtureList, type FixtureClub } from "@/components/domain/fixture-list";
 import { DataStatus } from "@/components/site/data-status";
+import { FilterRow } from "@/components/domain/filter-bar";
 
 export const revalidate = 900;
 
@@ -32,7 +34,13 @@ interface PageProps {
   searchParams: Promise<{ season?: string; round?: string }>;
 }
 
-async function resolveTeam(code: string, seasonParam?: string, roundParam?: string) {
+/**
+ * One resolution per request: `generateMetadata` and the page both ask for the
+ * same club, and without React's cache the whole seven-read fan-out below ran
+ * twice per view.
+ */
+const resolveTeam = cache(
+  async (code: string, seasonParam?: string, roundParam?: string) => {
   const seasons = await getTeamLeagueSeasons();
   const season = seasons.find((s) => s.시즌코드 === seasonParam) ?? seasons[0] ?? null;
   if (!season) return null;
@@ -87,7 +95,9 @@ async function resolveTeam(code: string, seasonParam?: string, roundParam?: stri
 
   return {
     season,
+    seasons,
     round,
+    rounds,
     roundCode,
     profile,
     standing,
@@ -106,7 +116,8 @@ async function resolveTeam(code: string, seasonParam?: string, roundParam?: stri
     ),
     profileIndex: new Map(rosterRaw.map((r) => [r.팀코드, normalizeTeamProfile(r)])),
   };
-}
+  },
+);
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { code } = await params;
@@ -124,8 +135,12 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
   const resolved = await resolveTeam(code, search.season, search.round);
   if (!resolved) notFound();
 
-  const { season, round, roundCode, profile, standing, players, standings, matrix, fixtures, clubs, failures, profileIndex } =
+  const { season, seasons, round, rounds, roundCode, profile, standing, players, standings, matrix, fixtures, clubs, failures, profileIndex } =
     resolved;
+  const playedFixtures = fixtures.filter((fixture) => fixture.played);
+  const fixtureWins = playedFixtures.filter((fixture) =>
+    fixture.home.clubCode === profile.code ? fixture.home.won : fixture.away.won,
+  ).length;
 
   return (
     <>
@@ -173,14 +188,53 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
 
       <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-10">
         <DataStatus failures={failures} />
+        <div className="mb-6 space-y-3 rounded-lg border border-ink-750 p-4">
+          <FilterRow label="Season" basePath={`/teams/${profile.code}`} paramKey="season" active={season.시즌코드} params={{}} options={seasons.map((item) => ({ value: item.시즌코드, label: item.시즌명 }))} />
+          <FilterRow label="Round" basePath={`/teams/${profile.code}`} paramKey="round" active={roundCode} params={{ season: season.시즌코드 }} options={[...rounds].sort((a, b) => a.라운드 - b.라운드).map((item) => ({ value: String(item.라운드코드), label: `R${item.라운드}` }))} />
+        </div>
         {standing && <TeamStatGrid team={standing} />}
 
         <div className="mt-10 grid gap-10 lg:grid-cols-[1.3fr_0.7fr] lg:gap-14">
+          <div className="min-w-0">
           <section>
+            <SectionHeading
+              eyebrow="Fixtures"
+              title={`Fixtures in this round${round ? ` (R${round.라운드})` : ""}`}
+              description="Results and scheduled matches for the selected round."
+              action={
+                <TextLink
+                  href={`/teams/matches?season=${season.시즌코드}&round=${roundCode}`}
+                >
+                  All fixtures of the round
+                </TextLink>
+              }
+            />
+            <div className="mt-5">
+              {playedFixtures.length > 0 && <p className="mb-3 text-sm text-fog-300">{fixtureWins} wins in {playedFixtures.length} recorded matches · {fixtures.length - playedFixtures.length} scheduled</p>}
+              <FixtureList
+                fixtures={fixtures}
+                clubs={clubs}
+                season={season.시즌코드}
+                round={roundCode}
+                emptyTitle={
+                  standing
+                    ? "No fixtures published for this club"
+                    : `${profile.shortName} is not competing this round`
+                }
+                emptyDescription={
+                  standing
+                    ? "The round's schedule has no fixture blocks for this club yet."
+                    : undefined
+                }
+              />
+            </div>
+          </section>
+
+          <section className="mt-10">
             <SectionHeading
               eyebrow="Roster"
               title={`${players.length} players`}
-              description="Sorted by season average. Set records combine singles, doubles and mixed-doubles appearances."
+              description="Sorted by average in the selected round. Set records combine singles, doubles and mixed-doubles appearances."
             />
             {players.length > 0 ? (
               <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
@@ -201,7 +255,7 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
                         )}
                       </p>
                       <p className="tnum mt-0.5 truncate text-[10.5px] text-fog-600">
-                        {player.nation} · {player.matches} matches · HR {player.highRun}
+                        {player.nation}{player.matches > 0 ? ` · ${player.matches} matches` : ""}{player.highRun > 0 ? ` · HR ${player.highRun}` : ""}
                       </p>
                     </div>
                     <div className="text-right">
@@ -235,38 +289,7 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
             )}
           </section>
 
-          <section className="mt-12">
-            <SectionHeading
-              eyebrow="Fixtures"
-              title={`Fixtures in this round${round ? ` (R${round.라운드})` : ""}`}
-              description="This club's own fixtures for the round selected above, from the same feed the round page uses."
-              action={
-                <TextLink
-                  href={`/teams/matches?season=${season.시즌코드}&round=${roundCode}`}
-                >
-                  All fixtures of the round
-                </TextLink>
-              }
-            />
-            <div className="mt-5">
-              <FixtureList
-                fixtures={fixtures}
-                clubs={clubs}
-                season={season.시즌코드}
-                round={roundCode}
-                emptyTitle={
-                  standing
-                    ? "No fixtures published for this club"
-                    : `${profile.shortName} is not competing this round`
-                }
-                emptyDescription={
-                  standing
-                    ? "The round's schedule has no fixture blocks for this club yet."
-                    : undefined
-                }
-              />
-            </div>
-          </section>
+          </div>
 
           <aside className="space-y-4">
             <div className="surface p-4">
@@ -284,7 +307,7 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
               <div className="border-b border-ink-800 px-4 py-3">
                 <p className="eyebrow">Head-to-head</p>
               </div>
-              <div className="divide-y divide-ink-800">
+              {matrix.size === 0 ? <p className="px-4 py-3 text-xs text-fog-400">Head-to-head records are unavailable for this round.</p> : <div className="divide-y divide-ink-800">
                 {standings
                   .filter((other) => other.code !== profile.code)
                   .map((other) => {
@@ -314,7 +337,7 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
                       </div>
                     );
                   })}
-              </div>
+              </div>}
               {!standing && (
                 <p className="border-t border-ink-800 px-4 py-2.5 text-[11px] leading-relaxed text-fog-600">
                   No meetings recorded for this club in round {round?.라운드 ?? "—"}.

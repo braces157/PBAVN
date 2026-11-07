@@ -14,18 +14,36 @@ import { useEffect } from "react";
  * `scrollIntoView` is deliberately not used: it scrolls every ancestor,
  * including the document, which would yank the page down on load.
  */
-export function RailFocus({ id, offset = 72 }: { id: string; offset?: number }) {
+export function RailFocus({
+  id,
+  offset = 72,
+  axis = "y",
+}: {
+  id: string;
+  offset?: number;
+  /** `x` for the phone strip, which scrolls sideways to the selected day. */
+  axis?: "x" | "y";
+}) {
   useEffect(() => {
     const target = document.getElementById(id);
     if (!target) return;
     const scroller = target.closest<HTMLElement>("[data-rail-scroll]");
     if (!scroller) return;
 
+    if (axis === "x") {
+      const targetLeft =
+        target.getBoundingClientRect().left - scroller.getBoundingClientRect().left + scroller.scrollLeft;
+      const visible =
+        targetLeft >= scroller.scrollLeft && targetLeft <= scroller.scrollLeft + scroller.clientWidth - 24;
+      if (!visible) scroller.scrollLeft = Math.max(0, targetLeft - offset);
+      return;
+    }
+
     const targetTop =
       target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
     const visible = targetTop >= scroller.scrollTop && targetTop <= scroller.scrollTop + scroller.clientHeight - 24;
     if (!visible) scroller.scrollTop = Math.max(0, targetTop - offset);
-  }, [id, offset]);
+  }, [id, offset, axis]);
 
   return null;
 }

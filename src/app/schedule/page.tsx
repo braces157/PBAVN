@@ -13,9 +13,10 @@ import {
 import { getCurrentSeason } from "@/lib/pba/service";
 import { LEAGUES, leagueByCode, leagueShort } from "@/lib/normalize";
 import { fmtRange, grouped, isoDay, kstDay, relativeDay, shiftIsoDay } from "@/lib/format";
-import { DateRail } from "@/components/domain/date-rail";
+import { DateRail, DateStrip } from "@/components/domain/date-rail";
 import { Panel, EmptyState, LiveChip, Stat, cn } from "@/components/ui/primitives";
-import { boardSummary, TodayMatches } from "@/components/domain/today-matches";
+import { TodayMatches } from "@/components/domain/today-matches";
+import { boardSummary } from "@/components/domain/today-panel";
 import { getDayBoard } from "@/lib/pba/matches-on-day";
 
 export const revalidate = 900;
@@ -130,6 +131,19 @@ export default async function SchedulePage({ searchParams }: PageProps) {
         ))}
       </div>
 
+      {/* Day navigation for phones: the desktop rail column below is hidden
+          under lg, and this strip is the only picker there. */}
+      <div className="mb-3 lg:hidden">
+        <DateStrip
+          days={railDays}
+          counts={counts}
+          selected={focusDay}
+          today={today}
+          hrefFor={(day) => query({ day })}
+          label="Dates"
+        />
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-[116px_minmax(0,1fr)_300px]">
         <aside className="hidden lg:block">
           <DateRail
@@ -143,7 +157,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
           />
         </aside>
 
-        <main className="min-w-0 space-y-4">
+        <div className="min-w-0 space-y-4">
           <Panel
             title={relativeDay(focusDay)}
             meta={`${focusDay} · ${onFocus.length} event${onFocus.length === 1 ? "" : "s"}`}
@@ -221,7 +235,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
               <EmptyState className="border-0" title="No completed events yet" />
             )}
           </Panel>
-        </main>
+        </div>
 
         <aside className="space-y-4">
           <Panel title="Season at a glance">

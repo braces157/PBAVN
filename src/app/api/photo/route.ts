@@ -29,6 +29,10 @@ const TOURNAMENT_SRC = /^\/(?:resources\/upload\/)?tournament\/[\w./-]+\.(?:png|
 /** Roughly 400 thumbs at ~20 KB — small enough to keep resident. */
 const RESULT_CACHE_LIMIT = 400;
 const RESULT_TTL_MS = 6 * 60 * 60 * 1000;
+/** A photo the upstream never had, remembered briefly so one busy page view
+ * does not re-walk all five candidate URLs on every render. */
+const MISS_TTL_MS = 5 * 60 * 1000;
+const MISS_CACHE_LIMIT = 800;
 
 interface Rendered {
   expires: number;
@@ -37,6 +41,39 @@ interface Rendered {
 }
 
 const rendered = new Map<string, Rendered>();
+const misses = new Map<string, number>();
+
+/**
+ * Expired entries leave first, then the least recently used one pays for the
+ * newcomer. The old wholesale `clear()` wiped every hot thumb at the limit, and
+ * a page full of faces then re-rendered them all from upstream. Map iteration
+ * is insertion order and hits re-insert, so the oldest key is the coldest.
+ */
+function storeRendered(key: string, entry: Rendered): void {
+  const now = Date.now();
+  for (const [k, v] of rendered) {
+    if (v.expires <= now) rendered.delete(k);
+  }
+  while (rendered.size >= RESULT_CACHE_LIMIT) {
+    const oldest = rendered.keys().next().value;
+    if (oldest === undefined) break;
+    rendered.delete(oldest);
+  }
+  rendered.set(key, entry);
+}
+
+function storeMiss(key: string): void {
+  const now = Date.now();
+  for (const [k, expires] of misses) {
+    if (expires <= now) misses.delete(k);
+  }
+  while (misses.size >= MISS_CACHE_LIMIT) {
+    const oldest = misses.keys().next().value;
+    if (oldest === undefined) break;
+    misses.delete(oldest);
+  }
+  misses.set(key, now + MISS_TTL_MS);
+}
 
 const HIT_HEADERS = {
   "Cache-Control": "public, max-age=604800, stale-while-revalidate=2592000",
@@ -112,8 +149,18 @@ export async function GET(request: Request) {
   const width = clampWidth(params.get("w"));
   const key = `${src}@${width}`;
 
+  const missExpiry = misses.get(key);
+  if (missExpiry && missExpiry > Date.now()) {
+    return new NextResponse(null, {
+      status: 404,
+      headers: { "Cache-Control": "public, max-age=600" },
+    });
+  }
+
   const cached = rendered.get(key);
   if (cached && cached.expires > Date.now()) {
+    rendered.delete(key);
+    rendered.set(key, cached);
     return new NextResponse(new Uint8Array(cached.body), {
       headers: { ...HIT_HEADERS, "Content-Type": cached.contentType },
     });
@@ -130,14 +177,14 @@ export async function GET(request: Request) {
     const body = webp ?? asset.body;
     const contentType = webp ? "image/webp" : asset.contentType || "image/jpeg";
 
-    if (rendered.size >= RESULT_CACHE_LIMIT) rendered.clear();
-    rendered.set(key, { expires: Date.now() + RESULT_TTL_MS, body, contentType });
+    storeRendered(key, { expires: Date.now() + RESULT_TTL_MS, body, contentType });
 
     return new NextResponse(new Uint8Array(body), {
       headers: { ...HIT_HEADERS, "Content-Type": contentType },
     });
   }
 
+  storeMiss(key);
   return new NextResponse(null, {
     status: 404,
     headers: { "Cache-Control": "public, max-age=600" },

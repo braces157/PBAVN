@@ -248,7 +248,7 @@ export function parseSetInnings(html: string | null): SetInnings {
       sides.push({
         onePoint: toNumber(values[index]) ?? 0,
         twoPoint: toNumber(values[index + 1]) ?? 0,
-        total: toNumber(values[index + 2]) ?? 0,
+        total: toNumber(values[index + 2]) ?? parsed[parsed.length - 1]?.sides[sides.length]?.total ?? 0,
       });
     }
     if (sides.length < 2) continue;

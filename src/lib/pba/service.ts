@@ -8,6 +8,7 @@ import { cache } from "react";
 import {
   getLeagues,
   getPlayers,
+  getPlayer,
   getRanking,
   getSeasonLeaders,
   getSeasons,
@@ -159,6 +160,12 @@ export interface PlayerMatchHistory {
   /** Null when the player has no searchable (Latin-script) English name. */
   searchTerm: string | null;
 }
+
+/**
+ * One directory read per request: a profile page's metadata pass and its render
+ * both ask for the same member, and so do both sides of a comparison.
+ */
+export const getPlayerCached = cache(getPlayer);
 
 /**
  * Every recorded individual-tour match of one player in one season.
@@ -319,17 +326,29 @@ import tourTitles from "./data/tour-titles.json";
 import playerNames from "./data/player-names.json";
 
 /** Tour code → English title. */
+let tourTitleIndex: Map<string, TourTitleEntry> | null = null;
+
 export function getTourTitleIndex(): Map<string, TourTitleEntry> {
-  const index = new Map<string, TourTitleEntry>();
-  for (const [key, title] of Object.entries(tourTitles as Record<string, string>)) {
-    if (title) index.set(key, { titleEn: title, titleKo: title, seq: key });
+  // The artefacts are static, so the map is built once per process. This used to
+  // rebuild per call, and the champion columns call it per row.
+  if (!tourTitleIndex) {
+    const index = new Map<string, TourTitleEntry>();
+    for (const [key, title] of Object.entries(tourTitles as Record<string, string>)) {
+      if (title) index.set(key, { titleEn: title, titleKo: title, seq: key });
+    }
+    tourTitleIndex = index;
   }
-  return index;
+  return tourTitleIndex;
 }
 
 /** Korean member name → English member name, for the champion columns. */
+let playerNameIndex: Map<string, string> | null = null;
+
 export function getPlayerNameIndex(): Map<string, string> {
-  return new Map(Object.entries(playerNames as Record<string, string>));
+  if (!playerNameIndex) {
+    playerNameIndex = new Map(Object.entries(playerNames as Record<string, string>));
+  }
+  return playerNameIndex;
 }
 
 /**

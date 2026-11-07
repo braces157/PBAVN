@@ -11,9 +11,10 @@
 import Link from "next/link";
 import { cn } from "@/components/ui/primitives";
 import { SafeImage } from "@/components/ui/safe-image";
-import type { DayBoard, DayMatch, MatchState } from "@/lib/pba/matches-on-day";
+import type { DayBoard, DayMatch } from "@/lib/pba/matches-on-day";
 import { leagueShort } from "@/lib/normalize";
 import { leagueTagTone } from "./scoreboard";
+import { MatchFilters } from "./match-filters";
 
 export function TodayMatches({
   board,
@@ -41,27 +42,10 @@ export function TodayMatches({
   }
 
   return (
-    <ul className={cn("divide-y divide-ink-800/70", className)}>
-      {board.matches.map((match) => (
-        <MatchLine key={match.key} match={match} />
-      ))}
-    </ul>
+    <MatchFilters className={className} matches={board.matches.map((match) => ({
+      key: match.key, state: match.state, row: <MatchLine key={match.key} match={match} />,
+    }))} />
   );
-}
-
-/** "3 finals · 2 live · 4 to come", or an honest single phrase. */
-export function boardSummary(board: DayBoard): string {
-  if (board.matches.length === 0) return "no matches";
-  const count = (value: MatchState) => board.matches.filter((match) => match.state === value).length;
-  const finals = count("final");
-  const live = count("live");
-  const next = count("next");
-  const parts = [
-    finals > 0 ? `${finals} final${finals === 1 ? "" : "s"}` : "",
-    live > 0 ? `${live} live` : "",
-    next > 0 ? `${next} to come` : "",
-  ].filter(Boolean);
-  return parts.join(" · ");
 }
 
 function MatchLine({ match }: { match: DayMatch }) {
@@ -130,7 +114,7 @@ function MatchLine({ match }: { match: DayMatch }) {
         <div className="flex items-start gap-2.5 px-3 py-2">{body}</div>
       )}
       {match.event && (
-        <p className="-mt-1 flex items-baseline gap-1.5 px-3 pb-1.5 pl-[55px] text-[10px]">
+        <p className="-mt-1 flex items-baseline gap-1.5 px-3 pb-2 pl-[55px] text-[11px]">
           <span
             className={cn(
               "shrink-0 font-semibold uppercase tracking-[0.06em]",
@@ -141,7 +125,7 @@ function MatchLine({ match }: { match: DayMatch }) {
           </span>
           <Link
             href={`/schedule/${match.event.id}`}
-            className="min-w-0 truncate text-fog-600 transition-colors hover:text-fog-300"
+            className="min-w-0 truncate text-fog-400 transition-colors hover:text-fog-200"
           >
             {match.event.title}
           </Link>

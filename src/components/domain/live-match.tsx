@@ -54,7 +54,7 @@ export function LiveMatchPanel({ match }: { match: LiveMatch }) {
               href={match.watchUrl}
               target="_blank"
               rel="noreferrer noopener"
-              className="inline-flex items-center gap-1.5 rounded-md bg-live-500 px-2.5 py-1 text-[11.5px] font-semibold text-white transition-colors hover:bg-live-400"
+              className="inline-flex items-center gap-1.5 rounded-md bg-live-500 px-2.5 py-1 text-[11.5px] font-semibold text-ink-950 transition-colors hover:bg-live-400"
             >
               Watch live <span aria-hidden="true">↗</span>
             </a>

@@ -18,7 +18,10 @@ export default function RouteError({
   }, [error]);
 
   return (
-    <div className="mx-auto flex min-h-[60vh] max-w-[720px] flex-col items-center justify-center px-4 text-center">
+    <div
+      role="alert"
+      className="mx-auto flex min-h-[60vh] max-w-[720px] flex-col items-center justify-center px-4 text-center"
+    >
       <p className="eyebrow">Something broke</p>
       <h1 className="display-md mt-3 text-fog-100">This page could not be rendered</h1>
       <p className="mt-3 max-w-md text-[13.5px] leading-relaxed text-fog-500">

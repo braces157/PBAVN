@@ -129,17 +129,8 @@ export default async function MatchPage({
 
   return (
     <>
-      <PageHeader
-        eyebrow="Match card"
-        title={names.filter(Boolean).join(" vs ") || "Match"}
-        description={`${analysed.length} sets from the association's scoring terminal${covered > 0 ? `, with turn-by-turn scoring for ${covered} of them` : ""}.`}
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <SetNav sets={analysed} />
-        </div>
-      </PageHeader>
-
-      <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-[1440px] px-4 pb-10 pt-6 sm:px-6 lg:px-10">
+        <h1 className="mb-4 font-display text-xl font-bold text-fog-100">{names.filter(Boolean).join(" vs ") || "Match"}</h1>
         <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr] lg:gap-8">
           <div className="space-y-5">
             <MatchHeader
@@ -150,7 +141,13 @@ export default async function MatchPage({
               eventHref={context.eventSeq ? `/schedule/${context.eventSeq}` : null}
               officialUrl={`${OFFICIAL}?PSTCode=${encodeURIComponent(pstCode)}`}
               watchUrl={context.watch}
+              live={context.live}
             />
+
+            <nav aria-label="Jump to set" className="surface flex flex-wrap items-center gap-2 p-3">
+              <span className="mr-2 text-xs font-semibold text-fog-400">Jump to set</span>
+              <SetNav sets={analysed} />
+            </nav>
 
             {analysed.map((set) => (
               <SetPanel key={set.setNo} set={set} />

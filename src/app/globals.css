@@ -19,16 +19,18 @@
   --color-ink-500: #3b4456;
   --color-ink-400: #525c70;
 
-  /* Text ramp. fog-500 is the lightest value that still clears 4.5:1 on
-     ink-900 for body-size type; fog-550 extends that to dense table cells. */
+  /* Text ramp. Every step clears 4.5:1 on ink-900 and on the panel surfaces
+     (ink-850 up through the mixed `surface` tint) at the 9–13px sizes this
+     design prints them at; fog-600 is the dimmest value that does. The ramp
+     used to end at 3.2:1, which read as texture, not text. */
   --color-fog-100: #f4f5f1;
   --color-fog-200: #e2e4dd;
   --color-fog-300: #c2c6c9;
   --color-fog-400: #9aa1a9;
-  --color-fog-450: #868e99;
-  --color-fog-500: #7b838f;
-  --color-fog-550: #6a727d;
-  --color-fog-600: #59616c;
+  --color-fog-450: #8b93a0;
+  --color-fog-500: #808995;
+  --color-fog-550: #79828e;
+  --color-fog-600: #727b87;
 
   --color-lime-300: #e4ff8a;
   --color-lime-400: #d4ff4a;
@@ -64,6 +66,9 @@
 }
 
 html {
+  /* The design is dark-only; native form controls, scrollbars and the
+     autofill palette follow. */
+  color-scheme: dark;
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
 }
@@ -75,7 +80,9 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  overflow-x: hidden;
+  /* `clip` rather than `hidden`: hidden silently turns the element into a
+     scroll container, which breaks any position: sticky descendant. */
+  overflow-x: clip;
 }
 
 ::selection {
@@ -433,6 +440,26 @@ select.field {
 .card-hover:hover {
   transform: translateY(-2px);
   border-color: var(--color-ink-600);
+}
+
+/* The mobile nav drawer. `visibility` has to flip with a delay on close — it is
+   a discrete property, and switching it the same frame the transition starts
+   kills the height animation outright. While closed it must also leave the tab
+   order (visibility does that) and stay unhit-testable; while open it scrolls
+   when a short landscape screen cannot fit every link. */
+@utility drawer {
+  visibility: hidden;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 300ms ease, opacity 300ms ease, visibility 0s 300ms;
+}
+.drawer[data-open="true"] {
+  visibility: visible;
+  overflow-y: auto;
+  max-height: min(520px, calc(100vh - 4rem));
+  opacity: 1;
+  transition: max-height 300ms ease, opacity 300ms ease, visibility 0s 0s;
 }
 
 /* --------------------------------------------------------------- console rows */
