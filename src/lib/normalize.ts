@@ -6,7 +6,18 @@
 
 import { asset, isRealAsset } from "./pba/http";
 import { playerPhotoPath } from "./photo";
-import { toDate, int, num, pick, isPlaceholder, stripTags } from "./format";
+import {
+  cleanDisplayText,
+  cleanPlayerName,
+  hasHangul,
+  int,
+  num,
+  pick,
+  isPlaceholder,
+  romanizeKoreanName,
+  stripTags,
+  toDate,
+} from "./format";
 import type {
   RawPlayer,
   RawPlayerStat,
@@ -117,22 +128,23 @@ export function eventStatus(start: Date | null, end: Date | null, now = new Date
 export function normalizeEvent(raw: RawTournament): Event {
   const start = toDate(raw.MATCH_START_DATE);
   const end = toDate(raw.MATCH_END_DATE);
+  const rawChamp = cleanPlayerName(pick(raw.PREV_WINNER_NAME_EN, raw.PREV_WINNER_NAME));
   return {
     id: raw.SEQ,
-    title: pick(raw.TITLE_EN, raw.TITLE),
+    title: cleanDisplayText(pick(raw.TITLE_EN, raw.TITLE)) || "—",
     league: raw.LEAGUE_GUBUN,
     season: raw.SEASON_GUBUN,
     start,
     end,
-    venue: pick(raw.PLACE_EN, raw.PLACE),
-    sponsor: pick(raw.SPONSOR_EN, raw.SPONSOR),
-    prizePool: pick(raw.TOTAL_PRIZE_EN, raw.TOTAL_PRIZE),
-    championPrize: pick(raw.WINNING_PRIZE_EN, raw.WINNING_PRIZE),
-    broadcast: pick(raw.BROADCAST_EN, raw.BROADCAST),
-    defendingChampion: pick(raw.PREV_WINNER_NAME_EN, raw.PREV_WINNER_NAME),
-    table: pick(raw.TABLE_MODEL, raw.TABLE_MODEL),
-    ball: pick(raw.BALL_MODEL, raw.BALL_MODEL),
-    cloth: pick(raw.CLOTH_MODEL, raw.CLOTH_MODEL),
+    venue: cleanDisplayText(pick(raw.PLACE_EN, raw.PLACE)) || "—",
+    sponsor: cleanDisplayText(pick(raw.SPONSOR_EN, raw.SPONSOR)) || "—",
+    prizePool: cleanDisplayText(pick(raw.TOTAL_PRIZE_EN, raw.TOTAL_PRIZE)) || "—",
+    championPrize: cleanDisplayText(pick(raw.WINNING_PRIZE_EN, raw.WINNING_PRIZE)) || "—",
+    broadcast: cleanDisplayText(pick(raw.BROADCAST_EN, raw.BROADCAST)) || "—",
+    defendingChampion: rawChamp === "—" ? "—" : hasHangul(rawChamp) ? romanizeKoreanName(rawChamp) : rawChamp,
+    table: cleanDisplayText(pick(raw.TABLE_MODEL, raw.TABLE_MODEL)) || "—",
+    ball: cleanDisplayText(pick(raw.BALL_MODEL, raw.BALL_MODEL)) || "—",
+    cloth: cleanDisplayText(pick(raw.CLOTH_MODEL, raw.CLOTH_MODEL)) || "—",
     entrants: {
       players: isPlaceholder(raw.JOIN_PLAYER) ? null : int(raw.JOIN_PLAYER),
       teams: isPlaceholder(raw.JOIN_TEAM) ? null : int(raw.JOIN_TEAM),
@@ -180,11 +192,13 @@ export interface Player {
 }
 
 export function normalizePlayer(raw: RawPlayer): Player {
+  const pickedName = cleanPlayerName(pick(raw.PlayerNameEN, raw.PlayerNameKO));
+  const pickedShort = cleanPlayerName(pick(raw.PlayerNameENShort, raw.PlayerNameKOShort));
   return {
     code: raw.MemCode,
-    name: pick(raw.PlayerNameEN, raw.PlayerNameKO),
+    name: hasHangul(pickedName) ? romanizeKoreanName(pickedName) : pickedName || "—",
     nameKo: raw.PlayerNameKO,
-    shortName: pick(raw.PlayerNameENShort, raw.PlayerNameKOShort),
+    shortName: hasHangul(pickedShort) ? romanizeKoreanName(pickedShort) : pickedShort || "—",
     nation: raw.NationCode || "—",
     gender: raw.Gender === "F" ? "F" : "M",
     birth: raw.BirthDay ? String(raw.BirthDay).slice(0, 10) : null,
@@ -356,11 +370,55 @@ export interface TeamStanding {
   raw: RawTeamStat;
 }
 
+const CLUB_NAMES_EN: Record<string, string> = {
+  T00001: "Shinhan ALPHAS",
+  T00002: "Welcome Savings Bank WELCOME PHOENIX",
+  T00003: "CROWN HAITAI LAON",
+  T00004: "TS Shampoo PURADAK HEROES",
+  T00005: "BlueOne ANGELS",
+  T00006: "SK rent-a-car DIRECT",
+  T00008: "NH Nonghyup Card GREEN FORCE",
+  T00010: "Huons Healthcare Legend",
+  T00017: "High1 Resort High1 Winners",
+  T00020: "Hana Card HanaPay",
+  T00021: "SY BUILDERS",
+  T00022: "Woori Financial Capital WOORI WON WEEBIES",
+  T00029: "Harim YONGGARIS",
+  T00030: "Breakers",
+};
+
+const TEAM_BASES_EN: Record<string, string> = {
+  서울: "Seoul",
+  서울특별시: "Seoul",
+  경기: "Gyeonggi-do",
+  경기도: "Gyeonggi-do",
+  고양: "Goyang",
+  화성: "Hwaseong",
+  수원: "Suwon",
+  안산: "Ansan",
+  경주: "Gyeongju",
+  제주: "Jeju",
+  부산: "Busan",
+  인천: "Incheon",
+};
+
+function cleanTeamName(code: string | null | undefined, rawName: string | null | undefined): string {
+  const cleaned = cleanDisplayText(rawName);
+  if (cleaned && !hasHangul(cleaned)) return cleaned;
+  return (code && CLUB_NAMES_EN[code]) || cleaned || code || "—";
+}
+
+function cleanTeamBase(rawBase: string | null | undefined): string {
+  const cleaned = cleanDisplayText(rawBase);
+  if (!cleaned) return "";
+  return TEAM_BASES_EN[cleaned] ?? cleaned;
+}
+
 export function normalizeTeam(raw: RawTeamStat): TeamStanding {
   return {
     code: raw.팀코드,
-    name: raw.이름,
-    shortName: raw.팀단축명 || raw.이름,
+    name: cleanTeamName(raw.팀코드, raw.이름),
+    shortName: cleanTeamName(raw.팀코드, raw.팀단축명 || raw.이름),
     rank: int(raw.순위),
     points: int(raw.승점),
     wins: int(raw.승리수),
@@ -418,15 +476,22 @@ export interface TeamPlayer {
 }
 
 export function normalizeTeamPlayer(raw: RawTeamPlayerStat): TeamPlayer {
+  const img = raw.ImgUrl || raw.선수이미지;
+  const primary = cleanPlayerName(raw.이름);
+  const secondary = cleanPlayerName(raw.외국이름);
+  const latin = [primary, secondary].find((v) => v && !hasHangul(v));
+  const resolvedName = latin ?? romanizeKoreanName(primary || secondary);
+  const sets = int(raw.세트수) || int(raw.세트승리수) + int(raw.세트패배수);
+
   return {
     code: raw.선수코드,
-    name: raw.이름,
-    nameEn: raw.외국이름 || raw.이름,
-    team: raw.팀명,
+    name: resolvedName || "—",
+    nameEn: resolvedName || "—",
+    team: cleanTeamName(raw.팀코드, raw.팀명),
     teamCode: raw.팀코드,
     teamLogo: isRealAsset(raw.팀로고) ? asset(raw.팀로고) : null,
-    photo: isRealAsset(raw.선수이미지) ? asset(raw.선수이미지) : null,
-    photoPath: playerPhotoPath(raw.선수이미지),
+    photo: isRealAsset(img) ? asset(img) : null,
+    photoPath: playerPhotoPath(img),
     nation: raw.국가명 || "—",
     gender: raw.성별 === "F" ? "F" : "M",
     birth: raw.생년월일 ? String(raw.생년월일).slice(0, 10) : null,
@@ -442,8 +507,8 @@ export function normalizeTeamPlayer(raw: RawTeamPlayerStat): TeamPlayer {
     pointsFor: int(raw.득점),
     pointsAgainst: int(raw.실점),
     innings: int(raw.이닝),
-    matches: int(raw.경기수),
-    sets: int(raw.세트수),
+    matches: int(raw.경기수) || sets,
+    sets,
     setWins: int(raw.세트승리수),
     setLosses: int(raw.세트패배수),
     singlesWins: int(raw.단식승리수),
@@ -485,17 +550,19 @@ function cleanPersonName(value: string | null | undefined): string {
 }
 
 export function normalizeTeamProfile(raw: RawTeamInfo): TeamProfile {
+  const rawCoach = cleanPersonName(raw.팀감독);
+  const coach = rawCoach ? (hasHangul(rawCoach) ? romanizeKoreanName(rawCoach) : cleanPlayerName(rawCoach)) : "";
   return {
     code: raw.팀코드,
-    rosterCode: raw.리그참여팀코드,
-    name: raw.팀풀네임 || raw.팀단축명,
-    shortName: raw.팀단축명 || raw.팀풀네임,
+    rosterCode: String(raw.리그참여팀코드),
+    name: cleanTeamName(raw.팀코드, raw.팀풀네임 || raw.팀단축명),
+    shortName: cleanTeamName(raw.팀코드, raw.팀단축명 || raw.팀풀네임),
     logo: isRealAsset(raw.팀로고) ? asset(raw.팀로고) : null,
     logoThumb: isRealAsset(raw.팀로고썸네일) ? asset(raw.팀로고썸네일) : null,
-    coach: cleanPersonName(raw.팀감독),
-    base: raw.팀연고지 || "",
-    sponsor: raw.후원사명 || "",
-    description: raw.팀설명 || "",
+    coach,
+    base: cleanTeamBase(raw.팀연고지),
+    sponsor: cleanDisplayText(raw.후원사명),
+    description: cleanDisplayText(raw.팀설명),
     raw,
   };
 }
@@ -509,13 +576,42 @@ export interface HeadToHeadCell {
   played: number;
 }
 
-/** Build a lookup of `teamA|teamB` → result from the flat match list. */
-export function matchMatrix(matches: RawTeamMatch[]): Map<string, HeadToHeadCell> {
+/**
+ * Build a lookup of `teamA|teamB` (with `teamA <= teamB`) -> result.
+ *
+ * `getTeamWinLoseByTeam` keys sides by numeric `리그참여팀코드` (e.g. `159..168`)
+ * and emits two mirrored rows per pair (`A -> B` and `B -> A`) across all seasons.
+ * Passing `rosterToClub` filters to the active season block, translates to club
+ * codes (`T00002|T00010`), and keeps only one orientation per unordered pair.
+ */
+export function matchMatrix(
+  matches: RawTeamMatch[],
+  rosterToClub?: Map<string, string>,
+): Map<string, HeadToHeadCell> {
   const matrix = new Map<string, HeadToHeadCell>();
+  const seenPairs = new Set<string>();
+
   for (const match of matches) {
-    const key = [match.참가팀코드1, match.참가팀코드2].sort().join("|");
+    const raw1 = String(match.참가팀코드1 ?? "").trim();
+    const raw2 = String(match.참가팀코드2 ?? "").trim();
+    if (!raw1 || !raw2 || raw1 === raw2) continue;
+
+    let code1 = raw1;
+    let code2 = raw2;
+    if (rosterToClub && rosterToClub.size > 0) {
+      const mapped1 = rosterToClub.get(raw1);
+      const mapped2 = rosterToClub.get(raw2);
+      if (!mapped1 || !mapped2) continue;
+      code1 = mapped1;
+      code2 = mapped2;
+    }
+
+    const key = [code1, code2].sort().join("|");
+    if (rosterToClub && seenPairs.has(key)) continue;
+    seenPairs.add(key);
+
     const existing = matrix.get(key) ?? { wins: 0, losses: 0, draws: 0, setWins: 0, setLosses: 0, played: 0 };
-    const aIsFirst = match.참가팀코드1 <= match.참가팀코드2;
+    const aIsFirst = code1 <= code2;
     existing.wins += aIsFirst ? int(match.승리수) : int(match.패배수);
     existing.losses += aIsFirst ? int(match.패배수) : int(match.승리수);
     existing.draws += int(match.무승부수);
@@ -559,14 +655,13 @@ export const LEADER_CATEGORIES: { key: string; label: string; unit: "avg" | "int
   { key: "에버리지", label: "Average", unit: "avg" },
   { key: "하이런", label: "High run", unit: "int" },
   { key: "최다승", label: "Most wins", unit: "int" },
-  { key: "최다출장", label: "Most matches", unit: "int" },
-  { key: "최다연승", label: "Longest win streak", unit: "int" },
   { key: "우승횟수", label: "Most titles", unit: "int" },
-  { key: "연속우승횟수", label: "Consecutive titles", unit: "int" },
   { key: "공격성공률", label: "Attack success", unit: "pct" },
   { key: "초구성공률", label: "First-shot success", unit: "pct" },
   { key: "장타율", label: "Long-run rate", unit: "pct" },
   { key: "뱅크샷비율", label: "Bank-shot rate", unit: "pct" },
+  { key: "뱅크샷", label: "Bank shots made", unit: "int" },
+  { key: "기대득점", label: "Expected pts / inn", unit: "avg" },
   { key: "퍼펙트큐", label: "Perfect cues", unit: "int" },
   { key: "점수", label: "Points", unit: "int" },
   { key: "세트승", label: "Sets won", unit: "int" },

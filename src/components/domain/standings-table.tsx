@@ -23,7 +23,7 @@ export function StandingsTable({
         <thead>
           <tr>
             <th className="!w-10">#</th>
-            <th className="!text-left">Team</th>
+            <th className="!text-left">Club</th>
             <th>Pts</th>
             <th>W</th>
             {!compact && <th className="hidden sm:table-cell">D</th>}
@@ -42,15 +42,15 @@ export function StandingsTable({
               <td className="!text-left">
                 <Link
                   href={`/teams/${encodeURIComponent(team.code)}`}
-                  className="flex items-center gap-2.5 transition-colors hover:text-lime-300"
+                  className="flex items-center gap-2.5 transition-colors hover:text-carom-300"
                 >
                   <TeamLogo src={team.logo} name={team.name} size="xs" />
-                  <span className="block min-w-0 max-w-[150px] truncate text-[13px] font-medium text-fog-100 group-hover:text-lime-300 sm:max-w-none">
+                  <span className="block min-w-0 max-w-[150px] truncate text-[13px] font-semibold text-fog-100 group-hover:text-carom-300 sm:max-w-none">
                     {team.name}
                   </span>
                 </Link>
               </td>
-              <td className="font-display font-bold text-lime-400">{team.points}</td>
+              <td className="font-display font-bold text-carom-400">{team.points}</td>
               <td className="text-fog-200">{team.wins}</td>
               {!compact && <td className="hidden text-fog-400 sm:table-cell">{team.draws}</td>}
               <td className="text-fog-200">{team.losses}</td>
@@ -77,10 +77,9 @@ export function StandingsTable({
   );
 }
 
-/** Team-level stat block for a single club page. */
 export function TeamStatGrid({ team }: { team: TeamStanding }) {
   const items = [
-    { label: "Win rate", value: team.wins + team.losses + team.draws > 0 ? percent(100 * team.wins / (team.wins + team.losses + team.draws)) : "—" },
+    { label: "Win rate", value: percent(team.winRate) },
     { label: "Sets won", value: grouped(team.setWins) },
     { label: "Sets lost", value: grouped(team.setLosses) },
     { label: "Points for", value: grouped(team.pointsFor) },
@@ -91,11 +90,11 @@ export function TeamStatGrid({ team }: { team: TeamStanding }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[14px] border border-ink-750 bg-ink-750 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[8px] border border-ink-750 bg-ink-750 sm:grid-cols-4">
       {items.map((item) => (
-        <div key={item.label} className="bg-ink-900 p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-fog-600">{item.label}</p>
-          <p className="tnum mt-1.5 font-display text-lg font-bold text-fog-100">{item.value}</p>
+        <div key={item.label} className="bg-ink-900 p-3.5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-fog-500">{item.label}</p>
+          <p className="tnum mt-1 font-display text-base font-bold text-fog-100">{item.value}</p>
         </div>
       ))}
     </div>

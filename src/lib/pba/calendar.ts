@@ -17,7 +17,8 @@
 import raw from "./data/calendar.json";
 import { eventArtUrl } from "../event-art";
 import { eventStatus, type Event, type EventStatus } from "../normalize";
-import { parseIsoDay, isoDay } from "../format";
+import { cleanDisplayText, hasHangul, parseIsoDay, isoDay } from "../format";
+import { getPlayerNameIndex, resolveKoreanName, translateKoreanTourTitle } from "./service";
 
 interface CalendarRow {
   id: string;
@@ -66,19 +67,25 @@ function toEvent(row: CalendarRow, now = new Date()): CalendarEvent {
   const start = parseIsoDay(row.start);
   const end = parseIsoDay(row.end ?? row.start);
   const status: EventStatus = eventStatus(start, end, now);
+  const rawChamp = cleanDisplayText(row.defendingChampion);
+  const champion = rawChamp
+    ? hasHangul(rawChamp)
+      ? resolveKoreanName(rawChamp, getPlayerNameIndex())
+      : rawChamp
+    : "—";
   return {
     id: row.id,
-    title: row.title,
+    title: translateKoreanTourTitle(row.title),
     league: row.league,
     season: row.season,
     start,
     end,
-    venue: row.venue ?? "Venue to be announced",
-    sponsor: row.sponsor ?? "—",
-    prizePool: row.prizePool ?? "—",
-    championPrize: row.championPrize ?? "—",
+    venue: cleanDisplayText(row.venue) || "Venue to be announced",
+    sponsor: cleanDisplayText(row.sponsor) || "—",
+    prizePool: cleanDisplayText(row.prizePool) || "—",
+    championPrize: cleanDisplayText(row.championPrize) || "—",
     broadcast: "—",
-    defendingChampion: row.defendingChampion ?? "—",
+    defendingChampion: champion,
     table: "—",
     ball: "—",
     cloth: "—",

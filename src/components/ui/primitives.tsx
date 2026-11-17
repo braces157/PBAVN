@@ -21,11 +21,13 @@ export function SectionHeading({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-wrap items-end justify-between gap-4", className)}>
+    <div className={cn("flex flex-wrap items-baseline justify-between gap-3 pb-2", className)}>
       <div className="max-w-2xl">
-        {eyebrow && <p className="eyebrow mb-2.5">{eyebrow}</p>}
-        <h2 className="display-md text-fog-100">{title}</h2>
-        {description && <p className="mt-2 text-sm leading-relaxed text-fog-500">{description}</p>}
+        {eyebrow && <p className="eyebrow mb-1">{eyebrow}</p>}
+        <h2 className="display-sm text-[var(--ink)]">{title}</h2>
+        {description && (
+          <p className="font-serif-ed mt-1.5 text-[14px] leading-relaxed text-[var(--ink-2)]">{description}</p>
+        )}
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>
@@ -36,7 +38,7 @@ export function TextLink({ href, children }: { href: string; children: ReactNode
   return (
     <Link
       href={href}
-      className="group inline-flex items-center gap-1.5 text-[13px] font-semibold text-fog-300 transition-colors hover:text-lime-400"
+      className="group inline-flex items-center gap-1 text-[13px] font-bold text-[var(--ink)] transition-colors hover:text-[var(--red)] hover:no-underline"
     >
       {children}
       <svg viewBox="0 0 12 12" className="h-3 w-3 transition-transform group-hover:translate-x-0.5" aria-hidden="true">
@@ -44,7 +46,7 @@ export function TextLink({ href, children }: { href: string; children: ReactNode
           d="M2 6h8M6.5 2.5 10 6l-3.5 3.5"
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.4"
+          strokeWidth="1.6"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -56,14 +58,16 @@ export function TextLink({ href, children }: { href: string; children: ReactNode
 /* ----------------------------------------------------------------- chips */
 
 const TONE: Record<string, string> = {
-  lime: "border-lime-400/35 bg-lime-400/10 text-lime-300",
-  rose: "border-rose-450/35 bg-rose-450/10 text-rose-450",
-  cyan: "border-cyan-450/35 bg-cyan-450/10 text-cyan-450",
-  amber: "border-amber-450/35 bg-amber-450/10 text-amber-450",
-  violet: "border-violet-450/35 bg-violet-450/10 text-violet-450",
-  neutral: "border-ink-650 bg-ink-800 text-fog-400",
-  live: "border-live-500/40 bg-live-500/12 text-live-400",
-  gold: "border-gold-400/40 bg-gold-400/10 text-gold-400",
+  carom: "border-[var(--red)]/45 bg-[var(--red)]/10 text-[var(--red)]",
+  lime: "border-[var(--ink)]/35 bg-[var(--paper-2)] text-[var(--ink)]",
+  cloth: "border-[var(--cloth)]/45 bg-[var(--cloth)]/10 text-[var(--cloth)]",
+  rose: "border-[var(--red)]/45 bg-[var(--red)]/10 text-[var(--red)]",
+  cyan: "border-[var(--cloth)]/45 bg-[var(--cloth)]/10 text-[var(--cloth)]",
+  amber: "border-[var(--yellow)] bg-[var(--yellow)]/20 text-[var(--ink)]",
+  violet: "border-[var(--cloth)]/45 bg-[var(--cloth)]/10 text-[var(--cloth)]",
+  neutral: "border-[var(--hair)] bg-[var(--paper-2)] text-[var(--ink-2)]",
+  live: "border-[var(--red)] bg-[var(--red)] text-white",
+  gold: "border-[var(--yellow)] bg-[var(--yellow)]/25 text-[var(--ink)]",
 };
 
 export function Chip({
@@ -78,7 +82,7 @@ export function Chip({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-[3px] text-[11px] font-semibold uppercase tracking-[0.08em]",
+        "inline-flex items-center gap-1.5 border px-2 py-[2px] text-[11px] font-bold uppercase tracking-[0.05em]",
         TONE[tone] ?? TONE.neutral,
         className,
       )}
@@ -90,8 +94,8 @@ export function Chip({
 
 export function LiveChip({ label = "Live" }: { label?: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-live-500/40 bg-live-500/12 px-2.5 py-[3px] text-[11px] font-bold uppercase tracking-[0.1em] text-live-400">
-      <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
+    <span className="tag-live">
+      <i aria-hidden="true" />
       {label}
     </span>
   );
@@ -99,14 +103,15 @@ export function LiveChip({ label = "Live" }: { label?: string }) {
 
 export function StatusPill({ status }: { status: "live" | "upcoming" | "completed" }) {
   if (status === "live") return <LiveChip />;
-  if (status === "upcoming")
+  if (status === "upcoming") {
     return (
-      <Chip tone="lime" className="tracking-[0.1em]">
+      <Chip tone="amber" className="tracking-[0.06em]">
         Upcoming
       </Chip>
     );
+  }
   return (
-    <Chip tone="neutral" className="tracking-[0.1em]">
+    <Chip tone="neutral" className="tracking-[0.06em]">
       Final
     </Chip>
   );
@@ -119,13 +124,13 @@ export function RankBadge({ rank, size = "md" }: { rank: number; size?: "sm" | "
   return (
     <span
       className={cn(
-        "tnum inline-grid place-items-center rounded-md font-display font-bold",
+        "tnum inline-grid place-items-center font-bold",
         size === "sm" ? "h-6 min-w-6 px-1 text-[11px]" : "h-7 min-w-7 px-1.5 text-xs",
         highlight
-          ? "bg-gold-400/15 text-gold-400 ring-1 ring-gold-400/30"
+          ? "bg-[var(--ink)] text-[var(--paper)]"
           : rank <= 3
-            ? "bg-ink-700 text-fog-200"
-            : "text-fog-500",
+            ? "border border-[var(--ink)] bg-[var(--paper-2)] text-[var(--ink)]"
+            : "text-[var(--ink-3)]",
       )}
     >
       {rank || "—"}
@@ -150,16 +155,16 @@ export function Stat({
 }) {
   return (
     <div className={cn("min-w-0", className)}>
-      <p className="text-[10.5px] font-semibold uppercase tracking-[0.13em] text-fog-600">{label}</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.05em] text-[var(--ink-3)]">{label}</p>
       <p
         className={cn(
-          "tnum mt-1.5 font-display text-[22px] font-bold leading-none tracking-tight",
-          accent ? "text-lime-400" : "text-fog-100",
+          "x num mt-1 text-[24px] font-extrabold leading-none",
+          accent ? "text-[var(--red)]" : "text-[var(--ink)]",
         )}
       >
         {value}
       </p>
-      {hint && <p className="mt-1.5 text-[11.5px] leading-snug text-fog-500">{hint}</p>}
+      {hint && <p className="mt-1 text-[11.5px] leading-snug text-[var(--ink-3)]">{hint}</p>}
     </div>
   );
 }
@@ -180,18 +185,14 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-3 rounded-[14px] border border-dashed border-ink-700 px-6 py-14 text-center",
+        "flex flex-col items-center justify-center gap-2.5 border-y border-dashed border-[var(--hair)] bg-[var(--paper-2)]/50 px-5 py-10 text-center",
         className,
       )}
     >
-      <div className="grid h-11 w-11 place-items-center rounded-full border border-ink-700 text-fog-600">
-        <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-          <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M8.5 12h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      </div>
-      <p className="font-display text-base font-semibold text-fog-200">{title}</p>
-      {description && <p className="max-w-md text-[13px] leading-relaxed text-fog-500">{description}</p>}
+      <p className="x text-[20px] font-extrabold text-[var(--ink)]">{title}</p>
+      {description && (
+        <p className="font-serif-ed max-w-md text-[14px] leading-relaxed text-[var(--ink-2)]">{description}</p>
+      )}
       {action}
     </div>
   );
@@ -217,26 +218,31 @@ export function Pagination({
   }
 
   const base =
-    "tnum inline-grid h-9 min-w-9 place-items-center rounded-md border px-2.5 text-[13px] font-medium transition-colors";
+    "tnum inline-grid h-8 min-w-8 place-items-center border px-2 text-[13px] font-bold transition-colors";
 
   return (
-    <nav className="flex items-center justify-center gap-1.5 pt-8" aria-label="Pagination">
-      {page === 1 ? (
-        <span aria-hidden="true" className={cn(base, "border-ink-800 text-fog-600 opacity-35")}>
-          ←
-        </span>
-      ) : (
-        <Link href={buildHref(page - 1)} className={cn(base, "border-ink-700 text-fog-400 hover:border-ink-500 hover:text-fog-100")}>
-          ←
-        </Link>
-      )}
+    <nav className="flex items-center justify-center gap-1.5 pt-7" aria-label="Pagination">
+      <Link
+        href={buildHref(Math.max(1, page - 1))}
+        aria-disabled={page === 1}
+        className={cn(
+          base,
+          "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
+          page === 1 && "pointer-events-none opacity-35",
+        )}
+      >
+        ←
+      </Link>
 
       {pages[0] > 1 && (
         <>
-          <Link href={buildHref(1)} className={cn(base, "border-ink-700 text-fog-400 hover:text-fog-100")}>
+          <Link
+            href={buildHref(1)}
+            className={cn(base, "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:text-[var(--ink)]")}
+          >
             1
           </Link>
-          {pages[0] > 2 && <span className="px-1 text-fog-600">…</span>}
+          {pages[0] > 2 && <span className="px-1 text-[var(--ink-3)]">…</span>}
         </>
       )}
 
@@ -248,8 +254,8 @@ export function Pagination({
           className={cn(
             base,
             p === page
-              ? "border-lime-400/50 bg-lime-400/10 text-lime-300"
-              : "border-ink-700 text-fog-400 hover:border-ink-500 hover:text-fog-100",
+              ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
+              : "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
           )}
         >
           {p}
@@ -258,22 +264,27 @@ export function Pagination({
 
       {pages[pages.length - 1] < pageCount && (
         <>
-          {pages[pages.length - 1] < pageCount - 1 && <span className="px-1 text-fog-600">…</span>}
-          <Link href={buildHref(pageCount)} className={cn(base, "border-ink-700 text-fog-400 hover:text-fog-100")}>
+          {pages[pages.length - 1] < pageCount - 1 && <span className="px-1 text-[var(--ink-3)]">…</span>}
+          <Link
+            href={buildHref(pageCount)}
+            className={cn(base, "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:text-[var(--ink)]")}
+          >
             {pageCount}
           </Link>
         </>
       )}
 
-      {page === pageCount ? (
-        <span aria-hidden="true" className={cn(base, "border-ink-800 text-fog-600 opacity-35")}>
-          →
-        </span>
-      ) : (
-        <Link href={buildHref(page + 1)} className={cn(base, "border-ink-700 text-fog-400 hover:border-ink-500 hover:text-fog-100")}>
-          →
-        </Link>
-      )}
+      <Link
+        href={buildHref(Math.min(pageCount, page + 1))}
+        aria-disabled={page === pageCount}
+        className={cn(
+          base,
+          "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
+          page === pageCount && "pointer-events-none opacity-35",
+        )}
+      >
+        →
+      </Link>
     </nav>
   );
 }
@@ -290,7 +301,7 @@ export function TabLinks({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-wrap gap-1.5", className)}>
+    <div className={cn("flex flex-wrap gap-2", className)}>
       {items.map((item) => {
         const isActive = item.href === active;
         return (
@@ -299,15 +310,17 @@ export function TabLinks({
             href={item.href}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors",
+              "border px-3 py-1.5 text-[13px] font-bold transition-colors hover:no-underline",
               isActive
-                ? "border-lime-400/45 bg-lime-400/10 text-lime-300"
-                : "border-ink-700 text-fog-400 hover:border-ink-500 hover:text-fog-100",
+                ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
+                : "border-[var(--hair)] bg-transparent text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
             )}
           >
             {item.label}
             {typeof item.count === "number" && (
-              <span className="tnum ml-1.5 text-[11px] text-fog-600">{item.count}</span>
+              <span className={cn("tnum ml-1.5 text-[11px]", isActive ? "opacity-80" : "text-[var(--ink-3)]")}>
+                {item.count}
+              </span>
             )}
           </Link>
         );
@@ -319,25 +332,20 @@ export function TabLinks({
 /* ------------------------------------------------------------------ misc */
 
 export function Rule({ className }: { className?: string }) {
-  return <div className={cn("h-px w-full bg-ink-800", className)} />;
+  return <div className={cn("h-px w-full bg-[var(--hair)]", className)} />;
 }
 
 export function KeyValue({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-ink-800 py-2.5 last:border-0">
-      <dt className="shrink-0 text-[12px] font-medium uppercase tracking-[0.08em] text-fog-600">{label}</dt>
-      <dd className="text-right text-[13.5px] text-fog-200">{children}</dd>
+    <div className="flex items-baseline justify-between gap-4 border-b border-[var(--hair)] py-2 last:border-0">
+      <dt className="shrink-0 text-[11.5px] font-bold uppercase tracking-[0.04em] text-[var(--ink-3)]">{label}</dt>
+      <dd className="text-right text-[13.5px] font-medium text-[var(--ink)]">{children}</dd>
     </div>
   );
 }
 
-/* ------------------------------------------------------- console building blocks */
+/* ------------------------------------------------------- panel building blocks */
 
-/**
- * The panel that every console page is built from: a 1px hairline card with a
- * compact title bar. Matches the sheet-like blocks on a scoreboard site —
- * content first, chrome kept to a single line of type.
- */
 export function Panel({
   title,
   meta,
@@ -355,21 +363,13 @@ export function Panel({
   className?: string;
   bodyClassName?: string;
   id?: string;
-  /**
-   * Keep the title bar under the site header while the panel body scrolls past.
-   * On short panels the browser clamps the offset, which inside an
-   * `overflow-hidden` ancestor hides the header entirely — so only long panels
-   * ask for it.
-   */
   stickyHead?: boolean;
 }) {
   return (
     <section
       id={id}
       className={cn(
-        // `overflow-hidden` makes the section a scroll container, which stops the
-        // sticky header from ever pinning; clip cuts without that side effect.
-        "rounded-[10px] border border-ink-750 bg-ink-900",
+        "border-b border-[var(--hair)] border-t-2 border-t-[var(--ink)] bg-[var(--paper)]",
         stickyHead ? "overflow-clip" : "overflow-hidden",
         className,
       )}
@@ -377,15 +377,13 @@ export function Panel({
       {(title || action) && (
         <header
           className={cn(
-            "flex min-h-[38px] items-center justify-between gap-3 border-b border-ink-800 px-3 py-2",
-            stickyHead && "sticky top-16 z-30 bg-ink-900",
+            "flex min-h-[40px] items-center justify-between gap-3 border-b border-[var(--hair)] bg-[var(--paper)] px-3.5 py-2",
+            stickyHead && "sticky top-0 z-30",
           )}
         >
-          <div className="flex min-w-0 items-baseline gap-2">
-            <h2 className="truncate font-display text-[12.5px] font-bold uppercase tracking-[0.09em] text-fog-100">
-              {title}
-            </h2>
-            {meta && <span className="tnum shrink-0 text-[11px] text-fog-600">{meta}</span>}
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="x truncate text-[18px] font-extrabold text-[var(--ink)]">{title}</h2>
+            {meta && <span className="tnum shrink-0 text-[12px] font-semibold text-[var(--ink-3)]">{meta}</span>}
           </div>
           {action && <div className="shrink-0">{action}</div>}
         </header>
@@ -395,11 +393,6 @@ export function Panel({
   );
 }
 
-/**
- * A strip of tabs rendered as links, so every view stays addressable.
- * The active tab keeps the restrained lime underline rather than a filled pill:
- * a scoreboard reader scans labels, not buttons.
- */
 export function TabStrip({
   items,
   className,
@@ -413,8 +406,8 @@ export function TabStrip({
     <nav
       aria-label="Section tabs"
       className={cn(
-        "flex items-stretch gap-0 overflow-x-auto border-b border-ink-800",
-        sticky && "sticky top-16 z-30 bg-ink-950/92 backdrop-blur-xl",
+        "no-scrollbar mask-fade-r flex items-stretch gap-4 overflow-x-auto border-b border-[var(--hair)] pr-4",
+        sticky && "sticky top-0 z-30 bg-[var(--paper)]",
         className,
       )}
     >
@@ -425,15 +418,15 @@ export function TabStrip({
           aria-current={item.active ? "page" : undefined}
           data-active={item.active ? "true" : undefined}
           className={cn(
-            "relative -mb-px shrink-0 border-b-2 px-3.5 py-2.5 text-[12.5px] font-semibold transition-colors",
+            "relative -mb-px shrink-0 border-b-2 py-2.5 text-[13.5px] font-bold transition-colors hover:no-underline",
             item.active
-              ? "border-lime-400 text-fog-100"
-              : "border-transparent text-fog-500 hover:border-ink-600 hover:text-fog-200",
+              ? "border-[var(--ink)] text-[var(--ink)]"
+              : "border-transparent text-[var(--ink-3)] hover:border-[var(--hair)] hover:text-[var(--ink)]",
           )}
         >
           {item.label}
           {typeof item.count === "number" && (
-            <span className="tnum ml-1.5 text-[10.5px] text-fog-600">{item.count}</span>
+            <span className="tnum ml-1.5 text-[11px] text-[var(--ink-3)]">{item.count}</span>
           )}
         </Link>
       ))}
@@ -441,12 +434,11 @@ export function TabStrip({
   );
 }
 
-/** Small right-aligned count badge for a list row, e.g. "3M" matches in a round. */
 export function CountTag({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span
       className={cn(
-        "tnum inline-block rounded-[4px] border border-ink-700 bg-ink-850 px-1.5 py-[1px] text-[10px] font-semibold text-fog-500",
+        "tnum inline-block border border-[var(--hair)] bg-[var(--paper-2)] px-1.5 py-[1px] text-[11px] font-bold text-[var(--ink)]",
         className,
       )}
     >

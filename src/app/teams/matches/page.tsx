@@ -8,7 +8,7 @@ import {
 import { getRequestFailures } from "@/lib/pba/failures";
 import { FIXTURES_ARCHIVE_TTL, FIXTURES_IN_PLAY_TTL, getRoundFixtures } from "@/lib/pba/team-matches";
 import { normalizeTeam } from "@/lib/normalize";
-import { teamLeagueTitle } from "@/lib/pba/service";
+import { englishRoundStatus, teamLeagueTitle } from "@/lib/pba/service";
 import { FixtureList, type FixtureClub } from "@/components/domain/fixture-list";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
 import { EmptyState } from "@/components/ui/primitives";
@@ -45,7 +45,6 @@ export default async function TeamFixturesPage({ searchParams }: PageProps) {
     }
 
     const rounds = await getTeamLeagueRounds(season.리그코드);
-    // Defaults resolve exactly as /teams resolves them.
     const selectedRound =
       rounds.find((r) => String(r.라운드코드) === params.round) ??
       rounds.find((r) => r.진행상황 === "진행중") ??
@@ -66,9 +65,6 @@ export default async function TeamFixturesPage({ searchParams }: PageProps) {
 
     const roundCode = String(selectedRound.라운드코드);
 
-    // The standings feed is where English club names and logos live; the
-    // fixture blocks carry the T000xx codes that join to it. The fixtures
-    // POST re-reads within the minute while the round is in progress.
     const [fixtures, standingsRaw] = await Promise.all([
       getRoundFixtures(
         roundCode,
@@ -106,11 +102,15 @@ export default async function TeamFixturesPage({ searchParams }: PageProps) {
       <PageHeader
         failures={failures}
         eyebrow="Team league"
-        title="Round fixtures"
-        description="Every fixture of the selected round — played results with bout pages behind them, scheduled kickoffs ahead."
+        title="Round Fixtures"
+        description={
+          season && selectedRound
+            ? `${teamLeagueTitle(season.시즌명)} · Round ${selectedRound.라운드} · ${fixtures.length} fixtures`
+            : "Played results and scheduled fixtures by round"
+        }
       >
         {season && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
             <FilterRow
               label="Season"
               basePath="/teams/matches"
@@ -138,7 +138,7 @@ export default async function TeamFixturesPage({ searchParams }: PageProps) {
         )}
       </PageHeader>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
         {!season || !selectedRound ? (
           <EmptyState
             title="No team league season published"
@@ -146,20 +146,19 @@ export default async function TeamFixturesPage({ searchParams }: PageProps) {
           />
         ) : (
           <>
-            <div className="surface mb-8 flex flex-wrap items-center gap-x-8 gap-y-4 px-5 py-4">
-              <div>
-                <p className="font-display text-[15px] font-bold text-fog-100">
-                  {teamLeagueTitle(season.시즌명)}
-                </p>
-                <p className="tnum mt-0.5 text-[11.5px] text-fog-500">
+            <div className="surface mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+              <p className="tnum text-[12px] text-fog-300">
+                <span className="font-bold text-fog-100">
                   Round {selectedRound.라운드}
-                  {selectedRound.포스트여부 === "Y" ? " · Postseason" : ""} ·{" "}
-                  {selectedRound.진행상황 === "진행중" ? "In progress" : selectedRound.진행상황} ·{" "}
-                  {selectedRound.시작일자} → {selectedRound.종료일자}
-                </p>
-              </div>
-              <p className="tnum text-[11.5px] text-fog-500">
-                {fixtures.length} fixtures · bout records open on played fixtures
+                  {selectedRound.포스트여부 === "Y" ? " · Postseason" : ""}
+                </span>
+                <span className="mx-2 text-ink-600">·</span>
+                {englishRoundStatus(selectedRound.진행상황)}
+                <span className="mx-2 text-ink-600">·</span>
+                {selectedRound.시작일자} → {selectedRound.종료일자}
+              </p>
+              <p className="tnum text-[11.5px] font-semibold text-carom-300">
+                {fixtures.length} fixtures
               </p>
             </div>
 

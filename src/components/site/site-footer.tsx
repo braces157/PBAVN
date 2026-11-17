@@ -3,92 +3,83 @@ import { Wordmark } from "./wordmark";
 
 const COLUMNS = [
   {
-    title: "Tour",
+    title: "Follow",
     links: [
-      { href: "/live", label: "Live match centre" },
-      { href: "/schedule", label: "Season schedule" },
-      { href: "/records", label: "Records & leaders" },
-      { href: "/rankings", label: "Prize & point rankings" },
+      { href: "/live", label: "Live tables" },
+      { href: "/schedule", label: "Schedule" },
+      { href: "/teams", label: "Team League" },
+      { href: "/news", label: "News" },
     ],
   },
   {
-    title: "Competitors",
+    title: "Numbers",
     links: [
-      { href: "/players", label: "Player directory" },
-      { href: "/teams", label: "Team league" },
-      { href: "/compare", label: "Head-to-head" },
-      { href: "/rankings?league=PBA1", label: "PBA standings" },
+      { href: "/rankings", label: "Rankings" },
+      { href: "/records", label: "Records" },
+      { href: "/players", label: "Players" },
+      { href: "/compare", label: "Compare players" },
     ],
   },
   {
-    title: "Media",
+    title: "Site",
     links: [
-      { href: "/news", label: "Newsroom" },
-      { href: "/news?tab=videos", label: "PBA TV" },
-      { href: "/about", label: "About the tour" },
-      { href: "/about#data", label: "Where the data comes from" },
+      { href: "/about", label: "About the data" },
+      { href: "/teams/matches", label: "Round fixtures" },
+      { href: "https://www.pbatour.org/en/index", label: "pbatour.org ↗", external: true },
+      {
+        href: "https://www.youtube.com/channel/UCuXTHFVxa6tPC_jmqwpyOUA",
+        label: "PBA TV ↗",
+        external: true,
+      },
     ],
   },
 ];
 
 export function SiteFooter() {
   return (
-    <footer className="relative mt-24 border-t border-ink-750 bg-ink-950">
-      <div className="mx-auto max-w-[1440px] px-4 py-14 sm:px-6 lg:px-10">
-        <div className="grid gap-12 lg:grid-cols-[1.3fr_repeat(3,minmax(0,1fr))]">
-          <div className="max-w-sm">
-            <Wordmark />
-            <p className="mt-4 text-[13.5px] leading-relaxed text-fog-500">
-              An independent reader for the Professional Billiards Association tour. Every number on
-              this site is pulled live from the official pbatour.org data service.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <a
-                href="https://www.pbatour.org/en/index"
-                target="_blank"
-                rel="noreferrer noopener"
-                className="rounded-md border border-ink-700 px-3 py-1.5 text-xs font-medium text-fog-300 transition-colors hover:border-ink-500 hover:text-fog-100"
-              >
-                Official site ↗
-              </a>
-              <a
-                href="https://www.youtube.com/channel/UCuXTHFVxa6tPC_jmqwpyOUA"
-                target="_blank"
-                rel="noreferrer noopener"
-                className="rounded-md border border-ink-700 px-3 py-1.5 text-xs font-medium text-fog-300 transition-colors hover:border-ink-500 hover:text-fog-100"
-              >
-                PBA TV ↗
-              </a>
-            </div>
-          </div>
-
-          {COLUMNS.map((column) => (
-            <div key={column.title}>
-              <h3 className="eyebrow mb-4">{column.title}</h3>
-              <ul className="space-y-2.5">
-                {column.links.map((link) => (
-                  <li key={`${column.title}-${link.href}`}>
-                    <Link
-                      href={link.href}
-                      className="text-[13.5px] text-fog-400 transition-colors hover:text-fog-100"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+    <footer className="mt-14 border-t border-[var(--hair)] bg-[#151412] text-[#d9d3c6]">
+      <div className="wrap grid grid-cols-2 gap-8 pb-[30px] pt-9 lg:grid-cols-[1.4fr_repeat(3,minmax(0,1fr))]">
+        <div className="col-span-full lg:col-span-1">
+          <Wordmark compact inverse />
+          <p className="mt-2.5 max-w-[38ch] text-[13.5px] leading-relaxed text-[#a8a191]">
+            An independent reader for the Professional Billiards Association. All results come from pbatour.org
+            when the page is loaded.
+          </p>
         </div>
 
-        <div className="mt-12 flex flex-col gap-4 border-t border-ink-800 pt-6 text-xs text-fog-600 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            Unofficial fan project. PBA, LPBA and all tournament marks belong to the Professional
-            Billiards Association.
-          </p>
-          <p className="tnum">
-            Data source: pbatour.org · Built with Next.js
-          </p>
+        {COLUMNS.map((column) => (
+          <div key={column.title}>
+            <h5 className="mb-2.5 text-[12px] font-bold uppercase tracking-[0.06em] text-[#8d8678]">
+              {column.title}
+            </h5>
+            <ul>
+              {column.links.map((link) => (
+                <li key={`${column.title}-${link.href}`} className="py-[3px] text-[14px]">
+                  {link.external ? (
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="text-[#d9d3c6] hover:underline"
+                    >
+                      {link.label}
+                    </a>
+                  ) : (
+                    <Link href={link.href} className="text-[#d9d3c6] hover:underline">
+                      {link.label}
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div className="border-t border-[#33302a] text-[12px] text-[#8d8678]">
+        <div className="wrap flex flex-col justify-between gap-1 py-4 sm:flex-row">
+          <span>Not affiliated with the PBA. Data © Professional Billiards Association.</span>
+          <span>Times shown in KST</span>
         </div>
       </div>
     </footer>

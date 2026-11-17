@@ -409,6 +409,7 @@ export interface RawTeamPlayerStat {
   팀단축명: string;
   팀로고: string;
   팀로고썸네일?: string;
+  ImgUrl?: string;
   선수이미지?: string;
   성별: string;
   생년월일: string;
@@ -440,8 +441,10 @@ export interface RawTeamPlayerStat {
   세트패배수: number;
   단식승리수: number;
   단식패배수: number;
+  단식세트수?: number;
   복식승리수: number;
   복식패배수: number;
+  복식세트수?: number;
   남자단식승리수: number;
   남자단식패배수: number;
   여자단식승리수: number;

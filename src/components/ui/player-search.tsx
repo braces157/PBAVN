@@ -14,7 +14,6 @@ interface IndexRow {
 
 const MAX_RESULTS = 7;
 
-/** Lowercase with every separator dropped, so "Ga-young", "Gayoung" and "ga young" agree. */
 function squeeze(value: string): string {
   return value
     .toLowerCase()
@@ -36,8 +35,6 @@ function search(rows: IndexRow[], term: string): IndexRow[] {
   for (const row of rows) {
     const en = squeeze(row.e);
     const ko = squeeze(row.k);
-    // These datasets put the family name last, so "cho" should surface CHO
-    // players ahead of someone whose given name merely starts with "Cho".
     const family = squeeze((row.e.split(/\s+/).pop() ?? "") || "");
     let score = 0;
 
@@ -66,23 +63,14 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
   const [rows, setRows] = useState<IndexRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [cursor, setCursor] = useState(0);
-  // The shortcut fires on Ctrl too; the hint names the platform's actual key.
-  // Server render assumes ⌘K and the effect corrects it after hydration.
-  const [isMac, setIsMac] = useState(true);
-  useEffect(() => {
-    setIsMac(/mac|iphone|ipad|ipod/i.test(navigator.userAgent));
-  }, []);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // The header survives client-side navigation, so a click elsewhere on the
-  // page — a link out of the panel or the keyboard shortcut — has to reset it.
   useEffect(() => {
     setOpen(false);
     setTerm("");
   }, [pathname]);
 
-  // The index is fetched once, on first focus, so it costs nothing until needed.
   const load = useCallback(async () => {
     if (rows || loading) return;
     setLoading(true);
@@ -107,10 +95,6 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
     setCursor(0);
   }, [term]);
 
-  // A panel only ever opens for a real query, so it must close the moment the
-  // field loses its text or its focus. Otherwise it keeps covering the top of
-  // whatever page was navigated to — which is exactly why a click on the first
-  // event row under the header used to land on a search hit instead.
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: MouseEvent) => {
@@ -129,7 +113,10 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
+      const target = event.target as HTMLElement | null;
+      const inField =
+        target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      if ((event.key === "k" && (event.metaKey || event.ctrlKey)) || (event.key === "/" && !inField)) {
         event.preventDefault();
         inputRef.current?.focus();
       }
@@ -146,7 +133,6 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Escape") {
-      if (open) event.stopPropagation();
       setOpen(false);
       inputRef.current?.blur();
       return;
@@ -169,14 +155,24 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
   const showPanel = open && term.trim().length >= 2;
 
   return (
-    <div ref={containerRef} className={cn("relative", variant === "page" ? "w-full" : "w-full max-w-[320px]")}>
-      <div className="relative">
-        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-fog-600">
-          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
-            <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-            <path d="m10.5 10.5 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </span>
+    <div
+      ref={containerRef}
+      className={cn(
+        "relative",
+        variant === "page" ? "w-full" : "w-[200px] xl:w-[230px]",
+      )}
+    >
+      <label className="flex items-center gap-2 border-b-2 border-[var(--ink)] pb-1.5 pt-1 text-[14px] text-[var(--ink-3)] focus-within:border-[var(--red)]">
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          className="shrink-0 text-[var(--ink-2)]"
+        >
+          <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="m11 11 4 4" stroke="currentColor" strokeWidth="1.8" />
+        </svg>
         <input
           ref={inputRef}
           type="search"
@@ -190,63 +186,61 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
             void load();
           }}
           onKeyDown={onKeyDown}
-          placeholder="Search players…"
+          placeholder="Player, team or event"
           aria-label="Search players"
           role="combobox"
           aria-expanded={showPanel}
-          aria-controls={showPanel ? "player-search-results" : undefined}
-          aria-activedescendant={showPanel && results.length > 0 ? `player-search-option-${cursor}` : undefined}
+          aria-controls="player-search-results"
           aria-autocomplete="list"
-          className="field !py-1.5 !pl-8 !pr-14 text-[13px]"
+          className="min-w-0 flex-1 bg-transparent text-[13.5px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-3)]"
         />
-        <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-ink-650 bg-ink-800 px-1 py-0.5 font-sans text-[9.5px] font-semibold text-fog-600 lg:block">
-          {isMac ? "⌘K" : "Ctrl K"}
+        <kbd className="hidden border border-[var(--hair)] px-1.5 py-0 text-[11px] text-[var(--ink-3)] lg:inline-block">
+          /
         </kbd>
-      </div>
+      </label>
 
       {showPanel && (
         <div
           id="player-search-results"
           role="listbox"
-          className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-ink-700 bg-ink-900 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.95)]"
+          className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 border border-[var(--ink)] bg-[var(--paper)] shadow-lg"
         >
           {loading && !rows ? (
-            <p className="px-3 py-4 text-[12px] text-fog-500">Loading directory…</p>
+            <p className="px-3.5 py-4 text-[12.5px] text-[var(--ink-3)]">Indexing directory…</p>
           ) : results.length === 0 ? (
-            <div className="px-3 py-4">
-              <p className="text-[12.5px] text-fog-400">No player matches “{term}”.</p>
+            <div className="px-3.5 py-4">
+              <p className="text-[13px] text-[var(--ink-2)]">No player matches “{term}”.</p>
               <Link
                 href={`/players?q=${encodeURIComponent(term)}`}
                 onClick={() => setOpen(false)}
-                className="mt-1.5 inline-block text-[12px] font-medium text-lime-400 hover:text-lime-300"
+                className="mt-1.5 inline-block text-[12.5px] font-bold text-[var(--red)] hover:underline"
               >
-                Browse the full directory →
+                Search full directory →
               </Link>
             </div>
           ) : (
-            <ul className="max-h-[min(336px,calc(100dvh-180px))] overflow-y-auto py-1">
+            <ul className="max-h-[336px] divide-y divide-[var(--hair)] overflow-y-auto">
               {results.map((row, index) => (
                 <li key={row.c}>
                   <button
                     type="button"
                     role="option"
-                    id={`player-search-option-${index}`}
                     aria-selected={index === cursor}
                     onMouseEnter={() => setCursor(index)}
                     onClick={() => go(row)}
                     className={cn(
-                      "flex w-full items-center gap-2.5 px-2.5 py-2 text-left transition-colors",
-                      index === cursor ? "bg-ink-800" : "hover:bg-ink-850",
+                      "flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors",
+                      index === cursor ? "bg-[var(--paper-2)]" : "hover:bg-[var(--paper-2)]",
                     )}
                   >
-                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink-750 font-display text-[10px] font-bold text-fog-400">
+                    <span className="grid h-7 w-7 shrink-0 place-items-center bg-[var(--ink)] font-bold text-[10px] text-[var(--paper)]">
                       {(row.e || row.k).split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase()}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-medium text-fog-100">{row.e || row.k}</span>
-                      {row.k && <span className="block truncate text-[10.5px] text-fog-600">{row.k}</span>}
+                      <span className="block truncate text-[13px] font-bold text-[var(--ink)]">{row.e || row.k}</span>
+                      {row.k && <span className="block truncate text-[11px] text-[var(--ink-3)]">{row.k}</span>}
                     </span>
-                    <span className="shrink-0 rounded border border-ink-700 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-fog-500">
+                    <span className="shrink-0 border border-[var(--hair)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-[var(--ink-3)]">
                       {row.l}
                     </span>
                   </button>
@@ -254,8 +248,8 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
               ))}
             </ul>
           )}
-          <div className="border-t border-ink-800 px-3 py-1.5">
-            <p className="text-[10px] text-fog-600">↑↓ to move · Enter to open · Esc to close</p>
+          <div className="border-t border-[var(--hair)] bg-[var(--paper-2)] px-3 py-1.5">
+            <p className="text-[11px] text-[var(--ink-3)]">↑↓ navigate · Enter open · Esc close</p>
           </div>
         </div>
       )}

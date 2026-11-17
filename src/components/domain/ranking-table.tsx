@@ -1,6 +1,6 @@
 import { asset, isRealAsset } from "@/lib/pba/http";
 import { photoUrl } from "@/lib/photo";
-import { pick } from "@/lib/format";
+import { cleanPlayerName, pick } from "@/lib/format";
 import type { RawRankingRow } from "@/lib/pba/types";
 import { DataTable, type CellValue, type TableColumn, type TableRow } from "@/components/ui/data-table";
 
@@ -41,11 +41,12 @@ export function buildRankingColumns(metric: "prize" | "point", dense: boolean): 
 
 export function buildRankingRows(rows: RawRankingRow[], metric: "prize" | "point", dense: boolean): TableRow[] {
   return rows.map((row, index) => {
+    const cleanName = cleanPlayerName(pick(row.PlayerNameEN, row.PlayerNameKO));
     const cells: Record<string, CellValue> = {
       player: {
         kind: "person",
         href: `/players/${row.MemCode}`,
-        name: pick(row.PlayerNameEN, row.PlayerNameKO),
+        name: cleanName,
         sub: dense ? undefined : row.PlayerNameKO,
         photo: rankingPhoto(row),
       },
@@ -53,7 +54,16 @@ export function buildRankingRows(rows: RawRankingRow[], metric: "prize" | "point
       prize: money(row.Prize),
       points: row.RankingPoint ? row.RankingPoint.toLocaleString("en-US") : "—",
     };
-    return { key: `${row.MemCode}-${row.Rank}-${index}`, href: `/players/${row.MemCode}`, linkLabel: `Open ${pick(row.PlayerNameEN, row.PlayerNameKO)}`, cells };
+    return {
+      key: `${row.MemCode}-${row.Rank}-${index}`,
+      href: `/players/${row.MemCode}`,
+      linkLabel: `Open ${cleanName}`,
+      cells,
+      sortValues: {
+        prize: row.Prize || 0,
+        points: row.RankingPoint || 0,
+      },
+    };
   });
 }
 

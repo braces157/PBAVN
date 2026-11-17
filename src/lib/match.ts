@@ -234,8 +234,11 @@ const TOTAL_LABELS: Record<string, string> = {
   "1P": "1-point",
   "2P": "2-point",
   공격성공율: "Attack success",
+  "TS(%)": "Attack success",
   장타율: "Long-run rate",
+  "MP(%)": "Long-run rate",
   뱅크샷율: "Bank-shot rate",
+  "BSP(%)": "Bank-shot rate",
 };
 
 /** The totals table reads as Korean labels; the page shows English ones. */

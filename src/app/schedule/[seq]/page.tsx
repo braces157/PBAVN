@@ -9,15 +9,13 @@ import { calendarEvent, calendarEvents, type CalendarEvent } from "@/lib/pba/cal
 import { getLiveFeed, type LiveMatch } from "@/lib/pba/live";
 import { leagueByCode, normalizeEvent, type EventStatus } from "@/lib/normalize";
 import type { RawTournamentDetail } from "@/lib/pba/types";
-import { clockLabel, dayCount, dayKeys, dayOfEvent, fmtRange, isoDay, isPlaceholder, kstDay, stampDay } from "@/lib/format";
-import { eventArtUrl } from "@/lib/event-art";
+import { clockLabel, dayCount, dayKeys, dayOfEvent, fmtRange, isPlaceholder, kstDay, stampDay } from "@/lib/format";
 import { EventCrest } from "@/components/ui/media";
 import { Chip, EmptyState, LiveChip, Panel, TabStrip, TextLink, cn } from "@/components/ui/primitives";
 import { BracketView } from "@/components/domain/bracket-view";
 import { FixtureBoard, type FixtureClub } from "@/components/domain/fixture-board";
 import { NowNextStrip, LiveIdle, type NextFixture } from "@/components/domain/now-next";
 
-/** A drawn event settles within the hour; the calendar itself is pre-shared. */
 export const revalidate = 300;
 
 interface PageProps {
@@ -28,11 +26,8 @@ interface PageProps {
 const TABS = ["results", "bracket", "overview"] as const;
 type Tab = (typeof TABS)[number];
 
-/** Deepest rounds shown before "show every round". */
 const ROUND_PREVIEW = 5;
 
-/** A calendar entry rebuilt from the live detail feed, for events the built
- * calendar does not carry yet. */
 function detailCalendarEntry(detail: RawTournamentDetail, seq: string): CalendarEvent {
   const { raw: _raw, ...event } = normalizeEvent(detail);
   return { ...event, id: seq, top: detail.TOP_YN === 1 };
@@ -59,51 +54,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function EventPage({ params, searchParams }: PageProps) {
   const [{ seq }, search] = await Promise.all([params, searchParams]);
 
-  // The wire is the slowest read on the page and only asked for when the event
-  // is running. The calendar knows the status without a network read, so a live
-  // event starts its wire flight before the detail feed is even asked; events
-  // the calendar does not know yet start it alongside the match reads below
-  // rather than after them. A failed flight degrades to the idle state instead
-  // of erroring the page — the wire is a bonus over the results, not the page.
-  const calEntry = calendarEvent(seq);
-  const wirePromise = calEntry?.status === "live" ? getLiveFeed().catch(() => null) : null;
-
-  // The feed still owns the fields that move during a tournament: the match
-  // code, the winner, the broadcast list. The calendar supplies the identity.
   const detail = await getTournamentDetail(seq);
-
-  // The live board links events the built calendar has not picked up yet, and
-  // the detail feed answers for them; without this fallback those links 404
-  // until the next calendar rebuild ships.
-  const entry = calEntry ?? (detail ? detailCalendarEntry(detail, seq) : null);
+  const entry = calendarEvent(seq) ?? (detail ? detailCalendarEntry(detail, seq) : null);
   if (!entry) notFound();
 
   const showAll = search.all === "1";
   const tab: Tab = TABS.includes(search.tab as Tab) ? (search.tab as Tab) : "results";
-  const league = leagueByCode(entry.league);
   const isTeamLeague = entry.league === "TLG";
 
   const matchCode = detail && /^\d+$/.test(detail.MATCH_CODE ?? "") ? detail.MATCH_CODE : "";
 
-  // The two match reads are independent of each other, so they ride together.
-  // A settled event's brackets are read under a day-long window; a running one
-  // under ten minutes.
-  const [teamEvent, matches] = await Promise.all([
+  const teamEvent =
     isTeamLeague && matchCode
-      ? getEventTeamFixtures({ matchCode, seasonCode: entry.season })
-      : Promise.resolve(null),
-    !isTeamLeague && matchCode
-      ? getEventMatches(matchCode, { settled: entry.status === "completed" && Boolean(entry.end && Date.now() - entry.end.getTime() > 2 * 86_400_000) })
-      : Promise.resolve([]),
-  ]);
+      ? await getEventTeamFixtures({ matchCode, seasonCode: entry.season })
+      : null;
 
-  const feed = wirePromise ?? (entry.status === "live" ? getLiveFeed().catch(() => null) : null);
-  const liveFeed = feed ? await feed : null;
-  // A fixture from the other terminal cannot belong to this event, so the live
-  // block only takes matches from the terminal this event runs on.
+  const matches = !isTeamLeague && matchCode ? await getEventMatches(matchCode) : [];
+
+  const feed = entry.status === "live" ? await getLiveFeed() : null;
   const liveMatch =
-    liveFeed?.matches.find((match) => (isTeamLeague ? match.competition : !match.competition)) ??
-    null;
+    feed?.matches.find((match) => (isTeamLeague ? match.competition : !match.competition)) ?? null;
 
   const fixtures = teamEvent?.fixtures ?? [];
   const days = dayCount(entry.start, entry.end);
@@ -130,14 +100,14 @@ export default async function EventPage({ params, searchParams }: PageProps) {
         keys={keys}
       />
 
-      <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8">
         <NowNextStrip
           event={entry}
-          live={liveMatch ? <LiveBlock match={liveMatch} /> : <LiveIdle unavailable={entry.status === "live" && (!liveFeed || !liveFeed.reachable)} />}
+          live={liveMatch ? <LiveBlock match={liveMatch} /> : <LiveIdle />}
           next={next}
         />
 
-        <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_318px] lg:gap-6">
+        <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_308px]">
           <div className="min-w-0">
             {tab === "overview" ? (
               <OverviewPanel event={entry} facts={facts} days={days} />
@@ -159,26 +129,15 @@ export default async function EventPage({ params, searchParams }: PageProps) {
           </div>
 
           <aside className="space-y-4">
+            <EventQuickFacts event={entry} days={days} />
             <DaysPanel entry={entry} keys={keys} today={today} />
             <SiblingsPanel entry={entry} />
-            <Panel title="Where the numbers come from">
-              <ul className="space-y-1.5 px-3 py-2.5 text-[11.5px] leading-relaxed text-fog-500">
-                <li>Dates, venue and prize money — the schedule feed.</li>
-                <li>
-                  {isTeamLeague ? "Fixtures and club scores" : "Match cards and set scores"} — the
-                  association's scoring terminal.
-                </li>
-                <li>Live state — the scoreboard wire, read at request time.</li>
-              </ul>
-            </Panel>
           </aside>
         </div>
       </div>
     </>
   );
 }
-
-/* ------------------------------------------------------------------ header */
 
 function EventHeader({
   entry,
@@ -202,54 +161,51 @@ function EventHeader({
   const dayNumber = keys.includes(today) ? keys.indexOf(today) + 1 : null;
 
   return (
-    <header className="border-b border-ink-800 bg-ink-950">
-      <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
-        <nav className="flex flex-wrap items-center gap-1.5 py-2.5 text-[11px] text-fog-600" aria-label="Breadcrumb">
-          <Link href="/schedule" className="transition-colors hover:text-fog-300">
+    <header className="border-b border-ink-800 bg-ink-900/60">
+      <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
+        <nav className="flex flex-wrap items-center gap-1.5 py-2.5 text-[11px] text-fog-500" aria-label="Breadcrumb">
+          <Link href="/schedule" className="transition-colors hover:text-carom-300">
             Schedule
           </Link>
           <Separator />
           <Link
             href={`/schedule?league=${entry.league}&season=${entry.season}`}
-            className="transition-colors hover:text-fog-300"
+            className="transition-colors hover:text-carom-300"
           >
             {league.name}
           </Link>
           <Separator />
           <Link
             href={`/schedule?season=${entry.season}&league=${entry.league}`}
-            className="transition-colors hover:text-fog-300"
+            className="transition-colors hover:text-carom-300"
           >
             {entry.season}
           </Link>
           <Separator />
-          <span className="max-w-[240px] truncate text-fog-450">{entry.title}</span>
+          <span className="max-w-[260px] truncate text-fog-300">{entry.title}</span>
         </nav>
 
-        <div className="flex flex-wrap items-start gap-x-4 gap-y-3 pb-4 pt-0.5">
+        <div className="flex flex-wrap items-start gap-x-4 gap-y-3 pb-4 pt-1">
           <EventCrest
             src={entry.logo}
             name={entry.sponsor !== "—" ? entry.sponsor : entry.title}
             league={entry.league}
             size="lg"
           />
-          {/* `min-w-0 basis-full` on a phone: the title gets the full width and
-              wraps on word boundaries instead of being squeezed into the few
-              pixels left beside the crest. */}
           <div className="min-w-0 flex-1 basis-full sm:basis-[320px]">
             <div className="flex flex-wrap items-center gap-2">
               <StatusChip status={entry.status} dayNumber={dayNumber} />
               <Chip tone={league.tone}>{league.name}</Chip>
-              {days && <span className="text-[11px] text-fog-550">{days}-day event</span>}
+              {days && <span className="text-[11px] text-fog-500">{days}-day event</span>}
             </div>
             <h1 className="display-sm mt-1.5 max-w-3xl text-balance text-fog-100">{entry.title}</h1>
-            <p className="tnum mt-1 text-[12.5px] text-fog-450">
+            <p className="tnum mt-1 text-[12px] text-fog-400">
               {fmtRange(entry.start, entry.end)}
-              <span className="mx-1.5 text-ink-500">·</span>
+              <span className="mx-1.5 text-ink-600">·</span>
               {entry.venue}
               {entry.sponsor !== "—" && (
                 <>
-                  <span className="mx-1.5 text-ink-500">·</span>
+                  <span className="mx-1.5 text-ink-600">·</span>
                   Presented by {entry.sponsor}
                 </>
               )}
@@ -262,7 +218,7 @@ function EventHeader({
                 href={entry.guideUrl}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="press inline-flex items-center gap-1.5 rounded-md bg-lime-400 px-3 py-1.5 text-[12px] font-semibold text-ink-950 transition-colors hover:bg-lime-300"
+                className="press inline-flex items-center gap-1 bg-[var(--ink)] px-3 py-1.5 text-[12.5px] font-bold text-[var(--paper)] transition-colors hover:bg-[var(--red)] hover:text-white"
               >
                 Event guide ↗
               </a>
@@ -271,9 +227,9 @@ function EventHeader({
               href="https://www.pbatour.org/en/tournament/schedule/index"
               target="_blank"
               rel="noreferrer noopener"
-              className="inline-flex items-center gap-1.5 rounded-md border border-ink-700 px-3 py-1.5 text-[12px] font-medium text-fog-300 transition-colors hover:border-ink-500 hover:text-fog-100"
+              className="inline-flex items-center gap-1 rounded-md border border-ink-700 bg-ink-900 px-3 py-1.5 text-[12px] font-semibold text-fog-200 transition-colors hover:border-carom-400/50 hover:text-carom-300"
             >
-              On pbatour.org ↗
+              pbatour.org ↗
             </a>
           </div>
         </div>
@@ -299,7 +255,7 @@ function EventHeader({
 
 function Separator() {
   return (
-    <span aria-hidden="true" className="text-ink-500">
+    <span aria-hidden="true" className="text-ink-600">
       /
     </span>
   );
@@ -311,19 +267,17 @@ function StatusChip({ status, dayNumber }: { status: EventStatus; dayNumber: num
   }
   if (status === "upcoming") {
     return (
-      <Chip tone="lime" className="tracking-[0.1em]">
+      <Chip tone="carom" className="tracking-[0.08em]">
         Upcoming
       </Chip>
     );
   }
   return (
-    <Chip tone="neutral" className="tracking-[0.1em]">
+    <Chip tone="neutral" className="tracking-[0.08em]">
       Completed
     </Chip>
   );
 }
-
-/* ------------------------------------------------------------------ panels */
 
 function ResultsPanel({
   entry,
@@ -352,7 +306,7 @@ function ResultsPanel({
             description={
               matchCode
                 ? "The team-league terminal has no fixture list for this round."
-                : "This round's fixtures appear here as soon as the association publishes them."
+                : "This round's fixtures appear here once published."
             }
           />
         </Panel>
@@ -365,12 +319,12 @@ function ResultsPanel({
     return (
       <Panel
         title="Round fixtures"
-        meta={`${fixtures.length} · ${played} played · ${fixtures.length - played} to play`}
+        meta={`${fixtures.length} · ${played} played · ${fixtures.length - played} upcoming`}
         stickyHead
         action={
           <Link
             href={`/teams/matches?season=${encodeURIComponent(seasonCode)}&round=${round.라운드코드}`}
-            className="text-[11.5px] font-semibold text-fog-300 transition-colors hover:text-lime-300"
+            className="text-[11.5px] font-semibold text-carom-300 transition-colors hover:text-carom-400"
           >
             Team League view →
           </Link>
@@ -382,9 +336,6 @@ function ResultsPanel({
           season={seasonCode}
           round={String(round.라운드코드)}
           today={today}
-          // A round is 45 fixtures; the page opens on today and the days after
-          // it, and the played history is one click away rather than 15 rows of
-          // scroll before the reader reaches what is on now.
           playedOpen={showAll}
           playedHref={`/schedule/${seq}?all=1`}
         />
@@ -397,19 +348,17 @@ function ResultsPanel({
       <Panel title="Matches">
         <EmptyState
           className="border-0"
-          title={entry.status === "upcoming" ? "The draw is not out yet" : "No match cards published"}
+          title={entry.status === "upcoming" ? "Draw not published yet" : "No match cards published"}
           description={
             entry.status === "upcoming"
-              ? "Match cards appear here as soon as the draw is made and the first match is scored."
-              : "The scoring terminal has no bracket under this event's match code."
+              ? "Match cards appear here as soon as the draw opens and scoring begins."
+              : "No bracket records were found under this event code."
           }
         />
       </Panel>
     );
   }
 
-  // A draw is 30 rounds deep on 128 players. The card is useful for the final
-  // and the semi-finals; the bracket tab is where the whole tree is read.
   const shown = showAll ? matches : matches.slice(0, ROUND_PREVIEW);
   const hidden = matches.length - shown.length;
   const moreHref = `/schedule/${seq}?all=1`;
@@ -417,23 +366,23 @@ function ResultsPanel({
   return (
     <>
       {hidden > 0 && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-ink-750 bg-ink-900 px-3 py-2.5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-ink-750 bg-ink-900 px-3.5 py-2.5">
           <p className="text-[12px] text-fog-400">
-            Showing the <span className="font-semibold text-fog-200">closing {shown.length} matches</span> of{" "}
-            {matches.length}. The full tree lives on the bracket tab.
+            Showing the <span className="font-semibold text-fog-100">closing {shown.length} matches</span> of{" "}
+            {matches.length}.
           </p>
           <div className="flex items-center gap-2">
             <Link
               href={moreHref}
-              className="rounded-md border border-ink-700 px-2.5 py-1 text-[11.5px] font-medium text-fog-300 transition-colors hover:border-ink-500 hover:text-fog-100"
+              className="rounded-md border border-ink-700 bg-ink-850 px-2.5 py-1 text-[11.5px] font-semibold text-fog-200 transition-colors hover:border-carom-400/50 hover:text-carom-300"
             >
-              Every round
+              Show all rounds
             </Link>
             <Link
               href={`/schedule/${seq}?tab=bracket`}
-              className="rounded-md border border-ink-700 px-2.5 py-1 text-[11.5px] font-medium text-fog-300 transition-colors hover:border-ink-500 hover:text-fog-100"
+              className="rounded-md border border-ink-700 bg-ink-850 px-2.5 py-1 text-[11.5px] font-semibold text-fog-200 transition-colors hover:border-carom-400/50 hover:text-carom-300"
             >
-              Bracket
+              Full bracket
             </Link>
           </div>
         </div>
@@ -442,6 +391,30 @@ function ResultsPanel({
         <BracketView matches={shown} tourCode={matchCode} eventSeq={seq} />
       </Panel>
     </>
+  );
+}
+
+function EventQuickFacts({ event, days }: { event: CalendarEvent; days: number | null }) {
+  const rows = [
+    { label: "Prize pool", value: event.prizePool },
+    { label: "Defending champ", value: event.defendingChampion },
+    { label: "Duration", value: days ? `${days} days` : "—" },
+    { label: "Season", value: `${event.season}-${Number(event.season) + 1}` },
+  ].filter((row) => row.value && row.value !== "—");
+
+  if (rows.length === 0) return null;
+
+  return (
+    <Panel title="Event info">
+      <dl className="divide-y divide-ink-800/70">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-baseline justify-between gap-3 px-3.5 py-2">
+            <dt className="micro-label shrink-0">{row.label}</dt>
+            <dd className="tnum text-right text-[12px] font-medium text-fog-100">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </Panel>
   );
 }
 
@@ -457,15 +430,15 @@ function DaysPanel({ entry, keys, today }: { entry: CalendarEvent; keys: string[
             <li
               key={key}
               className={cn(
-                "flex items-center justify-between gap-2 px-3 py-[7px] text-[12px]",
-                isToday && "bg-lime-400/[0.06]",
+                "flex items-center justify-between gap-2 px-3.5 py-2 text-[12px]",
+                isToday && "bg-carom-400/[0.08]",
               )}
             >
-              <span className="flex items-center gap-2">
-                <span className="tnum w-4 text-right font-display text-[11px] font-bold text-fog-600">
+              <span className="flex items-center gap-2.5">
+                <span className="tnum w-4 text-right font-display text-[11px] font-bold text-fog-550">
                   {index}
                 </span>
-                <span className={cn("tnum", isToday ? "text-fog-100" : "text-fog-300")}>{keyLabel(key)}</span>
+                <span className={cn("tnum", isToday ? "font-semibold text-fog-100" : "text-fog-300")}>{keyLabel(key)}</span>
               </span>
               {isToday && <LiveChip label="Today" />}
             </li>
@@ -491,21 +464,21 @@ function SiblingsPanel({ entry }: { entry: CalendarEvent }) {
   return (
     <Panel title="Around this event">
       {nearby.length === 0 ? (
-        <p className="px-3 py-3 text-[11.5px] text-fog-500">No other published events on this circuit.</p>
+        <p className="px-3.5 py-3 text-[12px] text-fog-500">No other published events on this circuit.</p>
       ) : (
         <ul className="divide-y divide-ink-800/70">
           {nearby.map((sibling) => (
             <li key={sibling.id}>
-              <Link href={`/schedule/${sibling.id}`} className="row-hover block px-3 py-2">
+              <Link href={`/schedule/${sibling.id}`} className="row-hover block px-3.5 py-2.5">
                 <span className="flex items-start justify-between gap-2">
-                  <span className="min-w-0 text-[12px] font-medium leading-snug text-fog-200">
+                  <span className="min-w-0 text-[12px] font-medium leading-snug text-fog-100">
                     {sibling.title}
                   </span>
                   {sibling.status === "live" ? (
-                    <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-live-500" aria-label="Live" />
+                    <span className="live-dot mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-live-500" aria-label="Live" />
                   ) : null}
                 </span>
-                <span className="tnum mt-0.5 block text-[10.5px] text-fog-600">
+                <span className="tnum mt-0.5 block text-[10.5px] text-fog-550">
                   {fmtRange(sibling.start, sibling.end)}
                 </span>
               </Link>
@@ -513,7 +486,7 @@ function SiblingsPanel({ entry }: { entry: CalendarEvent }) {
           ))}
         </ul>
       )}
-      <div className="border-t border-ink-800 px-3 py-2">
+      <div className="border-t border-ink-800 px-3.5 py-2.5">
         <TextLink href={`/schedule?season=${entry.season}&league=${entry.league}`}>
           All {league.name} events
         </TextLink>
@@ -543,12 +516,12 @@ function OverviewPanel({
   ].filter((row) => row.value && row.value !== "—");
 
   return (
-    <Panel title="Event facts">
+    <Panel title="Event specifications">
       <dl className="divide-y divide-ink-800/70">
         {rows.map((row) => (
-          <div key={row.label} className="flex items-baseline justify-between gap-6 px-3 py-2">
+          <div key={row.label} className="flex items-baseline justify-between gap-6 px-4 py-2.5">
             <dt className="micro-label shrink-0">{row.label}</dt>
-            <dd className="text-right text-[12.5px] leading-snug text-fog-200">{row.value}</dd>
+            <dd className="text-right text-[13px] leading-snug text-fog-100">{row.value}</dd>
           </div>
         ))}
       </dl>
@@ -558,8 +531,8 @@ function OverviewPanel({
 
 function LiveBlock({ match }: { match: LiveMatch }) {
   return (
-    <div className="bg-ink-900 px-3.5 py-3">
-      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-live-400">
+    <div className="bg-ink-900 px-4 py-3">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-live-400">
         <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
         On table now
       </p>
@@ -567,30 +540,26 @@ function LiveBlock({ match }: { match: LiveMatch }) {
         {match.sides.map((side, index) => (
           <li key={`${side.name}-${index}`} className="flex items-center justify-between gap-2">
             <span className="min-w-0 truncate text-[13px] font-semibold text-fog-100">{side.name}</span>
-            <span className="tnum shrink-0 text-[13px] font-bold text-live-400">{side.points}</span>
+            <span className="tnum shrink-0 text-[13.5px] font-bold text-live-400">{side.points}</span>
           </li>
         ))}
       </ol>
-      <p className="tnum mt-1.5 text-[11px] leading-snug text-fog-500">
+      <p className="tnum mt-1.5 text-[11px] leading-snug text-fog-450">
         Set {match.latestSet.setNo}
         {match.latestSet.target !== null ? ` · race to ${match.latestSet.target}` : ""} ·{" "}
         {match.sides[0]?.setsWon ?? 0}–{match.sides[1]?.setsWon ?? 0} in sets
       </p>
-      {/* A team-league match has no scoring-terminal pstCode, so there is no
-          card to open. */}
       {match.competition || !match.pstCode ? null : (
         <Link
           href={`/matches/${match.pstCode}?live=1`}
-          className="mt-2 inline-flex items-center gap-1 text-[11.5px] font-semibold text-fog-300 transition-colors hover:text-lime-300"
+          className="mt-2 inline-flex items-center gap-1 text-[11.5px] font-semibold text-carom-300 transition-colors hover:text-carom-400"
         >
-          Open live card <span aria-hidden="true">→</span>
+          Open live card →
         </Link>
       )}
     </div>
   );
 }
-
-/* ------------------------------------------------------------------ inputs */
 
 function buildFacts(detail: Awaited<ReturnType<typeof getTournamentDetail>>) {
   if (!detail) return [];
@@ -604,7 +573,6 @@ function buildFacts(detail: Awaited<ReturnType<typeof getTournamentDetail>>) {
   ].filter((row) => row.value && !isPlaceholder(row.value));
 }
 
-/** The next fixture still to be played, from either feed. */
 function nextUp({
   fixtures,
   matches,
@@ -636,8 +604,6 @@ function nextUp({
     };
   }
 
-  // A bracket row with no set count on either side is a match drawn but not
-  // yet played; the feed sorts the current round first.
   const drawn = matches.find((match) =>
     match.sides.every((side) => side.sets === null || side.sets === undefined),
   );
@@ -651,7 +617,6 @@ function nextUp({
   };
 }
 
-/** "Today 18:30" / "Tomorrow 18:30" / "Thu 18:30" from a local stamp. */
 function distanceLabel(stamp: string | null): string {
   const clock = clockLabel(stamp);
   const day = stampDay(stamp);

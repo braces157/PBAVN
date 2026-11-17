@@ -27,8 +27,8 @@ export default function GlobalError({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#040507",
-          color: "#e2e4dd",
+          background: "#f3efe6",
+          color: "#151412",
           fontFamily:
             "var(--font-inter), Inter, 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif",
         }}
@@ -44,13 +44,13 @@ export default function GlobalError({
               fontWeight: 600,
               letterSpacing: "0.16em",
               textTransform: "uppercase",
-              color: "#79828e",
+              color: "#55514a",
             }}
           >
             Something broke
           </p>
           <h1 style={{ fontSize: 24, margin: "12px 0 0", fontWeight: 700 }}>The site hit an error</h1>
-          <p style={{ fontSize: 13.5, lineHeight: 1.6, color: "#79828e", margin: "12px 0 0" }}>
+          <p style={{ fontSize: 13.5, lineHeight: 1.6, color: "#55514a", margin: "12px 0 0" }}>
             The page failed before it could render. Retrying usually works; the official site is
             the source of truth.
           </p>
@@ -60,10 +60,10 @@ export default function GlobalError({
                 display: "inline-block",
                 marginTop: 12,
                 padding: "2px 8px",
-                border: "1px solid #1a202b",
-                borderRadius: 6,
+                border: "1px solid #d6d0c2",
+                borderRadius: 0,
                 fontSize: 10.5,
-                color: "#79828e",
+                color: "#55514a",
               }}
             >
               ref {error.digest}
@@ -74,10 +74,10 @@ export default function GlobalError({
               type="button"
               onClick={reset}
               style={{
-                background: "#d4ff4a",
-                color: "#040507",
+                background: "#151412",
+                color: "#f3efe6",
                 border: "none",
-                borderRadius: 9,
+                borderRadius: 0,
                 padding: "10px 16px",
                 fontSize: 13,
                 fontWeight: 600,
@@ -91,12 +91,12 @@ export default function GlobalError({
               target="_blank"
               rel="noreferrer noopener"
               style={{
-                border: "1px solid #1a202b",
-                borderRadius: 9,
+                border: "1px solid #d6d0c2",
+                borderRadius: 0,
                 padding: "10px 16px",
                 fontSize: 13,
                 fontWeight: 600,
-                color: "#e2e4dd",
+                color: "#151412",
                 textDecoration: "none",
               }}
             >

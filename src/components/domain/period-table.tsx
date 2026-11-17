@@ -2,14 +2,6 @@ import Link from "next/link";
 import { cn } from "@/components/ui/primitives";
 import { formatPeriodValue, type PeriodCategory, type PeriodStat } from "@/lib/period";
 
-/**
- * The season form table: one row per player, ranked by the selected statistic.
- *
- * Supporting columns are shown alongside the ranked one so the table answers
- * "who leads" and "why" in the same glance, which is what a reader does with a
- * stats page. Columns that need a wider viewport are dropped below the
- * breakpoint rather than forcing a horizontal scroll on a phone.
- */
 export function PeriodTable({
   rows,
   category,
@@ -19,7 +11,7 @@ export function PeriodTable({
 }) {
   if (rows.length === 0) {
     return (
-      <p className="px-4 py-10 text-center text-[12.5px] text-fog-500">
+      <p className="px-4 py-10 text-center text-[12.5px] text-fog-450">
         The association has published no {category.label.toLowerCase()} figures for this window.
       </p>
     );
@@ -39,7 +31,7 @@ export function PeriodTable({
             <th scope="col" className="!text-left">
               Player
             </th>
-            <th scope="col">{category.column}</th>
+            <th scope="col" className="!text-carom-300">{category.column}</th>
             <th scope="col" className="hidden sm:table-cell">
               Avg
             </th>
@@ -73,7 +65,7 @@ export function PeriodTable({
               <td
                 className={cn(
                   "tnum !text-left",
-                  index === 0 ? "font-bold text-gold-400" : "text-fog-600",
+                  index === 0 ? "font-bold text-gold-300" : "text-fog-550",
                 )}
               >
                 {index + 1}
@@ -81,12 +73,12 @@ export function PeriodTable({
               <td className="!text-left">
                 <Link
                   href={`/players/${row.memCode}`}
-                  className="block max-w-[190px] truncate text-[12.5px] text-fog-100 hover:text-lime-300"
+                  className="block max-w-[190px] truncate text-[12.5px] font-semibold text-fog-100 hover:text-carom-300"
                 >
                   {row.name}
                 </Link>
               </td>
-              <td className="tnum font-semibold text-lime-300">
+              <td className="tnum font-bold text-carom-300">
                 {formatPeriodValue(category.unit, category.value(row))}
               </td>
               <td className="tnum hidden text-fog-300 sm:table-cell">

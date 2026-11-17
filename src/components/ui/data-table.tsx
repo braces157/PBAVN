@@ -3,18 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { SafeImage } from "./safe-image";
 import { cn } from "./primitives";
 
 export type SortDirection = "asc" | "desc";
 
-/**
- * A serialisable table row.
- *
- * Everything a client component needs to reorder and repaint must survive the
- * server/client boundary, so cells arrive as plain values rather than render
- * functions. A cell is either a formatted string, a number, or a small tagged
- * object for the few cells that carry structure (a person chip, a rank chip).
- */
 export type CellValue =
   | string
   | number
@@ -37,22 +30,20 @@ export interface TableColumn {
   numeric?: boolean;
   align?: "left" | "right";
   hideBelow?: "sm" | "md" | "lg" | "xl";
-  /** Which sort should the table start on. */
   defaultDirection?: SortDirection;
 }
 
 export interface TableRow {
   key: string;
   href?: string;
-  /** Accessible name for the row link. */
   linkLabel?: string;
   cells: Record<string, CellValue>;
+  sortValues?: Record<string, number | string>;
 }
 
 export interface TablePayload {
   columns: TableColumn[];
   rows: TableRow[];
-  /** Upstream rank per row, shown when the table is untouched. */
   ranks?: Record<string, number>;
   initialSort?: { id: string; direction: SortDirection } | null;
   rankLabel?: string;
@@ -81,7 +72,7 @@ function compareValues(a: number | string, b: number | string): number {
 }
 
 function Cell({ value }: { value: CellValue }) {
-  if (value === null || value === undefined || value === "") return <span className="text-fog-600">—</span>;
+  if (value === null || value === undefined || value === "") return <span className="text-[var(--ink-3)]">—</span>;
 
   if (typeof value === "number") return <span className="tnum">{value.toLocaleString("en-US")}</span>;
   if (typeof value === "string") return <>{value}</>;
@@ -90,12 +81,12 @@ function Cell({ value }: { value: CellValue }) {
     return (
       <span
         className={cn(
-          "tnum inline-grid h-6 min-w-6 place-items-center rounded-md px-1 text-[11px] font-bold",
+          "tnum inline-grid h-6 min-w-6 place-items-center px-1 text-[11px] font-bold",
           value.value === 1
-            ? "bg-gold-400/15 text-gold-400"
+            ? "bg-[var(--ink)] text-[var(--paper)]"
             : value.value <= 3
-              ? "bg-ink-700 text-fog-200"
-              : "bg-ink-800 text-fog-400",
+              ? "border border-[var(--ink)] bg-[var(--paper-2)] text-[var(--ink)]"
+              : "text-[var(--ink-3)]",
         )}
       >
         {value.value || "—"}
@@ -105,33 +96,38 @@ function Cell({ value }: { value: CellValue }) {
 
   if (value.kind === "tag") {
     return (
-      <span className="rounded border border-ink-700 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.06em] text-fog-500">
+      <span className="border border-[var(--hair)] bg-[var(--paper-2)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-[var(--ink-2)]">
         {value.text}
       </span>
     );
   }
 
+  const fallbackInitials =
+    value.name
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0] ?? "")
+      .join("")
+      .toUpperCase() || "–";
+
   return (
-    <Link href={value.href} className="flex items-center gap-2.5 transition-colors hover:text-lime-300">
-      <span className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-ink-750 font-display text-[10px] font-bold text-fog-400">
-        {value.photo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={value.photo} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
-        ) : (
-          value.name
-            .split(/\s+/)
-            .slice(0, 2)
-            .map((part) => part[0])
-            .join("")
-            .toUpperCase()
-        )}
+    <Link href={value.href} className="group/cell flex items-center gap-2 transition-colors hover:text-[var(--red)] hover:no-underline">
+      <span className="grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded-full border border-[var(--hair)] bg-[var(--paper-2)] text-[9.5px] font-bold text-[var(--ink)]">
+        <SafeImage
+          src={value.photo}
+          alt=""
+          className="h-full w-full object-cover object-top"
+          fallback={<span>{fallbackInitials}</span>}
+        />
       </span>
-      <span className="block min-w-0 max-w-[150px]">
-        <span className="block truncate text-[13px] font-medium text-fog-100">{value.name}</span>
-        {value.sub && <span className="block truncate text-[10.5px] text-fog-600">{value.sub}</span>}
+      <span className="block min-w-0 max-w-[165px]">
+        <span className="block truncate text-[13px] font-bold text-[var(--ink)] group-hover/cell:text-[var(--red)]">
+          {value.name}
+        </span>
+        {value.sub && <span className="block truncate text-[11px] text-[var(--ink-3)]">{value.sub}</span>}
       </span>
       {value.badge && (
-        <span className="shrink-0 rounded border border-ink-700 px-1 py-0.5 text-[9px] font-bold uppercase text-fog-500">
+        <span className="shrink-0 border border-[var(--hair)] px-1 py-0.5 text-[9.5px] font-bold uppercase text-[var(--ink-2)]">
           {value.badge}
         </span>
       )}
@@ -139,18 +135,10 @@ function Cell({ value }: { value: CellValue }) {
   );
 }
 
-/**
- * The site's only sortable table.
- *
- * Rows arrive from the server already projected to plain values; this component
- * only reorders them and repaints. Rank renumbers to follow the current sort,
- * the way a leaderboard does, and falls back to the source rank when untouched.
- */
 export function DataTable({
   payload,
   empty,
   className,
-  hideSortBar = false,
 }: {
   payload: TablePayload;
   empty?: string;
@@ -169,7 +157,11 @@ export function DataTable({
       .map((row, position) => ({ row, position }))
       .sort(
         (a, b) =>
-          factor * compareValues(sortKey(a.row.cells[sort.id]), sortKey(b.row.cells[sort.id])) ||
+          factor *
+            compareValues(
+              sortKey(a.row.sortValues?.[sort.id] ?? a.row.cells[sort.id]),
+              sortKey(b.row.sortValues?.[sort.id] ?? b.row.cells[sort.id]),
+            ) ||
           (index.get(a.position) ?? 0) - (index.get(b.position) ?? 0),
       )
       .map((entry) => entry.row);
@@ -187,52 +179,11 @@ export function DataTable({
   const showSourceRank = !sort && ranks;
 
   return (
-    <div className={cn("overflow-hidden rounded-[14px] border border-ink-750 bg-ink-900", className)}>
-      {!hideSortBar && columns.length > 2 && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-ink-800 px-3 py-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-fog-600">Sort</span>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {columns
-              .filter((column) => column.id !== "note")
-              .map((column) => {
-                const active = sort?.id === column.id;
-                return (
-                  <button
-                    key={column.id}
-                    type="button"
-                    onClick={() => toggle(column)}
-                    aria-pressed={active}
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] font-medium transition-colors",
-                      active
-                        ? "border-lime-400/45 bg-lime-400/10 text-lime-300"
-                        : "border-ink-700 text-fog-400 hover:border-ink-500 hover:text-fog-100",
-                    )}
-                  >
-                    {column.shortLabel ?? column.label}
-                    {active && (
-                      <span aria-hidden="true" className="text-[9px]">
-                        {sort?.direction === "desc" ? "▼" : "▲"}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-          </div>
-          {sort && (
-            <button
-              type="button"
-              onClick={() => setSort(null)}
-              className="ml-auto text-[11px] text-fog-600 underline-offset-2 transition-colors hover:text-fog-300"
-            >
-              Reset
-            </button>
-          )}
-        </div>
-      )}
-
+    <div className={cn("overflow-hidden border-b border-[var(--ink)] bg-[var(--paper)]", className)}>
       {ordered.length === 0 ? (
-        <div className="px-4 py-12 text-center text-[13px] text-fog-500">{empty ?? "No rows to show."}</div>
+        <div className="border-t-2 border-[var(--ink)] px-4 py-10 text-center text-[13.5px] text-[var(--ink-2)]">
+          {empty ?? "No rows to show."}
+        </div>
       ) : (
         <div
           className="overflow-auto"
@@ -242,7 +193,7 @@ export function DataTable({
           <table className="stat-table">
             <thead>
               <tr>
-                <th className="!w-12">{rankLabel}</th>
+                <th className="!w-10">{rankLabel}</th>
                 {columns.map((column) => {
                   const active = sort?.id === column.id;
                   const alignRight = column.align === "right" || (column.align === undefined && column.numeric);
@@ -252,21 +203,21 @@ export function DataTable({
                       className={cn(
                         column.hideBelow && HIDE_CLASS[column.hideBelow],
                         !alignRight && "!text-left",
-                        "select-none",
-                        active && "!text-lime-300",
+                        active && "!text-[var(--ink)]",
                       )}
                       aria-sort={active ? (sort?.direction === "desc" ? "descending" : "ascending") : undefined}
                     >
-                      {/* A real button inside the header cell: a clickable th has
-                          no keyboard path, and the sort bar above the table does
-                          not render for two-column tables. */}
                       <button
                         type="button"
                         onClick={() => toggle(column)}
-                        className="inline-flex cursor-pointer items-center gap-1 [font:inherit] transition-colors hover:text-fog-100"
+                        aria-pressed={active}
+                        className={cn(
+                          "inline-flex items-center gap-1 font-bold uppercase tracking-[0.05em] transition-colors hover:text-[var(--ink)]",
+                          alignRight && "ml-auto",
+                        )}
                       >
                         {column.label}
-                        <span aria-hidden="true" className={cn("text-[8px] leading-none", active ? "opacity-100" : "opacity-30")}>
+                        <span aria-hidden="true" className={cn("text-[9px] leading-none", active ? "opacity-100 text-[var(--red)]" : "opacity-45")}>
                           {active ? (sort?.direction === "desc" ? "▼" : "▲") : "⇅"}
                         </span>
                       </button>
@@ -276,59 +227,65 @@ export function DataTable({
               </tr>
             </thead>
             <tbody>
-              {ordered.map((row, position) => (
-                <tr
-                  key={row.key}
-                  className="group"
-                  data-href={row.href}
-                  onClick={(event) => {
-                    if (!row.href) return;
-                    // Modifier clicks and real links keep their native behaviour.
-                    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-                    if ((event.target as HTMLElement).closest("a")) return;
-                    router.push(row.href);
-                  }}
-                >
-                  <td>
-                    {row.href && (
-                      <Link
-                        href={row.href}
-                        aria-label={row.linkLabel ?? "Open details"}
-                        className="tnum inline-grid h-6 min-w-6 place-items-center rounded-md bg-ink-800 px-1 text-[11px] font-bold text-fog-300 transition-colors hover:bg-ink-700 hover:text-lime-300"
-                      >
-                        {showSourceRank ? ranks[row.key] ?? position + 1 : position + 1}
-                      </Link>
-                    )}
-                    {!row.href && (
-                      <span
-                        className={cn(
-                          "tnum inline-grid h-6 min-w-6 place-items-center rounded-md px-1 text-[11px] font-bold",
-                          (showSourceRank ? ranks[row.key] : position + 1) === 1
-                            ? "bg-gold-400/15 text-gold-400"
-                            : "bg-ink-800 text-fog-300",
-                        )}
-                      >
-                        {showSourceRank ? ranks[row.key] ?? position + 1 : position + 1}
-                      </span>
-                    )}
-                  </td>
-                  {columns.map((column) => {
-                    const alignRight =
-                      column.align === "right" || (column.align === undefined && column.numeric);
-                    return (
-                      <td
-                        key={column.id}
-                        className={cn(
-                          column.hideBelow && HIDE_CLASS[column.hideBelow],
-                          !alignRight && "!text-left",
-                        )}
-                      >
-                        <Cell value={row.cells[column.id]} />
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+              {ordered.map((row, position) => {
+                const rankNumber = showSourceRank ? ranks[row.key] ?? position + 1 : position + 1;
+                return (
+                  <tr
+                    key={row.key}
+                    className="group"
+                    data-href={row.href}
+                    onClick={(event) => {
+                      if (!row.href) return;
+                      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                      if ((event.target as HTMLElement).closest("a")) return;
+                      router.push(row.href);
+                    }}
+                  >
+                    <td>
+                      {row.href ? (
+                        <Link
+                          href={row.href}
+                          aria-label={row.linkLabel ?? "Open details"}
+                          className={cn(
+                            "tnum inline-grid h-6 min-w-6 place-items-center px-1 text-[11px] font-bold transition-colors hover:no-underline",
+                            rankNumber === 1
+                              ? "bg-[var(--ink)] text-[var(--paper)]"
+                              : rankNumber <= 3
+                                ? "border border-[var(--ink)] bg-[var(--paper-2)] text-[var(--ink)]"
+                                : "text-[var(--ink-3)] group-hover:text-[var(--red)]",
+                          )}
+                        >
+                          {rankNumber}
+                        </Link>
+                      ) : (
+                        <span
+                          className={cn(
+                            "tnum inline-grid h-6 min-w-6 place-items-center px-1 text-[11px] font-bold",
+                            rankNumber === 1 ? "bg-[var(--ink)] text-[var(--paper)]" : "text-[var(--ink-3)]",
+                          )}
+                        >
+                          {rankNumber}
+                        </span>
+                      )}
+                    </td>
+                    {columns.map((column) => {
+                      const alignRight =
+                        column.align === "right" || (column.align === undefined && column.numeric);
+                      return (
+                        <td
+                          key={column.id}
+                          className={cn(
+                            column.hideBelow && HIDE_CLASS[column.hideBelow],
+                            !alignRight && "!text-left",
+                          )}
+                        >
+                          <Cell value={row.cells[column.id]} />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -336,4 +293,3 @@ export function DataTable({
     </div>
   );
 }
-

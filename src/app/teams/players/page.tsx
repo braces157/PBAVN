@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTeamLeagueRounds, getTeamLeagueSeasons, getTeamPlayerStats } from "@/lib/pba/api";
+import { getPlayerNameIndex, resolveKoreanName, teamLeagueTitle } from "@/lib/pba/service";
 import { normalizeTeamPlayer, type TeamPlayer } from "@/lib/normalize";
-import { grouped, percent, average } from "@/lib/format";
+import { percent, average, hasHangul } from "@/lib/format";
 import { photoUrl } from "@/lib/photo";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
 import { DataTable, type CellValue, type TableColumn, type TableRow } from "@/components/ui/data-table";
@@ -16,7 +17,6 @@ export const metadata: Metadata = {
     "Every PBA Team League player ranked by average, win rate, high run and set record for the selected round.",
 };
 
-/** Which model field each pre-sort reads. Keeps the registry honest: a typo is a type error. */
 const SORT_ACCESSORS: Record<SortKey, (player: TeamPlayer) => number> = {
   average: (p) => p.average,
   winRate: (p) => p.winRate,
@@ -31,7 +31,7 @@ const SORT_LABELS: Record<SortKey, string> = {
   winRate: "Win rate",
   highRun: "High run",
   points: "Points",
-  matches: "Matches",
+  matches: "Sets played",
   bank: "Bank shot",
 };
 
@@ -44,8 +44,8 @@ function columnsFor(): TableColumn[] {
     { id: "average", label: "Avg", numeric: true, defaultDirection: "desc" },
     { id: "winRate", label: "Win%", numeric: true, defaultDirection: "desc" },
     { id: "highRun", label: "HR", numeric: true, hideBelow: "sm", defaultDirection: "desc" },
-    { id: "matches", label: "Matches", shortLabel: "Matches", numeric: true, hideBelow: "md", defaultDirection: "desc" },
-    { id: "sets", label: "Sets", align: "right", hideBelow: "md" },
+    { id: "matches", label: "Sets", shortLabel: "Sets", numeric: true, hideBelow: "md", defaultDirection: "desc" },
+    { id: "sets", label: "W–L", align: "right", hideBelow: "md" },
     { id: "singles", label: "Singles", align: "right", hideBelow: "lg" },
     { id: "bank", label: "Bank%", shortLabel: "Bank%", numeric: true, hideBelow: "xl", defaultDirection: "desc" },
   ];
@@ -75,6 +75,13 @@ function rowsFor(players: TeamPlayer[]): TableRow[] {
       href: player.code ? `/players/${player.code}` : undefined,
       linkLabel: `Open ${player.name}`,
       cells,
+      sortValues: {
+        average: player.average,
+        winRate: player.winRate,
+        highRun: player.highRun,
+        matches: player.matches,
+        bank: player.bankShotRate,
+      },
     };
   });
 }
@@ -91,8 +98,8 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
   if (!season) {
     return (
       <>
-        <PageHeader eyebrow="Team league" title="Player statistics" />
-        <div className="mx-auto max-w-[1440px] px-4 py-16 sm:px-6 lg:px-10">
+        <PageHeader eyebrow="Team league" title="Player Statistics" />
+        <div className="mx-auto max-w-[1440px] px-4 py-12 sm:px-6 lg:px-8">
           <EmptyState title="No team league season published" />
         </div>
       </>
@@ -113,7 +120,13 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
     roundCode,
   });
 
-  const allPlayers = raw.map(normalizeTeamPlayer);
+  const nameIndex = getPlayerNameIndex();
+  const allPlayers = raw.map(normalizeTeamPlayer).map((p) => {
+    const rawKo = [p.raw.이름, p.raw.외국이름].find((v) => v && hasHangul(v));
+    if (!rawKo) return p;
+    const official = resolveKoreanName(rawKo, nameIndex);
+    return official ? { ...p, name: official, nameEn: official } : p;
+  });
   const teams = [...new Set(allPlayers.map((p) => p.team))].sort();
   const teamFilter = params.team ?? "";
   const filtered = teamFilter ? allPlayers.filter((p) => p.team === teamFilter) : allPlayers;
@@ -135,10 +148,10 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
     <>
       <PageHeader
         eyebrow="Team league"
-        title="Player statistics"
-        description={`${season.리그제목}${round ? ` · Round ${round.라운드}` : ""} — ${allPlayers.length} players across ${teams.length} clubs. Click any column to re-sort.`}
+        title="Player Statistics"
+        description={`${teamLeagueTitle(season.시즌명)}${round ? ` · Round ${round.라운드}` : ""} · ${allPlayers.length} players across ${teams.length} clubs`}
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
           <FilterRow
             label="Season"
             basePath="/teams/players"
@@ -172,10 +185,10 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-10">
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fog-600">
-            Pre-sort
+      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-fog-500">
+            Rank by
           </span>
           {(Object.keys(SORT_ACCESSORS) as SortKey[]).map((key) => (
             <Link
@@ -183,14 +196,14 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
               href={buildSortHref(key)}
               className={
                 sortKey === key
-                  ? "rounded-md border border-lime-400/45 bg-lime-400/10 px-2.5 py-1 text-[12.5px] font-medium text-lime-300"
-                  : "rounded-md border border-ink-700 px-2.5 py-1 text-[12.5px] font-medium text-fog-400 transition-colors hover:border-ink-500 hover:text-fog-100"
+                  ? "rounded-[6px] border border-carom-400/50 bg-carom-400/14 px-2.5 py-1 text-[11.5px] font-semibold text-carom-300"
+                  : "rounded-[6px] border border-ink-750 bg-ink-900 px-2.5 py-1 text-[11.5px] font-semibold text-fog-400 transition-colors hover:border-ink-600 hover:text-fog-100"
               }
             >
               {SORT_LABELS[key]}
             </Link>
           ))}
-          <span className="ml-auto hidden text-[11px] text-fog-600 sm:block">
+          <span className="ml-auto hidden text-[11.5px] text-fog-500 sm:block">
             {players.length} of {allPlayers.length} players
           </span>
         </div>
@@ -205,9 +218,8 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
           empty="No players match these filters."
         />
 
-        <p className="mt-3 text-[11.5px] text-fog-600">
-          Averages are per-inning carom averages for the selected round across singles, doubles and
-          mixed-doubles sets.
+        <p className="mt-2.5 text-[11px] text-fog-550">
+          Averages combine singles, doubles and mixed-doubles sets for the selected round.
         </p>
       </div>
     </>

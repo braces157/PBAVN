@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { cache } from "react";
 import { IN_PLAY, getScorecard, getSetInnings } from "@/lib/pba/scoreboard";
 import { getTourTitleIndex } from "@/lib/pba/service";
@@ -11,11 +12,9 @@ import {
 import { youtubeId } from "@/lib/format";
 import { MatchHeader, MatchTotals } from "@/components/domain/match/match-summary";
 import { SetNav, SetPanel } from "@/components/domain/match/set-panel";
-import { EmptyState, Panel, TextLink } from "@/components/ui/primitives";
-import { PageHeader } from "@/components/domain/filter-bar";
+import { EmptyState, TextLink } from "@/components/ui/primitives";
 import type { MatchTotalRow } from "@/lib/pba/scoreboard";
 
-/** A finished match never changes; a live one is re-read within the minute. */
 export const revalidate = 300;
 
 const OFFICIAL = "https://app.pbatour.org/mob/contest_new/admin_en/live_info_setview.asp";
@@ -28,30 +27,19 @@ interface LoadedMatch {
   totals: MatchTotalRow[];
 }
 
-/** Round labels come from upstream and are short and alphanumeric. */
 const ROUND = /^[A-Za-z0-9 -]{1,24}$/;
 
 function readContext(search: Search) {
   const tourCode = /^\d{1,6}$/.test(search.tour ?? "") ? search.tour! : null;
   const title = tourCode ? getTourTitleIndex().get(tourCode)?.titleEn ?? null : null;
-  // The schedule route is keyed by the event's sequence number, which is not
-  // the tour code, so it is carried separately.
   const eventSeq = /^\d{1,6}$/.test(search.seq ?? "") ? search.seq! : null;
   const round = search.round && ROUND.test(search.round) ? search.round.trim() : null;
-  // Only a YouTube link is ever offered as a broadcast, so a crafted query
-  // string cannot turn this page into a redirect.
   const watch = search.watch && youtubeId(search.watch) ? search.watch : null;
   const live = search.live === "1";
   return { tourCode, title, eventSeq, round, watch, live };
 }
 
-/**
- * One upstream read per scorecard, plus one per set, in parallel. Wrapped in
- * `cache` so the metadata pass and the render share a single set of reads.
- */
 const loadMatch = cache(async (pstCode: string, live: boolean): Promise<LoadedMatch> => {
-  // A match opened from the live board is still being scored, so its card must
-  // not sit behind the archive cache.
   const ttl = live ? IN_PLAY : undefined;
   const scorecard = await getScorecard(pstCode, ttl);
   if (scorecard.sets.length === 0) return { analysed: [], totals: scorecard.totals };
@@ -85,7 +73,7 @@ export async function generateMetadata({
   const summary = summariseMatch(analysed);
 
   return {
-    title: `${names.join(" vs ")} ${summary.setsWon.join("–")}`,
+    title: `${names.join(" vs ")} (${summary.setsWon.join("–")}) — Match Scorecard`,
     description: `Set-by-set scorecard and turn-by-turn scoring${context.title ? ` from ${context.title}` : ""}. ${analysed.length} sets.`,
   };
 }
@@ -103,22 +91,20 @@ export default async function MatchPage({
 
   if (analysed.length === 0) {
     return (
-      <>
-        <PageHeader
-          eyebrow="Match card"
+      <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
+        <nav className="mb-4 flex items-center gap-1.5 text-[11.5px] text-fog-500" aria-label="Breadcrumb">
+          <Link href="/schedule" className="hover:text-carom-300">
+            Schedule
+          </Link>
+          <span aria-hidden="true">/</span>
+          <span className="text-fog-300">Match #{pstCode}</span>
+        </nav>
+        <EmptyState
           title="No scorecard for this match"
-          description="The association's scoring terminal has no record under this match code, or did not answer."
-        >
-          <TextLink href="/schedule">Back to the calendar</TextLink>
-        </PageHeader>
-        <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-10">
-          <EmptyState
-            title="Nothing published"
-            description="Match codes are assigned by the scoring system when a match is drawn. A code that was never used, or one from a match whose sheet was withdrawn, has no card."
-            action={<TextLink href="/live">Live match centre</TextLink>}
-          />
-        </div>
-      </>
+          description="The scoring terminal has no record under this match code yet, or did not respond."
+          action={<TextLink href="/live">Live match centre</TextLink>}
+        />
+      </div>
     );
   }
 
@@ -128,50 +114,65 @@ export default async function MatchPage({
   const covered = summary.coveredSets;
 
   return (
-    <>
-      <div className="mx-auto max-w-[1440px] px-4 pb-10 pt-6 sm:px-6 lg:px-10">
-        <h1 className="mb-4 font-display text-xl font-bold text-fog-100">{names.filter(Boolean).join(" vs ") || "Match"}</h1>
-        <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr] lg:gap-8">
-          <div className="space-y-5">
-            <MatchHeader
-              analysed={analysed}
-              summary={summary}
-              round={context.round}
-              eventTitle={context.title}
-              eventHref={context.eventSeq ? `/schedule/${context.eventSeq}` : null}
-              officialUrl={`${OFFICIAL}?PSTCode=${encodeURIComponent(pstCode)}`}
-              watchUrl={context.watch}
-              live={context.live}
-            />
-
-            {analysed.length > 1 && <div className="surface flex flex-wrap items-center gap-2 p-3">
-              <span className="mr-2 text-xs font-semibold text-fog-400">Jump to set</span>
-              <SetNav sets={analysed} />
-            </div>}
-
-            {analysed.map((set) => (
-              <SetPanel key={set.setNo} set={set} />
-            ))}
-          </div>
-
-          <aside className="space-y-4">
-            <MatchTotals rows={rows} names={names} />
-
-            <Panel title="This card">
-              <p className="px-3 py-2.5 text-[11.5px] leading-relaxed text-fog-500">
-                Sets, points, innings, averages and high runs are published by the scoring terminal.
-                Per-inning runs are read from the same record, so a turn is one visit to the table.
-              </p>
-              {covered < analysed.length && (
-                <p className="border-t border-ink-800 px-3 py-2.5 text-[11.5px] leading-relaxed text-fog-500">
-                  {analysed.length - covered} of {analysed.length} sets had no turn record, so only
-                  their published score is shown.
-                </p>
+    <div className="mx-auto max-w-[1440px] px-4 pb-12 pt-4 sm:px-6 lg:px-8">
+      <nav className="mb-4 flex flex-wrap items-center justify-between gap-3 text-[11.5px] text-fog-500" aria-label="Breadcrumb">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Link href="/schedule" className="transition-colors hover:text-carom-300">
+            Schedule
+          </Link>
+          {context.title ? (
+            <>
+              <span aria-hidden="true" className="text-ink-600">/</span>
+              {context.eventSeq ? (
+                <Link href={`/schedule/${context.eventSeq}`} className="transition-colors hover:text-carom-300">
+                  {context.title}
+                </Link>
+              ) : (
+                <span className="text-fog-300">{context.title}</span>
               )}
-            </Panel>
-          </aside>
+            </>
+          ) : (
+            <>
+              <span aria-hidden="true" className="text-ink-600">/</span>
+              <span className="text-fog-300">Match Scorecard</span>
+            </>
+          )}
+          {context.round && (
+            <>
+              <span aria-hidden="true" className="text-ink-600">/</span>
+              <span className="text-fog-300">{context.round}</span>
+            </>
+          )}
+          <span aria-hidden="true" className="text-ink-600">/</span>
+          <span className="tnum text-fog-400">#{pstCode}</span>
         </div>
+        <span className="tnum text-[11px] text-fog-500">
+          {analysed.length} sets{covered > 0 ? ` · ${covered} with inning sheet` : ""}
+        </span>
+      </nav>
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-4">
+          <MatchHeader
+            analysed={analysed}
+            summary={summary}
+            round={context.round}
+            eventTitle={context.title}
+            eventHref={context.eventSeq ? `/schedule/${context.eventSeq}` : null}
+            officialUrl={`${OFFICIAL}?PSTCode=${encodeURIComponent(pstCode)}`}
+            watchUrl={context.watch}
+            setNav={<SetNav sets={analysed} />}
+          />
+
+          {analysed.map((set) => (
+            <SetPanel key={set.setNo} set={set} />
+          ))}
+        </div>
+
+        <aside className="space-y-4">
+          <MatchTotals rows={rows} names={names} />
+        </aside>
       </div>
-    </>
+    </div>
   );
 }

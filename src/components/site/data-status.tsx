@@ -1,12 +1,6 @@
 import { getRequestFailures } from "@/lib/pba/failures";
 import { cn } from "@/components/ui/primitives";
 
-/**
- * Shown when the association's service did not answer for this request.
- *
- * Without this, a timeout renders identically to "no data exists", which is the
- * difference between an honest empty table and the site quietly lying.
- */
 export function DataStatus({
   failures: provided,
   className,
@@ -18,26 +12,25 @@ export function DataStatus({
     <div
       role="status"
       className={cn(
-        "mt-6 rounded-[12px] border border-amber-450/30 bg-amber-450/[0.07] px-4 py-3",
+        "mt-4 rounded-[6px] border border-gold-400/35 bg-gold-400/[0.08] px-3.5 py-2.5",
         className,
       )}
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px]">
-        <span className="inline-flex items-center gap-1.5 font-semibold text-amber-450">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-450" aria-hidden="true" />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+        <span className="inline-flex items-center gap-1.5 font-bold text-gold-300">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold-400" aria-hidden="true" />
           Partial data
         </span>
-        <span className="text-fog-400">
+        <span className="text-fog-300">
           {failures.length === 1
-            ? "One feed did not respond, so part of this page may be missing."
-            : `${failures.length} feeds did not respond, so parts of this page may be missing.`}{" "}
-          What is shown is real; what is absent may simply be unreachable.
+            ? "One upstream feed did not respond, so part of this page may be missing."
+            : `${failures.length} upstream feeds did not respond, so parts of this page may be missing.`}
         </span>
         <a
           href="https://www.pbatour.org/en/index"
           target="_blank"
           rel="noreferrer noopener"
-          className="font-medium text-amber-450 underline-offset-2 hover:underline"
+          className="font-semibold text-gold-300 underline-offset-2 hover:underline"
         >
           Check pbatour.org ↗
         </a>

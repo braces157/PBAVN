@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" fill="#151412"/>
+  <circle cx="17" cy="24" r="7" fill="#fbfaf6"/>
+  <circle cx="32" cy="24" r="7" fill="#e8b520"/>
+  <circle cx="47" cy="24" r="7" fill="#cf2a1f"/>
+  <text x="32" y="51" text-anchor="middle" font-family="Arial Black, sans-serif" font-weight="900" font-size="16" letter-spacing="-0.5" fill="#f3efe6">PBA</text>
+</svg>

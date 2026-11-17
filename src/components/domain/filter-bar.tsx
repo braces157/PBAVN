@@ -8,10 +8,6 @@ export interface FilterOption {
   count?: number;
 }
 
-/**
- * Filters are links, not client state: every view stays shareable, cacheable and
- * server-rendered, and the back button behaves the way people expect.
- */
 export function FilterRow({
   label,
   options,
@@ -40,12 +36,19 @@ export function FilterRow({
     return qs ? `${basePath}?${qs}` : basePath;
   };
 
+  const scrollable = options.length > 4;
+
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      <span className="mr-1 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fog-600">
+    <div className={cn("flex min-w-0 flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3", className)}>
+      <span className="min-w-[54px] shrink-0 text-[11.5px] font-bold uppercase tracking-[0.05em] text-[var(--ink-3)]">
         {label}
       </span>
-      <div className="flex flex-wrap gap-1.5">
+      <div
+        className={cn(
+          "flex max-w-full gap-1.5",
+          scrollable ? "no-scrollbar flex-nowrap overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0" : "flex-wrap",
+        )}
+      >
         {options.map((option) => {
           const isActive = option.value === active;
           return (
@@ -54,15 +57,17 @@ export function FilterRow({
               href={buildHref(option.value)}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "rounded-md border px-2.5 py-1 text-[12.5px] font-medium transition-colors",
+                "shrink-0 border px-2.5 py-1 text-[12.5px] font-bold transition-colors hover:no-underline",
                 isActive
-                  ? "border-lime-400/45 bg-lime-400/10 text-lime-300"
-                  : "border-ink-700 text-fog-400 hover:border-ink-500 hover:text-fog-100",
+                  ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
+                  : "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
               )}
             >
               {option.label}
               {typeof option.count === "number" && (
-                <span className="tnum ml-1.5 text-[10.5px] text-fog-600">{option.count}</span>
+                <span className={cn("tnum ml-1.5 text-[11px]", isActive ? "opacity-80" : "text-[var(--ink-3)]")}>
+                  {option.count}
+                </span>
               )}
             </Link>
           );
@@ -83,24 +88,24 @@ export function PageHeader({
   title: string;
   description?: string;
   children?: React.ReactNode;
-  /** Feeds that failed while this page loaded; renders the partial-data notice. */
   failures?: string[];
 }) {
   return (
-    <header className="relative overflow-hidden border-b border-ink-800">
-      <div className="pointer-events-none absolute inset-0 grid-field opacity-40" aria-hidden="true" />
-      <div
-        className="pointer-events-none absolute -left-24 -top-32 h-[380px] w-[380px] rounded-full opacity-[0.10] blur-[110px]"
-        style={{ background: "var(--color-lime-400)" }}
-        aria-hidden="true"
-      />
-      <div className="relative mx-auto max-w-[1440px] px-4 pb-8 pt-12 sm:px-6 lg:px-10 lg:pb-10 lg:pt-14">
-        <p className="eyebrow">{eyebrow}</p>
-        <h1 className="display-lg mt-3 max-w-3xl text-fog-100">{title}</h1>
-        {description && (
-          <p className="mt-4 max-w-2xl text-[14.5px] leading-relaxed text-fog-400">{description}</p>
-        )}
-        {children && <div className="mt-7">{children}</div>}
+    <header className="border-b-2 border-[var(--ink)] bg-[var(--paper)]">
+      <div className="wrap py-5 sm:py-6">
+        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+          <p className="eyebrow">{eyebrow}</p>
+          {description && (
+            <>
+              <span aria-hidden="true" className="text-[var(--ink-3)]">
+                ·
+              </span>
+              <p className="font-serif-ed text-[14px] text-[var(--ink-2)]">{description}</p>
+            </>
+          )}
+        </div>
+        <h1 className="x mt-1.5 text-[36px] text-[var(--ink)] sm:text-[48px]">{title}</h1>
+        {children && <div className="mt-4">{children}</div>}
         <DataStatus failures={failures} />
       </div>
     </header>
