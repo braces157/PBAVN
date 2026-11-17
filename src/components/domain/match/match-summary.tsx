@@ -17,6 +17,7 @@ export function MatchHeader({
   eventHref,
   officialUrl,
   watchUrl,
+  live,
 }: {
   analysed: AnalysedSet[];
   summary: MatchSummary;
@@ -25,6 +26,7 @@ export function MatchHeader({
   eventHref: string | null;
   officialUrl: string;
   watchUrl: string | null;
+  live: boolean;
 }) {
   const sides = analysed[0]?.sides.length ?? 2;
   const names = Array.from({ length: sides }, (_, index) => analysed[0]?.sides[index]?.name ?? "");
@@ -38,7 +40,7 @@ export function MatchHeader({
           {round && <Chip tone="neutral">{round}</Chip>}
           {/* A finished match already names its round, so this says what the
               reader wants to know rather than repeating it. */}
-          {decided && <Chip tone="gold">Result</Chip>}
+          {!live && decided && <Chip tone="gold">Result</Chip>}
           {summary.playedOn && <span className="tnum text-[11px] text-fog-600">{summary.playedOn}</span>}
         </div>
 

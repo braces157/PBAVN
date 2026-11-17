@@ -24,6 +24,7 @@ export function PlayerSubNav({
   const sections = useMemo<Section[]>(
     () => [
       { id: "overview", label: "Overview" },
+      { id: "matches", label: "Matches" },
       ...(hasSeason ? [{ id: "season", label: "Season stats" }] : []),
       ...(hasEvents ? [{ id: "events", label: "Events" }] : []),
       { id: "career", label: "Career" },
@@ -58,7 +59,7 @@ export function PlayerSubNav({
   return (
     <nav
       aria-label="Sections"
-      className="sticky top-16 z-30 -mx-4 mb-8 border-y border-ink-800 bg-ink-950/85 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10"
+      className="sticky top-[100px] lg:top-16 z-30 -mx-4 mb-8 border-y border-ink-800 bg-ink-950/85 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10"
     >
       <div className="flex gap-1 overflow-x-auto py-2">
         {sections.map((section) => (

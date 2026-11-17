@@ -211,10 +211,15 @@ function requestPlain(
  * (the team terminal) ride `node:http`; everything else rides `node:https`
  * with `TRUSTED_CA`. Next keys the store on the callback's arguments, so the
  * method and body ride as arguments — the same team-terminal endpoint means
- * something different for every form posting. The cached body throws on any
- * failure, so an outage or a placeholder status is never stored, and the catch
- * turns that into the null contract callers already handle. `recordFailure`
- * stays outside the cached closure because it needs the render context.
+ * something different for every form posting. The revalidate window is part of
+ * the key too: the same URL is read at two very different freshnesses (a match
+ * card is archived at 86 400 s the moment it ends, 30 s while it is in play),
+ * and a shared entry would let whichever caller read first pin its TTL on the
+ * other — a live score frozen for a day, an archive refreshed every 30 s.
+ * The cached body throws on any failure, so an outage or a placeholder status
+ * is never stored, and the catch turns that into the null contract callers
+ * already handle. `recordFailure` stays outside the cached closure because it
+ * needs the render context.
  */
 async function cachedText(
   url: string,
@@ -241,7 +246,7 @@ async function cachedText(
       }
       return result.body.toString("utf8");
     },
-    ["pba-upstream"],
+    ["pba-upstream", `ttl-${options.revalidate}`],
     { revalidate: options.revalidate },
   );
 
@@ -320,6 +325,27 @@ interface BinaryEntry {
 }
 
 const binaryCache = new Map<string, BinaryEntry>();
+const BINARY_CACHE_LIMIT = 600;
+
+/**
+ * Expired entries leave first, then the least recently used ones pay for the
+ * newcomer. Evicting one at a time keeps hot photos resident; the old wholesale
+ * `clear()` re-fetched every image a page was showing the moment the cache
+ * filled. Map iteration is insertion order, and reads re-insert, so the oldest
+ * key is the least recently used.
+ */
+function storeBinary(url: string, asset: BinaryAsset, ttlSeconds: number): void {
+  const now = Date.now();
+  for (const [key, entry] of binaryCache) {
+    if (entry.expires <= now) binaryCache.delete(key);
+  }
+  while (binaryCache.size >= BINARY_CACHE_LIMIT) {
+    const oldest = binaryCache.keys().next().value;
+    if (oldest === undefined) break;
+    binaryCache.delete(oldest);
+  }
+  binaryCache.set(url, { expires: now + ttlSeconds * 1000, asset });
+}
 
 /**
  * Fetch an image from the asset host.
@@ -335,7 +361,11 @@ export async function fetchBinary(
   if (FORCED_OFFLINE) return null;
 
   const cached = binaryCache.get(url);
-  if (cached && cached.expires > Date.now()) return cached.asset;
+  if (cached && cached.expires > Date.now()) {
+    binaryCache.delete(url);
+    binaryCache.set(url, cached);
+    return cached.asset;
+  }
 
   try {
     const result = await requestUpstream(url, {
@@ -350,11 +380,7 @@ export async function fetchBinary(
     if (result.status < 200 || result.status >= 300 || result.body.length === 0) return null;
 
     const asset: BinaryAsset = { body: result.body, contentType: result.contentType };
-    if (binaryCache.size > 600) binaryCache.clear();
-    binaryCache.set(url, {
-      expires: Date.now() + (options.ttlSeconds ?? 21_600) * 1000,
-      asset,
-    });
+    storeBinary(url, asset, options.ttlSeconds ?? 21_600);
     return asset;
   } catch {
     return null;
@@ -385,7 +411,9 @@ export async function fetchHtmlFragment(
 ): Promise<string | null> {
   const url = path.startsWith("http") ? path : `${APP_ORIGIN}${path}`;
   return getText(url, {
-    revalidate: options.revalidate ?? 10,
+    // Every current caller names its own window (live boards 10 s, scorecards
+    // 30 s, brackets 600 s); the default is a floor, not a policy.
+    revalidate: options.revalidate ?? 60,
     timeoutMs: options.timeoutMs ?? 6_000,
     accept: "text/html, */*",
     referer: `${APP_ORIGIN}/mob/contest_new/admin_en/live_info.asp`,

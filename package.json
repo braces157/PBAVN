@@ -7,7 +7,7 @@
     "dev": "next dev -p 3100",
     "build": "next build",
     "start": "next start -p 3100",
-    "lint": "tsc --noEmit",
+    "lint": "tsc --noEmit -p tsconfig.lint.json",
     "test": "npm run test:parsers && npm run test:match",
     "test:parsers": "node --experimental-strip-types scripts/test-parsers.mjs",
     "test:match": "node --experimental-strip-types scripts/test-match.mjs",

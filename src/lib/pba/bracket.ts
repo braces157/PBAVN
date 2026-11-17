@@ -30,29 +30,36 @@ const MAX_PAGES = 8;
 
 /** Finished events change rarely; a live one is re-read within minutes. */
 const REVALIDATE = 600;
+/** A settled tournament's draws never change again. */
+const REVALIDATE_FINAL = 86_400;
 
 async function fetchBracketPage(
   tourCode: string,
   bracketSize: number,
   page: number,
+  revalidate: number,
 ): Promise<BracketMatch[]> {
   const html = await fetchHtmlFragment(
     // `LangCode=en` publishes player names in Latin script. `txt_Search` must be
     // present even when empty or the service refuses the request.
     `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(tourCode)}&iBLCode=${bracketSize}&iPage=${page}&txt_Search=&LangCode=en`,
-    { revalidate: REVALIDATE, timeoutMs: 12_000 },
+    { revalidate, timeoutMs: 12_000 },
   );
   return parseBracketRows(html, bracketSize);
 }
 
 /** One bracket, paged until a short page or the page cap. */
-async function fetchBracket(tourCode: string, bracketSize: number): Promise<BracketMatch[]> {
-  const first = await fetchBracketPage(tourCode, bracketSize, 1);
+async function fetchBracket(
+  tourCode: string,
+  bracketSize: number,
+  revalidate: number,
+): Promise<BracketMatch[]> {
+  const first = await fetchBracketPage(tourCode, bracketSize, 1, revalidate);
   if (first.length < PAGE_SIZE) return first;
 
   const matches = [...first];
   for (let page = 2; page <= MAX_PAGES; page += 1) {
-    const next = await fetchBracketPage(tourCode, bracketSize, page);
+    const next = await fetchBracketPage(tourCode, bracketSize, page, revalidate);
     matches.push(...next);
     if (next.length < PAGE_SIZE) break;
   }
@@ -65,13 +72,19 @@ async function fetchBracket(tourCode: string, bracketSize: number): Promise<Brac
  * The final is the match people came for, so the deepest bracket is listed
  * last rather than first. A bracket that never ran answers with no rows, so
  * nothing has to be guessed about which depths an event used. One upstream
- * request per bracket page, all sizes fanned out together, cached for ten
- * minutes.
+ * request per bracket page, all sizes fanned out together. The window follows
+ * the event's state — ten minutes while it can still be played, a day once it
+ * is settled (the transport keys its store on the window, so the two do not
+ * evict each other).
  */
-export async function getEventMatches(tourCode: string): Promise<BracketMatch[]> {
+export async function getEventMatches(
+  tourCode: string,
+  { settled = false }: { settled?: boolean } = {},
+): Promise<BracketMatch[]> {
   if (!/^\d+$/.test(tourCode)) return [];
 
-  const bySize = await Promise.all(BRACKET_SIZES.map((size) => fetchBracket(tourCode, size)));
+  const revalidate = settled ? REVALIDATE_FINAL : REVALIDATE;
+  const bySize = await Promise.all(BRACKET_SIZES.map((size) => fetchBracket(tourCode, size, revalidate)));
 
   return bySize
     .flat()

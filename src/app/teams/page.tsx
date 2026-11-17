@@ -124,7 +124,13 @@ export default async function TeamsPage({ searchParams }: PageProps) {
         {selectedRound && (
           <div className="surface mb-8 flex flex-wrap items-center gap-x-8 gap-y-4 px-5 py-4">
             <div className="flex items-center gap-3">
-              {selectedRound.진행상황 === "진행중" ? <LiveChip label="In progress" /> : <Chip tone="neutral">{selectedRound.진행상황}</Chip>}
+              {selectedRound.진행상황 === "진행중" ? (
+                <LiveChip label="In progress" />
+              ) : (
+                <Chip tone="neutral">
+                  {selectedRound.진행상황 === "종료" ? "Completed" : selectedRound.진행상황 === "예정" ? "Scheduled" : selectedRound.진행상황}
+                </Chip>
+              )}
               <div>
                 <p className="font-display text-[15px] font-bold text-fog-100">
                   Round {selectedRound.라운드}

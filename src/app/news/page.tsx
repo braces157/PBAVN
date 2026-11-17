@@ -25,7 +25,8 @@ interface PageProps {
 export default async function NewsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const tab: Tab = params.tab === "videos" ? "videos" : params.tab === "gallery" ? "gallery" : "news";
-  const page = Math.max(1, Number(params.page ?? 1) || 1);
+  const requestedPage = Number(params.page ?? 1);
+  const page = Number.isFinite(requestedPage) ? Math.max(1, Math.floor(requestedPage)) : 1;
   const pageSize = 12;
 
   const [press, videos, galleries] = await Promise.all([

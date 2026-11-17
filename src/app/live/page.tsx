@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { getTeamStandings, getTourHistory } from "@/lib/pba/api";
 import {
@@ -16,7 +17,12 @@ import { LiveBoard, LiveMatchBoards } from "@/components/domain/live-board";
 import { StandingsTable } from "@/components/domain/standings-table";
 import { LiveChip, Panel, TextLink } from "@/components/ui/primitives";
 
-export const revalidate = 30;
+/**
+ * The shell is reference material cached well beyond this window; the wire is
+ * the only volatile part, it streams on request and the client then polls it
+ * every 20 seconds — so the route itself does not need to re-render often.
+ */
+export const revalidate = 10;
 
 export const metadata: Metadata = {
   title: "Live match centre",
@@ -32,11 +38,13 @@ const BROADCASTERS = [
 
 export default async function LivePage() {
   const season = await getCurrentSeason();
-  const [snapshot, teamSeason, tours, feed] = await Promise.all([
+  // The wire is not in the batch: it is the only volatile read here and the one
+  // a dead terminal stalls longest, so it streams into its slot below while
+  // everything else renders.
+  const [snapshot, teamSeason, tours] = await Promise.all([
     getSeasonSnapshot(season.SeasonCode),
     getActiveTeamSeason(),
     getTourHistory(),
-    getLiveFeed(),
   ]);
 
   const standings = teamSeason
@@ -78,7 +86,9 @@ export default async function LivePage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {feed.available ? <LiveChip label="Scoring now" /> : null}
+          <Suspense fallback={null}>
+            <ScoringNowChip />
+          </Suspense>
           {snapshot.live.length > 0 && (
             <span className="rounded-full border border-live-500/40 bg-live-500/10 px-2.5 py-[3px] text-[10.5px] font-semibold uppercase tracking-[0.09em] text-live-400">
               {snapshot.live.length} event in progress
@@ -94,18 +104,13 @@ export default async function LivePage() {
         <div className="min-w-0 space-y-4">
           {/* The match being scored is the reason the page was opened, so it is
               the first and largest thing on it, and the poll keeps it current.
-              Everything below is reference. */}
-          {feed.matches.length > 0 ? (
-            <LiveMatchBoards
-              initial={feed}
+              Everything below is reference. The wire itself streams: it is the
+              one read here a dead terminal stalls longest. */}
+          <Suspense fallback={<WireFallback />}>
+            <WireSection
               tourCode={teamSeason?.liveRound ? String(teamSeason.liveRound.라운드코드) : undefined}
             />
-          ) : (
-            <LiveBoard
-              initial={feed}
-              tourCode={teamSeason?.liveRound ? String(teamSeason.liveRound.라운드코드) : undefined}
-            />
-          )}
+          </Suspense>
 
           <Panel
             title="Events in progress"
@@ -278,6 +283,40 @@ export default async function LivePage() {
             </p>
           </Panel>
         </aside>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The wire, streamed. The chip in the page head shares this flight, so a single
+ * page view reads the terminals once no matter how many surfaces show the feed.
+ */
+async function WireSection({ tourCode }: { tourCode?: string }) {
+  const feed = await getLiveFeed();
+  return feed.matches.length > 0 ? (
+    <LiveMatchBoards initial={feed} tourCode={tourCode} />
+  ) : (
+    <LiveBoard initial={feed} tourCode={tourCode} />
+  );
+}
+
+async function ScoringNowChip() {
+  const feed = await getLiveFeed();
+  return feed.available ? <LiveChip label="Scoring now" /> : null;
+}
+
+/** The wire frame before the terminals answer, so the swap does not jump. */
+function WireFallback() {
+  return (
+    <div className="surface overflow-hidden" aria-hidden="true">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-800 px-4 py-3">
+        <span className="h-[22px] w-[130px] rounded bg-ink-800" />
+        <span className="h-[24px] w-[150px] rounded bg-ink-800" />
+      </div>
+      <div className="space-y-2.5 px-4 py-5">
+        <span className="block h-[12px] w-2/3 rounded bg-ink-800" />
+        <span className="block h-[12px] w-1/2 rounded bg-ink-800" />
       </div>
     </div>
   );

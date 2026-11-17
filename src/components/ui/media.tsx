@@ -118,7 +118,7 @@ export function TeamLogo({
     >
       <SafeImage
         src={src}
-        alt={name}
+        alt=""
         className="h-full w-full object-contain"
         fallback={
           <span className="font-display text-[11px] font-bold text-fog-500" aria-hidden="true">
@@ -145,7 +145,7 @@ export function EventLogo({
     <span className={cn("inline-grid place-items-center", className)}>
       <SafeImage
         src={src}
-        alt={name}
+        alt=""
         className="max-h-full max-w-full object-contain"
         fallback={<span />}
       />
@@ -184,7 +184,7 @@ export function EventCrest({
       {src ? (
         <SafeImage
           src={src}
-          alt={name}
+          alt=""
           className="h-full w-full object-contain p-1"
           fallback={<CrestFallback label={league ?? name} />}
         />

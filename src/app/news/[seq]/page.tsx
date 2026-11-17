@@ -67,13 +67,17 @@ export default async function ArticlePage({ params }: PageProps) {
 
       <article className="mx-auto max-w-[900px] px-4 py-10 sm:px-6">
         {article.image && (
-          <SafeImage
-            src={article.image}
-            alt={article.title}
-            loading="eager"
-            className="mb-8 w-full rounded-[14px] border border-ink-750 object-cover"
-            fallback={<span />}
-          />
+          /* The frame reserves the image's box so the article text does not
+             jump when the picture arrives late. */
+          <div className="mb-8 aspect-[16/9] overflow-hidden rounded-[14px] border border-ink-750 bg-ink-850 has-[span]:hidden">
+            <SafeImage
+              src={article.image}
+              alt={article.title}
+              loading="eager"
+              className="h-full w-full object-contain"
+              fallback={<span />}
+            />
+          </div>
         )}
 
         {hasBody ? (

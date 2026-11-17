@@ -245,10 +245,12 @@ export function parseSetInnings(html: string | null): SetInnings {
     if (inning === null || (values.length - 1) % 3 !== 0) continue;
     const sides: InningSide[] = [];
     for (let index = 1; index + 3 <= values.length + 1; index += 3) {
+      const onePoint = toNumber(values[index]) ?? 0;
+      const twoPoint = toNumber(values[index + 1]) ?? 0;
       sides.push({
-        onePoint: toNumber(values[index]) ?? 0,
-        twoPoint: toNumber(values[index + 1]) ?? 0,
-        total: toNumber(values[index + 2]) ?? 0,
+        onePoint,
+        twoPoint,
+        total: toNumber(values[index + 2]) ?? (parsed[parsed.length - 1]?.sides[sides.length]?.total ?? 0) + onePoint + twoPoint * 2,
       });
     }
     if (sides.length < 2) continue;

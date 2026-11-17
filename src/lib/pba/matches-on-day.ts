@@ -259,28 +259,34 @@ async function tourMatches(event: CalendarEvent, day: string, now: string): Prom
   const tourCode = tour.code;
 
   const revalidate = ttlFor(day, now.slice(0, 10));
-  const matches: DayMatch[] = [];
-  let failed = false;
 
-  for (const depth of SHALLOW_DEPTHS) {
-    const dated = await datedRows(tourCode, depth, revalidate, day);
-    if (!dated.reachable) {
-      failed = true;
-      continue;
-    }
-    if (dated.rows.length === 0) continue;
+  // The depths fan out rather than queue: each one already walks its own pages
+  // in order (a page only says whether the next is needed once it is parsed), so
+  // the parallelism between depths is free, and serially this loop can cost a
+  // dozen-plus round trips before the first row of the day renders.
+  const perDepth = await Promise.all(
+    SHALLOW_DEPTHS.map(async (depth) => {
+      const dated = await datedRows(tourCode, depth, revalidate, day);
+      if (!dated.reachable) return { matches: [] as DayMatch[], failed: true };
+      if (dated.rows.length === 0) return { matches: [] as DayMatch[], failed: false };
 
-    const onDay = dated.rows.filter((row) => row.day === day);
-    if (onDay.length > 0) {
+      const onDay = dated.rows.filter((row) => row.day === day);
+      if (onDay.length === 0) return { matches: [] as DayMatch[], failed: false };
+
       const english = await englishNames(tourCode, depth, revalidate);
-      if (!english.reachable) failed = true;
-      for (const row of onDay) {
-        matches.push(datedToDayMatch(row, english.names.get(row.pstCode), event, now));
-      }
-    }
-  }
+      return {
+        matches: onDay.map((row) =>
+          datedToDayMatch(row, english.names.get(row.pstCode), event, now),
+        ),
+        failed: !english.reachable,
+      };
+    }),
+  );
 
-  return { matches, failed };
+  return {
+    matches: perDepth.flatMap((depth) => depth.matches),
+    failed: perDepth.some((depth) => depth.failed),
+  };
 }
 
 /* --------------------------------------------------------------------- glue */

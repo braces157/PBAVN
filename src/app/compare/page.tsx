@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getHeadToHead, getPlayer, getPlayerSeasonStats, getPlayers } from "@/lib/pba/api";
+import { getHeadToHead, getPlayerSeasonStats, getPlayers } from "@/lib/pba/api";
+import { getPlayerCached } from "@/lib/pba/service";
 import { getCurrentSeason, getSeasonList, getRankingBoard } from "@/lib/pba/service";
 import {
   hasStatData,
@@ -39,23 +40,33 @@ async function resolveCode(code?: string, query?: string): Promise<string | null
 
 export default async function ComparePage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const seasons = await getSeasonList();
-  const current = await getCurrentSeason();
+  const [seasons, current] = await Promise.all([getSeasonList(), getCurrentSeason()]);
   const seasonCode =
     params.season && seasons.some((s) => s.SeasonCode === params.season) ? params.season : current.SeasonCode;
 
-  const [codeA, codeB] = await Promise.all([
-    resolveCode(params.a, params.q1),
-    resolveCode(params.b, params.q2),
-  ]);
+  // The money list only renders on the empty view, but whether the view is
+  // empty is not known until both names resolve — so the read rides along from
+  // the start (it is a cheap cached call) and is awaited only if used.
+  const suggestionsPromise = getRankingBoard({ kind: "prize", leagueCode: "PBA1", season: seasonCode })
+    .then((rows) => rows.slice(0, 4))
+    .catch(() => []);
 
-  const [rawA, rawB] = await Promise.all([
-    codeA ? getPlayer(codeA) : null,
-    codeB ? getPlayer(codeB) : null,
+  // Each side resolves its name to a code and reads its profile as one chain,
+  // so player B is never waiting on player A's lookups.
+  const [sideA, sideB] = await Promise.all([
+    resolveCode(params.a, params.q1).then(async (code) => {
+      const raw = code ? await getPlayerCached(code) : null;
+      return { code, player: raw ? normalizePlayer(raw) : null };
+    }),
+    resolveCode(params.b, params.q2).then(async (code) => {
+      const raw = code ? await getPlayerCached(code) : null;
+      return { code, player: raw ? normalizePlayer(raw) : null };
+    }),
   ]);
-
-  const playerA = rawA ? normalizePlayer(rawA) : null;
-  const playerB = rawB ? normalizePlayer(rawB) : null;
+  const codeA = sideA.code;
+  const codeB = sideB.code;
+  const playerA = sideA.player;
+  const playerB = sideB.player;
 
   // The stats service keys on the circuit, so each player is read with their
   // own. A head-to-head record only exists when both play the same circuit.
@@ -76,10 +87,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
 
   // On the empty view, offer the money-list leaders as one-click pairings so
   // the page demonstrates what a comparison looks like before any input.
-  const suggestions =
-    !playerA && !playerB
-      ? (await getRankingBoard({ kind: "prize", leagueCode: "PBA1", season: seasonCode })).slice(0, 4)
-      : [];
+  const suggestions = !playerA && !playerB ? await suggestionsPromise : [];
 
   return (
     <>

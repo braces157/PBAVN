@@ -99,7 +99,7 @@ export function NowNextStrip({
 }
 
 /** The "no match in play" block, kept honest but still first in the strip. */
-export function LiveIdle({ href = "/live" }: { href?: string }) {
+export function LiveIdle({ href = "/live", unavailable = false }: { href?: string; unavailable?: boolean }) {
   return (
     <div className="bg-ink-900 px-3.5 py-3">
       <p className="micro-label flex items-center gap-1.5">
@@ -107,10 +107,10 @@ export function LiveIdle({ href = "/live" }: { href?: string }) {
         On table
       </p>
       <p className="mt-2 text-[12.5px] font-medium leading-snug text-fog-200">
-        No match is being scored right now
+        {unavailable ? "Live status unavailable" : "No match is being scored right now"}
       </p>
       <p className="mt-1 text-[11.5px] leading-snug text-fog-500">
-        The association's scoreboard reports an idle table.
+        {unavailable ? "The association's scoreboard could not be reached." : "The association's scoreboard reports an idle table."}
       </p>
       <Link
         href={href}

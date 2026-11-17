@@ -11,7 +11,15 @@
  */
 import Link from "next/link";
 import { getDayBoard } from "@/lib/pba/matches-on-day";
-import { boardSummary, TodayMatches } from "./today-matches";
+import { TodayMatches } from "./today-matches";
+import type { DayBoard, MatchState } from "@/lib/pba/matches-on-day";
+
+export function boardSummary(board: DayBoard): string {
+  if (!board.matches.length) return "no matches";
+  const count = (state: MatchState) => board.matches.filter((match) => match.state === state).length;
+  const finals = count("final"), live = count("live"), next = count("next");
+  return [finals ? `${finals} final${finals === 1 ? "" : "s"}` : "", live ? `${live} live` : "", next ? `${next} to come` : ""].filter(Boolean).join(" · ");
+}
 
 export async function TodayBoard({ day }: { day: string }) {
   const board = await getDayBoard(day);
