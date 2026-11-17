@@ -17,8 +17,8 @@
 import raw from "./data/calendar.json";
 import { eventArtUrl } from "../event-art";
 import { eventStatus, type Event, type EventStatus } from "../normalize";
-import { cleanDisplayText, hasHangul, parseIsoDay, isoDay } from "../format";
-import { getPlayerNameIndex, resolveKoreanName, translateKoreanTourTitle } from "./service";
+import { cleanDisplayText, hasHangul, isPlaceholder, parseIsoDay, isoDay } from "../format";
+import { englishSponsor, getPlayerNameIndex, resolveKoreanName, translateKoreanTourTitle } from "./service";
 
 interface CalendarRow {
   id: string;
@@ -68,11 +68,17 @@ function toEvent(row: CalendarRow, now = new Date()): CalendarEvent {
   const end = parseIsoDay(row.end ?? row.start);
   const status: EventStatus = eventStatus(start, end, now);
   const rawChamp = cleanDisplayText(row.defendingChampion);
-  const champion = rawChamp
-    ? hasHangul(rawChamp)
-      ? resolveKoreanName(rawChamp, getPlayerNameIndex())
-      : rawChamp
-    : "—";
+  const resolvedChamp =
+    rawChamp && !isPlaceholder(rawChamp)
+      ? row.league === "TLG"
+        ? hasHangul(rawChamp)
+          ? englishSponsor(rawChamp)
+          : rawChamp
+        : hasHangul(rawChamp)
+          ? resolveKoreanName(rawChamp, getPlayerNameIndex())
+          : rawChamp
+      : "";
+  const champion = resolvedChamp || "—";
   return {
     id: row.id,
     title: translateKoreanTourTitle(row.title),

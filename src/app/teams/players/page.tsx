@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTeamLeagueRounds, getTeamLeagueSeasons, getTeamPlayerStats } from "@/lib/pba/api";
-import { getPlayerNameIndex, resolveKoreanName, teamLeagueTitle } from "@/lib/pba/service";
+import { getPlayerNameIndex, resolveOfficialTeamPlayer, teamLeagueTitle } from "@/lib/pba/service";
 import { normalizeTeamPlayer, type TeamPlayer } from "@/lib/normalize";
 import { percent, average, hasHangul } from "@/lib/format";
 import { photoUrl } from "@/lib/photo";
@@ -22,7 +22,7 @@ const SORT_ACCESSORS: Record<SortKey, (player: TeamPlayer) => number> = {
   winRate: (p) => p.winRate,
   highRun: (p) => p.highRun,
   points: (p) => p.pointsFor,
-  matches: (p) => p.matches,
+  matches: (p) => p.sets,
   bank: (p) => p.bankShotRate,
 };
 
@@ -65,7 +65,7 @@ function rowsFor(players: TeamPlayer[]): TableRow[] {
       average: average(player.average),
       winRate: percent(player.winRate),
       highRun: player.highRun,
-      matches: player.matches,
+      matches: player.sets,
       sets: `${player.setWins}–${player.setLosses}`,
       singles: `${player.singlesWins}–${player.singlesLosses}`,
       bank: percent(player.bankShotRate),
@@ -79,7 +79,7 @@ function rowsFor(players: TeamPlayer[]): TableRow[] {
         average: player.average,
         winRate: player.winRate,
         highRun: player.highRun,
-        matches: player.matches,
+        matches: player.sets,
         bank: player.bankShotRate,
       },
     };
@@ -121,12 +121,7 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
   });
 
   const nameIndex = getPlayerNameIndex();
-  const allPlayers = raw.map(normalizeTeamPlayer).map((p) => {
-    const rawKo = [p.raw.이름, p.raw.외국이름].find((v) => v && hasHangul(v));
-    if (!rawKo) return p;
-    const official = resolveKoreanName(rawKo, nameIndex);
-    return official ? { ...p, name: official, nameEn: official } : p;
-  });
+  const allPlayers = raw.map(normalizeTeamPlayer).map((p) => resolveOfficialTeamPlayer(p, nameIndex));
   const teams = [...new Set(allPlayers.map((p) => p.team))].sort();
   const teamFilter = params.team ?? "";
   const filtered = teamFilter ? allPlayers.filter((p) => p.team === teamFilter) : allPlayers;

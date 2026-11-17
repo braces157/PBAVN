@@ -99,7 +99,17 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
   const hasData = hasStatData(line);
   const seasonUnavailable = !first.answered || fallbackUnavailable;
   const rate = winRate(player);
-  const age = player.birth ? new Date().getFullYear() - new Date(player.birth).getFullYear() : null;
+  const age = (() => {
+    if (!player.birth) return null;
+    const born = new Date(player.birth);
+    if (Number.isNaN(born.getTime())) return null;
+    const now = new Date();
+    const years = now.getFullYear() - born.getFullYear();
+    const beforeBirthday =
+      now.getMonth() < born.getMonth() ||
+      (now.getMonth() === born.getMonth() && now.getDate() < born.getDate());
+    return beforeBirthday ? years - 1 : years;
+  })();
 
   return (
     <>

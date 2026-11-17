@@ -7,6 +7,7 @@ import {
   englishVenue,
   getPlayerNameIndex,
   resolveKoreanName,
+  resolveOfficialTeamPlayer,
   teamLeagueTitle,
 } from "@/lib/pba/service";
 import { getRequestFailures } from "@/lib/pba/failures";
@@ -80,12 +81,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
   const clubs = new Map<string, FixtureClub>(
     standings.map((team) => [team.code, { name: team.name, logo: team.logo }]),
   );
-  const players = playersRaw.map(normalizeTeamPlayer).map((p) => {
-    const rawKo = [p.raw.이름, p.raw.외국이름].find((v) => v && hasHangul(v));
-    if (!rawKo) return p;
-    const official = resolveKoreanName(rawKo, nameIndex);
-    return official ? { ...p, name: official, nameEn: official } : p;
-  });
+  const players = playersRaw.map(normalizeTeamPlayer).map((p) => resolveOfficialTeamPlayer(p, nameIndex));
 
   const profiles = new Map<string, ReturnType<typeof normalizeTeamProfile>>();
   for (const raw of rosterRaw) {

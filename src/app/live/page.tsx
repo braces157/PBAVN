@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { getTeamStandings, getTourHistory } from "@/lib/pba/api";
 import {
@@ -30,13 +31,38 @@ const BROADCASTERS = [
   { name: "Billiards TV", href: "https://www.pbatour.org/en/index" },
 ];
 
+async function ScoringNowBadge() {
+  const feed = await getLiveFeed();
+  return feed.available ? <LiveChip label="Scoring now" /> : null;
+}
+
+async function LiveWireSection({ tourCode }: { tourCode?: string }) {
+  const feed = await getLiveFeed();
+  return feed.matches.length > 0 ? (
+    <LiveMatchBoards initial={feed} tourCode={tourCode} />
+  ) : (
+    <LiveBoard initial={feed} tourCode={tourCode} />
+  );
+}
+
+function LiveWireSkeleton() {
+  return (
+    <div className="surface p-5" aria-hidden="true">
+      <div className="h-4 w-36 bg-[var(--paper-2)]" />
+      <div className="mt-4 space-y-2.5">
+        <div className="h-12 bg-[var(--paper-2)]" />
+        <div className="h-12 bg-[var(--paper-2)]" />
+      </div>
+    </div>
+  );
+}
+
 export default async function LivePage() {
   const season = await getCurrentSeason();
-  const [snapshot, teamSeason, tours, feed] = await Promise.all([
+  const [snapshot, teamSeason, tours] = await Promise.all([
     getSeasonSnapshot(season.SeasonCode),
     getActiveTeamSeason(),
     getTourHistory(),
-    getLiveFeed(),
   ]);
 
   const standings = teamSeason
@@ -83,7 +109,9 @@ export default async function LivePage() {
             <h1 className="display-md mt-1 text-fog-100">Live Matches</h1>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            {feed.available ? <LiveChip label="Scoring now" /> : null}
+            <Suspense fallback={null}>
+              <ScoringNowBadge />
+            </Suspense>
             {snapshot.live.length > 0 && (
               <Chip tone="live">{snapshot.live.length} event in progress</Chip>
             )}
@@ -95,17 +123,11 @@ export default async function LivePage() {
       <div className="mx-auto max-w-[1440px] px-4 pb-10 pt-5 sm:px-6 lg:px-8">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_316px]">
           <div className="min-w-0 space-y-5">
-            {feed.matches.length > 0 ? (
-              <LiveMatchBoards
-                initial={feed}
+            <Suspense fallback={<LiveWireSkeleton />}>
+              <LiveWireSection
                 tourCode={teamSeason?.liveRound ? String(teamSeason.liveRound.라운드코드) : undefined}
               />
-            ) : (
-              <LiveBoard
-                initial={feed}
-                tourCode={teamSeason?.liveRound ? String(teamSeason.liveRound.라운드코드) : undefined}
-              />
-            )}
+            </Suspense>
 
             <Panel
               title="Events in progress"

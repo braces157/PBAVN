@@ -46,12 +46,17 @@ function kstNowLabel(): { date: string; time: string } {
 export function SiteHeader() {
   const pathname = usePathname();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [clock, setClock] = useState<{ date: string; time: string } | null>(null);
 
   useEffect(() => {
     setMobileSearchOpen(false);
   }, [pathname]);
 
-  const { date, time } = kstNowLabel();
+  useEffect(() => {
+    setClock(kstNowLabel());
+    const id = setInterval(() => setClock(kstNowLabel()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <header className="bg-[var(--paper)]">
@@ -59,9 +64,15 @@ export function SiteHeader() {
       <div className="border-b border-[var(--hair)] text-[12.5px] text-[var(--ink-2)]">
         <div className="wrap flex h-8 items-center justify-between gap-4">
           <div className="truncate">
-            <b className="font-bold text-[var(--ink)]">{date}</b>
-            <span className="mx-1.5">·</span>
-            <span className="tnum">{time}</span>
+            {clock ? (
+              <>
+                <b className="font-bold text-[var(--ink)]">{clock.date}</b>
+                <span className="mx-1.5">·</span>
+                <span className="tnum">{clock.time}</span>
+              </>
+            ) : (
+              <span className="font-bold text-[var(--ink-3)]">PBA Hub · KST</span>
+            )}
           </div>
           <nav className="flex shrink-0 items-center gap-4.5" aria-label="Utility">
             <Link href="/about" className="hidden hover:underline md:inline">

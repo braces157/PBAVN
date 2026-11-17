@@ -76,8 +76,8 @@ export function normalizePeriodStat(raw: RawPeriodStat): PeriodStat {
   const wins = n(raw.승수);
   const losses = n(raw.패수);
   const matches = wins + losses;
-  const rawFull = cleanPlayerName(raw.NameFull || raw.NameShort || raw.MemCode);
-  const rawShort = cleanPlayerName(raw.NameShort || raw.NameFull || raw.MemCode);
+  const rawFull = cleanPlayerName(raw.NameFull) || cleanPlayerName(raw.NameShort) || cleanPlayerName(raw.MemCode);
+  const rawShort = cleanPlayerName(raw.NameShort) || cleanPlayerName(raw.NameFull) || cleanPlayerName(raw.MemCode);
   const name = hasHangul(rawFull) ? romanizeKoreanName(rawFull) : rawFull;
   const nameShort = hasHangul(rawShort) ? romanizeKoreanName(rawShort) : rawShort;
 

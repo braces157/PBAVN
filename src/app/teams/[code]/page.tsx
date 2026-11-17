@@ -14,6 +14,7 @@ import { getRequestFailures } from "@/lib/pba/failures";
 import {
   getPlayerNameIndex,
   resolveKoreanName,
+  resolveOfficialTeamPlayer,
 } from "@/lib/pba/service";
 import { FIXTURES_ARCHIVE_TTL, FIXTURES_IN_PLAY_TTL, getRoundFixtures, type TeamFixture } from "@/lib/pba/team-matches";
 import {
@@ -112,12 +113,7 @@ async function resolveTeam(code: string, seasonParam?: string, roundParam?: stri
   const players = playersRaw
     .map(normalizeTeamPlayer)
     .filter((p) => p.teamCode === profile.code || p.team === profile.name)
-    .map((p) => {
-      const rawKo = [p.raw.이름, p.raw.외국이름].find((v) => v && hasHangul(v));
-      if (!rawKo) return p;
-      const official = resolveKoreanName(rawKo, nameIndex);
-      return official ? { ...p, name: official, nameEn: official } : p;
-    })
+    .map((p) => resolveOfficialTeamPlayer(p, nameIndex))
     .sort((a, b) => b.average - a.average);
 
   return {

@@ -13,7 +13,7 @@ import {
 import { getCurrentSeason } from "@/lib/pba/service";
 import { LEAGUES, leagueByCode, leagueShort } from "@/lib/normalize";
 import { fmtRange, grouped, isoDay, kstDay, relativeDay, shiftIsoDay } from "@/lib/format";
-import { DateRail } from "@/components/domain/date-rail";
+import { DateRail, DateStrip } from "@/components/domain/date-rail";
 import { Panel, EmptyState, LiveChip, Stat, cn } from "@/components/ui/primitives";
 import { boardSummary, TodayMatches } from "@/components/domain/today-matches";
 import { getDayBoard } from "@/lib/pba/matches-on-day";
@@ -53,8 +53,11 @@ export default async function SchedulePage({ searchParams }: PageProps) {
   const upcoming = scoped.filter((event) => (isoDay(event.start) ?? "") >= today);
   const done = scoped.filter((event) => event.status === "completed").reverse();
 
-  const railFrom = shiftIsoDay(today, -14);
-  const railTo = shiftIsoDay(today, 60);
+  const defaultFrom = shiftIsoDay(today, -14);
+  const defaultTo = shiftIsoDay(today, 60);
+  const railAnchor = focusDay >= defaultFrom && focusDay <= defaultTo ? today : focusDay;
+  const railFrom = shiftIsoDay(railAnchor, -14);
+  const railTo = shiftIsoDay(railAnchor, 60);
   const railDays = daysBetween(railFrom, railTo);
   const counts = new Map<string, number>();
   for (const day of railDays) {
@@ -136,6 +139,16 @@ export default async function SchedulePage({ searchParams }: PageProps) {
       </header>
 
       <div className="mx-auto max-w-[1440px] px-3 pb-10 pt-5 sm:px-5 lg:px-8">
+        <div className="mb-3 lg:hidden">
+          <DateStrip
+            days={railDays}
+            counts={counts}
+            selected={focusDay}
+            today={today}
+            hrefFor={(day) => query({ day })}
+            label="Dates"
+          />
+        </div>
         <div className="grid gap-5 lg:grid-cols-[118px_minmax(0,1fr)_308px]">
           <aside className="hidden lg:block">
             <DateRail

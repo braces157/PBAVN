@@ -190,7 +190,10 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
           aria-label="Search players"
           role="combobox"
           aria-expanded={showPanel}
-          aria-controls="player-search-results"
+          aria-controls={showPanel ? "player-search-results" : undefined}
+          aria-activedescendant={
+            showPanel && results.length > 0 ? `player-search-option-${cursor}` : undefined
+          }
           aria-autocomplete="list"
           className="min-w-0 flex-1 bg-transparent text-[13.5px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-3)]"
         />
@@ -224,6 +227,7 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
                 <li key={row.c}>
                   <button
                     type="button"
+                    id={`player-search-option-${index}`}
                     role="option"
                     aria-selected={index === cursor}
                     onMouseEnter={() => setCursor(index)}

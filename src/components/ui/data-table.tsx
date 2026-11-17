@@ -139,6 +139,7 @@ export function DataTable({
   payload,
   empty,
   className,
+  hideSortBar = false,
 }: {
   payload: TablePayload;
   empty?: string;
@@ -177,9 +178,54 @@ export function DataTable({
   };
 
   const showSourceRank = !sort && ranks;
+  const hiddenSortable = columns.filter((col) => Boolean(col.hideBelow) && col.id !== "note");
+  const showReset = sort !== null;
 
   return (
     <div className={cn("overflow-hidden border-b border-[var(--ink)] bg-[var(--paper)]", className)}>
+      {!hideSortBar && ordered.length > 0 && (showReset || hiddenSortable.length > 0) && (
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-2 border-b border-[var(--hair)] bg-[var(--paper-2)] px-3 py-1.5 text-[11.5px]",
+            !showReset && "lg:hidden",
+          )}
+        >
+          {hiddenSortable.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1 lg:hidden">
+              <span className="mr-1 font-bold uppercase tracking-[0.06em] text-[var(--ink-3)]">Sort</span>
+              {hiddenSortable.map((column) => {
+                const active = sort?.id === column.id;
+                return (
+                  <button
+                    key={column.id}
+                    type="button"
+                    onClick={() => toggle(column)}
+                    aria-pressed={active}
+                    className={cn(
+                      "inline-flex items-center gap-1 border px-2 py-0.5 font-bold uppercase tracking-[0.04em] transition-colors",
+                      active
+                        ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
+                        : "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
+                    )}
+                  >
+                    {column.shortLabel ?? column.label}
+                    {active && <span aria-hidden="true">{sort?.direction === "desc" ? "▼" : "▲"}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {showReset && (
+            <button
+              type="button"
+              onClick={() => setSort(null)}
+              className="ml-auto border border-[var(--hair)] bg-[var(--paper)] px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.05em] text-[var(--ink-2)] transition-colors hover:border-[var(--ink)] hover:text-[var(--ink)]"
+            >
+              Reset order
+            </button>
+          )}
+        </div>
+      )}
       {ordered.length === 0 ? (
         <div className="border-t-2 border-[var(--ink)] px-4 py-10 text-center text-[13.5px] text-[var(--ink-2)]">
           {empty ?? "No rows to show."}

@@ -161,6 +161,7 @@ export default async function MatchPage({
             eventHref={context.eventSeq ? `/schedule/${context.eventSeq}` : null}
             officialUrl={`${OFFICIAL}?PSTCode=${encodeURIComponent(pstCode)}`}
             watchUrl={context.watch}
+            live={context.live}
             setNav={<SetNav sets={analysed} />}
           />
 

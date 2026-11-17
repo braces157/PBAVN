@@ -79,7 +79,7 @@ export function StandingsTable({
 
 export function TeamStatGrid({ team }: { team: TeamStanding }) {
   const items = [
-    { label: "Win rate", value: percent(team.winRate) },
+    { label: "Win rate", value: team.matches > 0 && team.winRate === 0 ? "0.0%" : percent(team.winRate) },
     { label: "Sets won", value: grouped(team.setWins) },
     { label: "Sets lost", value: grouped(team.setLosses) },
     { label: "Points for", value: grouped(team.pointsFor) },

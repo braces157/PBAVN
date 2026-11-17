@@ -103,8 +103,11 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   );
   const completedEvents = events.filter((event) => event.status === "completed").reverse();
 
-  const nextDay = nextActiveDay(today, liveEvents.length ? events.filter((e) => e.status !== "live") : events);
-  const lastDay = previousActiveDay(today, events.filter((e) => e.status === "completed"));
+  const nextDay = nextActiveDay(
+    shiftIsoDay(focusDay, 1),
+    focusDay === today && liveEvents.length ? events.filter((e) => e.status !== "live") : events,
+  );
+  const lastDay = previousActiveDay(focusDay, events);
   const featured =
     dayBoard.events[0] ??
     liveEvents[0] ??
@@ -132,10 +135,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   const moneyRows = moneyRank.slice(0, 6);
   const maxPrize = moneyRows[0]?.Prize || 1;
-  const calendarStrip = (upcomingEvents.length >= 6 ? upcomingEvents : [...upcomingEvents, ...completedEvents]).slice(
-    0,
-    6,
-  );
+  const calendarStrip = upcomingEvents.slice(0, 6);
 
   const liveLead = feed.matches[0] ?? null;
   const dayLead = dayBoard.matches[0] ?? null;
@@ -380,6 +380,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   </li>
                 ))}
               </ol>
+            ) : dayBoard.partial ? (
+              <div className="border-b border-[var(--hair)] py-4">
+                <p className="font-serif-ed text-[14.5px] text-[var(--ink-2)]">
+                  Schedule data could not be loaded for {relativeDay(focusDay).toLowerCase()}.
+                </p>
+              </div>
             ) : (
               <div className="border-b border-[var(--hair)] py-4">
                 <p className="font-serif-ed text-[14.5px] text-[var(--ink-2)]">

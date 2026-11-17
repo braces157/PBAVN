@@ -125,10 +125,17 @@ export function eventStatus(start: Date | null, end: Date | null, now = new Date
   return "upcoming";
 }
 
+function pickCleanPlayerName(en?: string | null, ko?: string | null): string {
+  const ce = cleanPlayerName(en);
+  if (ce && ce !== "—" && !isPlaceholder(ce)) return ce;
+  const ck = cleanPlayerName(ko);
+  return ck && ck !== "—" && !isPlaceholder(ck) ? ck : "";
+}
+
 export function normalizeEvent(raw: RawTournament): Event {
   const start = toDate(raw.MATCH_START_DATE);
   const end = toDate(raw.MATCH_END_DATE);
-  const rawChamp = cleanPlayerName(pick(raw.PREV_WINNER_NAME_EN, raw.PREV_WINNER_NAME));
+  const rawChamp = pickCleanPlayerName(raw.PREV_WINNER_NAME_EN, raw.PREV_WINNER_NAME) || "—";
   return {
     id: raw.SEQ,
     title: cleanDisplayText(pick(raw.TITLE_EN, raw.TITLE)) || "—",
@@ -192,8 +199,8 @@ export interface Player {
 }
 
 export function normalizePlayer(raw: RawPlayer): Player {
-  const pickedName = cleanPlayerName(pick(raw.PlayerNameEN, raw.PlayerNameKO));
-  const pickedShort = cleanPlayerName(pick(raw.PlayerNameENShort, raw.PlayerNameKOShort));
+  const pickedName = pickCleanPlayerName(raw.PlayerNameEN, raw.PlayerNameKO);
+  const pickedShort = pickCleanPlayerName(raw.PlayerNameENShort, raw.PlayerNameKOShort);
   return {
     code: raw.MemCode,
     name: hasHangul(pickedName) ? romanizeKoreanName(pickedName) : pickedName || "—",

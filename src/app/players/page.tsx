@@ -80,14 +80,15 @@ export default async function PlayersPage({ searchParams }: PageProps) {
   const query = (params.q ?? "").trim();
   const league = params.league ?? (query ? "" : "PBA1");
   const initial = (params.initial ?? "").toUpperCase();
-  const requestedSort = params.sort as SortOption | undefined;
+  const requestedSort = params.sort;
   const sort: SortOption =
-    requestedSort && requestedSort in SORT_LABELS
-      ? requestedSort
+    requestedSort && Object.prototype.hasOwnProperty.call(SORT_LABELS, requestedSort)
+      ? (requestedSort as SortOption)
       : initial
         ? "name"
         : "rank";
-  const page = Math.max(1, Number(params.page ?? 1) || 1);
+  const rawPage = Number(params.page ?? 1);
+  const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
   const pageSize = 24;
 
   const season = await getCurrentSeason();
@@ -106,7 +107,7 @@ export default async function PlayersPage({ searchParams }: PageProps) {
     const start = (page - 1) * pageSize;
     list = hits.slice(start, start + pageSize);
     total = hits.length;
-  } else if (initial || sort === "name") {
+  } else if (sort === "name") {
     const browsed = await getPlayers({
       page,
       pageSize,
@@ -119,7 +120,11 @@ export default async function PlayersPage({ searchParams }: PageProps) {
   } else {
     const directory = await getPlayers({ page: 1, pageSize: 2000 });
     const scoped = sortPlayers(
-      directory.list.filter((player) => !league || player.LeagueCode === league),
+      directory.list.filter(
+        (player) =>
+          (!league || player.LeagueCode === league) &&
+          (!initial || (player.PlayerNameEN || "").trim().toUpperCase().startsWith(initial)),
+      ),
       sort,
     );
     const start = (page - 1) * pageSize;

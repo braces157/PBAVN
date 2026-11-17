@@ -222,17 +222,18 @@ export function Pagination({
 
   return (
     <nav className="flex items-center justify-center gap-1.5 pt-7" aria-label="Pagination">
-      <Link
-        href={buildHref(Math.max(1, page - 1))}
-        aria-disabled={page === 1}
-        className={cn(
-          base,
-          "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
-          page === 1 && "pointer-events-none opacity-35",
-        )}
-      >
-        ←
-      </Link>
+      {page === 1 ? (
+        <span aria-hidden="true" className={cn(base, "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] opacity-35")}>
+          ←
+        </span>
+      ) : (
+        <Link
+          href={buildHref(page - 1)}
+          className={cn(base, "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]")}
+        >
+          ←
+        </Link>
+      )}
 
       {pages[0] > 1 && (
         <>
@@ -274,17 +275,18 @@ export function Pagination({
         </>
       )}
 
-      <Link
-        href={buildHref(Math.min(pageCount, page + 1))}
-        aria-disabled={page === pageCount}
-        className={cn(
-          base,
-          "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
-          page === pageCount && "pointer-events-none opacity-35",
-        )}
-      >
-        →
-      </Link>
+      {page === pageCount ? (
+        <span aria-hidden="true" className={cn(base, "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] opacity-35")}>
+          →
+        </span>
+      ) : (
+        <Link
+          href={buildHref(page + 1)}
+          className={cn(base, "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]")}
+        >
+          →
+        </Link>
+      )}
     </nav>
   );
 }

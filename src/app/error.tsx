@@ -14,7 +14,10 @@ export default function RouteError({
   }, [error]);
 
   return (
-    <div className="mx-auto flex min-h-[60vh] max-w-[640px] flex-col items-center justify-center px-4 text-center">
+    <div
+      role="alert"
+      className="mx-auto flex min-h-[60vh] max-w-[640px] flex-col items-center justify-center px-4 text-center"
+    >
       <p className="eyebrow">Request error</p>
       <h1 className="display-md mt-2.5 text-fog-100">Unable to load this page</h1>
       <p className="mt-2.5 max-w-md text-[13px] leading-relaxed text-fog-450">

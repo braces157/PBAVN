@@ -103,7 +103,13 @@ export default async function EventPage({ params, searchParams }: PageProps) {
       <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8">
         <NowNextStrip
           event={entry}
-          live={liveMatch ? <LiveBlock match={liveMatch} /> : <LiveIdle />}
+          live={
+            liveMatch ? (
+              <LiveBlock match={liveMatch} />
+            ) : (
+              <LiveIdle unavailable={entry.status === "live" && (!feed || !feed.reachable)} />
+            )
+          }
           next={next}
         />
 

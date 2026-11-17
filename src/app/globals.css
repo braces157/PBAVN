@@ -108,8 +108,10 @@
   --serif: var(--font-serif), "Source Serif 4", Georgia, serif;
 }
 
-* {
-  border-color: var(--hair);
+@layer base {
+  * {
+    border-color: var(--hair);
+  }
 }
 
 html {

@@ -126,3 +126,81 @@ export function DateRail({
     </nav>
   );
 }
+
+/** Mobile horizontal date strip mirroring `DateRail` below the `lg` breakpoint. */
+export function DateStrip({
+  days,
+  counts,
+  selected,
+  today,
+  hrefFor,
+  label,
+}: {
+  days: string[];
+  counts?: Map<string, number>;
+  selected: string;
+  today: string;
+  hrefFor: (day: string) => string;
+  label?: string;
+}) {
+  if (days.length === 0) return null;
+
+  return (
+    <nav aria-label={label ?? "Dates"} className="lg:hidden">
+      <div className="rail-scroll flex gap-1.5 overflow-x-auto pb-1.5 pt-0.5" data-rail-scroll="">
+        <RailFocus id={`strip-day-${selected}`} axis="x" />
+        {days.map((day) => {
+          const parts = dateParts(day);
+          const active = day === selected;
+          const isToday = day === today;
+          const count = counts?.get(day) ?? 0;
+          return (
+            <Link
+              key={day}
+              href={hrefFor(day)}
+              id={`strip-day-${day}`}
+              aria-current={active ? "date" : undefined}
+              className={cn(
+                "flex h-[54px] w-[54px] shrink-0 flex-col items-center justify-center gap-0.5 border transition-colors hover:no-underline",
+                active
+                  ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
+                  : isToday
+                    ? "border-[var(--red)] bg-[var(--paper-2)] text-[var(--ink)]"
+                    : "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
+              )}
+            >
+              <span
+                className={cn(
+                  "text-[9px] font-bold uppercase tracking-[0.06em]",
+                  active ? "text-[var(--paper)]/75" : "text-[var(--ink-3)]",
+                )}
+              >
+                {parts.weekday.slice(0, 3)} {day.slice(5, 7)}
+              </span>
+              <span
+                className={cn(
+                  "tnum text-[14px] font-extrabold leading-none",
+                  active ? "text-[var(--paper)]" : isToday ? "text-[var(--red)]" : "text-[var(--ink)]",
+                )}
+              >
+                {Number(parts.day)}
+              </span>
+              {count > 0 && (
+                <span className="flex items-center gap-[2px]">
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "h-[3px] w-[3px] rounded-full",
+                      active ? "bg-[var(--paper)]" : isToday ? "bg-[var(--red)]" : "bg-[var(--ink-3)]",
+                    )}
+                  />
+                  <span className="sr-only">{`${count} event${count === 1 ? "" : "s"}`}</span>
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}

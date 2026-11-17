@@ -82,18 +82,29 @@ export function NowNextStrip({
   );
 }
 
-export function LiveIdle({ href = "/live" }: { href?: string }) {
+export function LiveIdle({
+  href = "/live",
+  unavailable = false,
+}: {
+  href?: string;
+  unavailable?: boolean;
+}) {
   return (
     <div className="bg-ink-900 px-4 py-3.5">
       <p className="micro-label flex items-center gap-1.5">
-        <span className="inline-block h-1.5 w-1.5 rounded-full bg-fog-550" aria-hidden="true" />
-        On table
+        <span
+          className={cn("inline-block h-1.5 w-1.5 rounded-full", unavailable ? "bg-rose-450" : "bg-fog-550")}
+          aria-hidden="true"
+        />
+        {unavailable ? "Feed unreachable" : "On table"}
       </p>
       <p className="mt-2 text-[12.5px] font-semibold leading-snug text-fog-200">
-        No match is being scored right now
+        {unavailable ? "Scoring board did not answer" : "No match is being scored right now"}
       </p>
       <p className="mt-1 text-[11.5px] leading-snug text-fog-450">
-        The association&apos;s scoreboard reports an idle table.
+        {unavailable
+          ? "The live feed could not be reached for this render. Check the match centre directly."
+          : "The association's scoreboard reports an idle table."}
       </p>
       <Link
         href={href}

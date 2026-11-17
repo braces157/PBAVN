@@ -13,6 +13,7 @@ export function MatchHeader({
   eventHref,
   officialUrl,
   watchUrl,
+  live = false,
   setNav,
 }: {
   analysed: AnalysedSet[];
@@ -22,12 +23,14 @@ export function MatchHeader({
   eventHref: string | null;
   officialUrl: string;
   watchUrl: string | null;
+  live?: boolean;
   setNav?: ReactNode;
 }) {
   const sides = analysed[0]?.sides.length ?? 2;
   const names = Array.from({ length: sides }, (_, index) => analysed[0]?.sides[index]?.name ?? "");
   const setsWon = Array.from({ length: sides }, (_, index) => summary.setsWon[index] ?? 0);
   const decided = setsWon.some((won) => won * 2 > analysed.length) && analysed.length > 0;
+  const isFinal = !live && decided;
   const maxWon = Math.max(...setsWon);
 
   return (
@@ -49,7 +52,7 @@ export function MatchHeader({
         </div>
         <div className="flex items-center gap-2">
           {summary.playedOn && <span className="tnum text-[11px] text-fog-450">{summary.playedOn}</span>}
-          {decided && <Chip tone="carom">FT</Chip>}
+          {isFinal && <Chip tone="carom">FT</Chip>}
         </div>
       </div>
 
@@ -60,7 +63,7 @@ export function MatchHeader({
             <dt
               className={cn(
                 "truncate font-display text-[15px] font-bold sm:text-[18px]",
-                decided && setsWon[0] === maxWon ? "text-carom-300" : "text-fog-100",
+                isFinal && setsWon[0] === maxWon ? "text-carom-300" : "text-fog-100",
               )}
             >
               {names[0] || "Player 1"}
@@ -75,7 +78,7 @@ export function MatchHeader({
             <span
               className={cn(
                 "tnum font-display text-[28px] font-extrabold leading-none sm:text-[36px]",
-                decided && setsWon[0] === maxWon ? "text-carom-300" : "text-fog-300",
+                isFinal && setsWon[0] === maxWon ? "text-carom-300" : "text-fog-300",
               )}
             >
               {setsWon[0]}
@@ -84,7 +87,7 @@ export function MatchHeader({
             <span
               className={cn(
                 "tnum font-display text-[28px] font-extrabold leading-none sm:text-[36px]",
-                decided && setsWon[1] === maxWon ? "text-carom-300" : "text-fog-300",
+                isFinal && setsWon[1] === maxWon ? "text-carom-300" : "text-fog-300",
               )}
             >
               {setsWon[1]}
@@ -94,7 +97,7 @@ export function MatchHeader({
             <dt
               className={cn(
                 "truncate font-display text-[15px] font-bold sm:text-[18px]",
-                decided && setsWon[1] === maxWon ? "text-carom-300" : "text-fog-100",
+                isFinal && setsWon[1] === maxWon ? "text-carom-300" : "text-fog-100",
               )}
             >
               {names[1] || "Player 2"}
