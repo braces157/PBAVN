@@ -2,11 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getGalleries, getPressList, getVideos } from "@/lib/pba/api";
 import { normalizeArticle } from "@/lib/normalize";
+import { translateArticleSummaries, translatePlainTitles } from "@/lib/translate";
 import { asset, isRealAsset } from "@/lib/pba/http";
-import { excerpt, fmtDate, grouped, youtubeId } from "@/lib/format";
+import { fmtDate, grouped, youtubeId } from "@/lib/format";
 import { PageHeader } from "@/components/domain/filter-bar";
+import { splitNewsHeadline } from "@/lib/news";
+import {
+  NewsGalleryGrid,
+  NewsVideoGrid,
+  type GalleryCardItem,
+  type VideoCardItem,
+} from "@/components/domain/news-media";
 import { SafeImage } from "@/components/ui/safe-image";
-import { EmptyState, Pagination, TabLinks } from "@/components/ui/primitives";
+import { EmptyState, Pagination, TabLinks, cn } from "@/components/ui/primitives";
 
 export const revalidate = 600;
 
@@ -22,6 +30,12 @@ interface PageProps {
   searchParams: Promise<{ tab?: string; page?: string }>;
 }
 
+function safeAlt(candidate: string | null | undefined, fallback: string): string {
+  const clean = (candidate ?? "").trim();
+  if (!clean || /^\d+$/.test(clean)) return fallback;
+  return clean;
+}
+
 export default async function NewsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const tab: Tab = params.tab === "videos" ? "videos" : params.tab === "gallery" ? "gallery" : "news";
@@ -35,8 +49,45 @@ export default async function NewsPage({ searchParams }: PageProps) {
     getGalleries(1, 12),
   ]);
 
-  const articles = press.list.map(normalizeArticle);
+  const [articles, videoTitles, galleryTitles] = await Promise.all([
+    tab === "news" ? translateArticleSummaries(press.list.map(normalizeArticle), 160) : Promise.resolve([]),
+    tab === "videos"
+      ? translatePlainTitles(videos.map((v) => v.TITLE || v.VIDEO_NAME_EN || v.VIDEO_NAME || ""))
+      : Promise.resolve([]),
+    tab === "gallery"
+      ? translatePlainTitles(galleries.map((g) => g.TITLE || ""))
+      : Promise.resolve([]),
+  ]);
   const pageCount = Math.max(1, Math.ceil(press.total / pageSize));
+
+  const videoItems: VideoCardItem[] = videos.map((video, index) => {
+    const title = videoTitles[index] || video.TITLE || video.VIDEO_NAME_EN || video.VIDEO_NAME || "PBA TV";
+    const id = youtubeId(video.VIDEO_URL);
+    return {
+      seq: video.SEQ,
+      title,
+      alt: safeAlt(video.IMAGE_ALT, title),
+      thumb: isRealAsset(video.IMAGE_FILE_PATH) ? asset(video.IMAGE_FILE_PATH) : null,
+      youtubeId: id,
+      url: video.VIDEO_URL,
+    };
+  });
+
+  const galleryItems: GalleryCardItem[] = galleries.map((gallery, index) => {
+    const title = galleryTitles[index] || gallery.TITLE || "PBA Gallery";
+    return {
+      seq: gallery.SEQ,
+      title,
+      alt: safeAlt(gallery.ALT, title.replace(/_/g, " ")),
+      image: isRealAsset(gallery.IMAGE_FULL_PATH) ? asset(gallery.IMAGE_FULL_PATH) : null,
+      dateLabel: fmtDate(gallery.VIEW_DATE),
+    };
+  });
+
+  const showEditorialLead = page === 1 && articles.length >= 4;
+  const leadArticle = showEditorialLead ? articles[0] : null;
+  const secondaryArticles = showEditorialLead ? articles.slice(1, 3) : [];
+  const gridArticles = showEditorialLead ? articles.slice(3) : articles;
 
   return (
     <>
@@ -61,52 +112,26 @@ export default async function NewsPage({ searchParams }: PageProps) {
             {articles.length === 0 ? (
               <EmptyState title="No press releases" description="The association has not published anything yet." />
             ) : (
-              <div className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-3">
-                {articles.map((article, index) => (
-                  <Link
-                    key={article.seq}
-                    href={`/news/${article.seq}`}
-                    className={`surface card-hover group flex flex-col overflow-hidden ${
-                      index === 0 ? "md:col-span-2" : ""
-                    }`}
-                  >
-                    <div className={`relative w-full overflow-hidden bg-ink-850 ${index === 0 ? "h-60" : "flex-1 min-h-40"}`}>
-                      <SafeImage
-                        src={article.image}
-                        alt={article.title}
-                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                        fallback={
-                          <div className="grid h-full w-full place-items-center bg-ink-850">
-                            <span className="eyebrow">PBA Newsroom</span>
-                          </div>
-                        }
-                      />
-                    </div>
-                    <div className="p-4">
-                      <div className="flex items-center gap-2">
-                        <span className="tnum text-[10.5px] font-semibold uppercase tracking-[0.06em] text-fog-500">
-                          {fmtDate(article.date)}
-                        </span>
-                        {article.featured && (
-                          <span className="rounded bg-carom-400/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-carom-300">
-                            Featured
-                          </span>
-                        )}
-                      </div>
-                      <h2
-                        className={`mt-1.5 line-clamp-2 font-display font-bold leading-snug text-fog-100 group-hover:text-carom-300 ${
-                          index === 0 ? "text-[18px]" : "text-[15px]"
-                        }`}
-                      >
-                        {article.title}
-                      </h2>
-                      <p className="mt-1.5 line-clamp-2 text-[12.5px] leading-relaxed text-fog-450">
-                        {excerpt(article.body, 140)}
-                      </p>
-                      <p className="tnum mt-2.5 text-[10.5px] text-fog-550">{grouped(article.views)} views</p>
-                    </div>
-                  </Link>
-                ))}
+              <div className="space-y-4">
+                {leadArticle && (
+                  <LeadPressCard article={leadArticle} />
+                )}
+
+                {secondaryArticles.length > 0 && (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {secondaryArticles.map((article) => (
+                      <PressCard key={article.seq} article={article} variant="featured" />
+                    ))}
+                  </div>
+                )}
+
+                {gridArticles.length > 0 && (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {gridArticles.map((article) => (
+                      <PressCard key={article.seq} article={article} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -120,98 +145,138 @@ export default async function NewsPage({ searchParams }: PageProps) {
 
         {tab === "videos" && (
           <>
-            {videos.length === 0 ? (
+            {videoItems.length === 0 ? (
               <EmptyState title="No videos published" />
             ) : (
-              <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {videos.map((video) => {
-                  const id = youtubeId(video.VIDEO_URL);
-                  const thumb = isRealAsset(video.IMAGE_FILE_PATH) ? asset(video.IMAGE_FILE_PATH) : null;
-                  return (
-                    <a
-                      key={video.SEQ}
-                      href={video.VIDEO_URL}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="surface card-hover group overflow-hidden"
-                    >
-                      <div className="relative aspect-video overflow-hidden bg-ink-850">
-                        {thumb ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={thumb}
-                            alt={video.IMAGE_ALT || video.TITLE}
-                            loading="lazy"
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                          />
-                        ) : id ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`}
-                            alt={video.TITLE}
-                            loading="lazy"
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                          />
-                        ) : (
-                          <div className="grid h-full place-items-center">
-                            <span className="eyebrow">PBA TV</span>
-                          </div>
-                        )}
-                        <span className="absolute inset-0 grid place-items-center">
-                          <span className="grid h-10 w-10 place-items-center rounded-full bg-ink-950/80 text-carom-300 ring-1 ring-carom-400/50 transition-transform duration-200 group-hover:scale-105">
-                            <svg viewBox="0 0 24 24" className="ml-0.5 h-4 w-4" aria-hidden="true">
-                              <path d="M8 5.5v13l11-6.5z" fill="currentColor" />
-                            </svg>
-                          </span>
-                        </span>
-                      </div>
-                      <div className="p-3">
-                        <p className="line-clamp-2 text-[12.5px] font-semibold leading-snug text-fog-100 group-hover:text-carom-300">
-                          {video.TITLE || video.VIDEO_NAME_EN || video.VIDEO_NAME}
-                        </p>
-                      </div>
-                    </a>
-                  );
-                })}
-              </div>
+              <NewsVideoGrid items={videoItems} />
             )}
           </>
         )}
 
         {tab === "gallery" && (
           <>
-            {galleries.length === 0 ? (
+            {galleryItems.length === 0 ? (
               <EmptyState title="No galleries published" />
             ) : (
-              <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {galleries.map((gallery) => (
-                  <figure key={gallery.SEQ} className="surface card-hover group overflow-hidden">
-                    <div className="aspect-[4/3] overflow-hidden bg-ink-850">
-                      {isRealAsset(gallery.IMAGE_FULL_PATH) ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={asset(gallery.IMAGE_FULL_PATH) ?? ""}
-                          alt={gallery.ALT || gallery.TITLE}
-                          loading="lazy"
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                        />
-                      ) : (
-                        <div className="grid h-full place-items-center">
-                          <span className="eyebrow">Gallery</span>
-                        </div>
-                      )}
-                    </div>
-                    <figcaption className="p-3">
-                      <p className="line-clamp-2 text-[12.5px] font-medium text-fog-100">{gallery.TITLE}</p>
-                      <p className="tnum mt-1 text-[10.5px] text-fog-550">{fmtDate(gallery.VIEW_DATE)}</p>
-                    </figcaption>
-                  </figure>
-                ))}
-              </div>
+              <NewsGalleryGrid items={galleryItems} />
             )}
           </>
         )}
       </div>
     </>
+  );
+}
+
+type SummarizedArticle = Awaited<ReturnType<typeof translateArticleSummaries>>[number];
+
+function LeadPressCard({ article }: { article: SummarizedArticle }) {
+  const { tag, headline } = splitNewsHeadline(article.title);
+  return (
+    <Link
+      href={`/news/${article.seq}`}
+      className="surface card-hover group grid overflow-hidden lg:grid-cols-[1.35fr_1fr]"
+    >
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--bar)]">
+        <SafeImage
+          src={article.image}
+          alt={headline}
+          loading="eager"
+          className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
+          fallback={
+            <div className="grid h-full w-full place-items-center bg-[var(--bar)]">
+              <span className="eyebrow">PBA Newsroom</span>
+            </div>
+          }
+        />
+      </div>
+      <div className="flex flex-col justify-between gap-4 p-5 sm:p-6">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn("tag", tag.cls)}>{tag.label}</span>
+            {article.featured && (
+              <span className="rounded-[2px] bg-[var(--yellow)]/20 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-[var(--yellow-ink)]">
+                Featured
+              </span>
+            )}
+            <span className="tnum text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--muted)]">
+              {fmtDate(article.date)}
+            </span>
+          </div>
+          <h2 className="mt-3 font-display text-[22px] font-bold leading-[1.15] tracking-tight text-[var(--text)] group-hover:text-[var(--link)] sm:text-[26px]">
+            {headline}
+          </h2>
+          {article.summary && (
+            <p className="mt-3 line-clamp-3 text-[13.5px] leading-relaxed text-[var(--text-2)]">
+              {article.summary}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between border-t border-[var(--line)] pt-3 text-[11.5px]">
+          <span className="tnum text-[var(--muted)]">{grouped(article.views)} views</span>
+          <span className="font-semibold text-[var(--link)] group-hover:underline">
+            Read release →
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function PressCard({
+  article,
+  variant = "standard",
+}: {
+  article: SummarizedArticle;
+  variant?: "featured" | "standard";
+}) {
+  const { tag, headline } = splitNewsHeadline(article.title);
+  return (
+    <Link
+      href={`/news/${article.seq}`}
+      className="surface card-hover group flex flex-col overflow-hidden"
+    >
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--bar)]">
+        <SafeImage
+          src={article.image}
+          alt={headline}
+          className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]"
+          fallback={
+            <div className="grid h-full w-full place-items-center bg-[var(--bar)]">
+              <span className="eyebrow">PBA Newsroom</span>
+            </div>
+          }
+        />
+      </div>
+      <div className="flex flex-1 flex-col justify-between gap-3 p-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn("tag", tag.cls)}>{tag.label}</span>
+            {article.featured && (
+              <span className="rounded-[2px] bg-[var(--yellow)]/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--yellow-ink)]">
+                Featured
+              </span>
+            )}
+            <span className="tnum text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[var(--muted)]">
+              {fmtDate(article.date)}
+            </span>
+          </div>
+          <h2
+            className={cn(
+              "mt-2 line-clamp-2 font-display font-bold leading-snug text-[var(--text)] group-hover:text-[var(--link)]",
+              variant === "featured" ? "text-[18px]" : "text-[15.5px]",
+            )}
+          >
+            {headline}
+          </h2>
+          {article.summary && (
+            <p className="mt-1.5 line-clamp-2 text-[12.5px] leading-relaxed text-[var(--text-2)]">
+              {article.summary}
+            </p>
+          )}
+        </div>
+        <p className="tnum text-[10.5px] text-[var(--muted)]">{grouped(article.views)} views</p>
+      </div>
+    </Link>
   );
 }

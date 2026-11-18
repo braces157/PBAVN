@@ -16,33 +16,51 @@ const PIXELS = { xs: 24, sm: 32, md: 44, lg: 56, xl: 80, "2xl": 96 } as const;
 
 export type AvatarSize = keyof typeof SIZES;
 
-const FLAG_MAP: Record<string, string> = {
-  KR: "f-kr", KOR: "f-kr",
-  ES: "f-es", ESP: "f-es",
-  VN: "f-vn", VIE: "f-vn", VNM: "f-vn",
-  TR: "f-tr", TUR: "f-tr",
-  BE: "f-be", BEL: "f-be",
-  GR: "f-gr", GRE: "f-gr", GRC: "f-gr",
-  CO: "f-co", COL: "f-co",
-  NL: "f-nl", NED: "f-nl", NLD: "f-nl",
-  JP: "f-jp", JPN: "f-jp",
-  AT: "f-at", AUT: "f-at",
-  FR: "f-fr", FRA: "f-fr",
-  DE: "f-de", GER: "f-de", DEU: "f-de",
-  US: "f-us", USA: "f-us",
-  DK: "f-dk", DEN: "f-dk", DNK: "f-dk",
-  EG: "f-eg", EGY: "f-eg",
-  IT: "f-it", ITA: "f-it",
-  PT: "f-pt", POR: "f-pt", PRT: "f-pt",
-  SE: "f-se", SWE: "f-se",
-  MX: "f-mx", MEX: "f-mx",
-  CN: "f-cn", CHN: "f-cn",
+const ISO2_BY_CODE: Record<string, string> = {
+  KOR: "kr",
+  ESP: "es",
+  VIE: "vn", VNM: "vn",
+  TUR: "tr",
+  BEL: "be",
+  GRE: "gr", GRC: "gr",
+  COL: "co",
+  NED: "nl", NLD: "nl",
+  JPN: "jp",
+  AUT: "at",
+  FRA: "fr",
+  GER: "de", DEU: "de",
+  USA: "us",
+  DEN: "dk", DNK: "dk",
+  EGY: "eg",
+  ITA: "it",
+  POR: "pt", PRT: "pt",
+  SWE: "se",
+  MEX: "mx",
+  CHN: "cn",
+  ECU: "ec",
+  PER: "pe",
+  CAM: "kh", KHM: "kh",
+  GBR: "gb", UK: "gb",
+  TPE: "tw", TWN: "tw",
+  BRA: "br",
+  ARG: "ar",
+  SUI: "ch", CHE: "ch",
+  POL: "pl",
+  CZE: "cz",
+  ROU: "ro",
+  HUN: "hu",
+  THA: "th",
+  MAS: "my", MYS: "my",
+  PHI: "ph", PHL: "ph",
+  AUS: "au",
+  CAN: "ca",
 };
 
 export function flagClass(nation: string | null | undefined): string {
   const key = (nation ?? "").trim().toUpperCase();
-  const specific = FLAG_MAP[key];
-  return specific ? `f ${specific}` : "f";
+  if (!key || key === "—") return "f";
+  const iso2 = ISO2_BY_CODE[key] ?? (/^[A-Z]{2}$/.test(key) ? key.toLowerCase() : null);
+  return iso2 ? `f fi fi-${iso2}` : "f";
 }
 
 const CLUB_CRESTS: Record<string, { code: string; cls: string }> = {
@@ -287,8 +305,8 @@ const COUNTRIES: Record<string, string> = {
   DEN: "Denmark", DK: "Denmark", DNK: "Denmark",
   SWE: "Sweden", SE: "Sweden",
   POR: "Portugal", PT: "Portugal", PRT: "Portugal",
-  PER: "Peru",
-  CAM: "Cambodia", KHM: "Cambodia",
+  PER: "Peru", PE: "Peru",
+  CAM: "Cambodia", KHM: "Cambodia", KH: "Cambodia",
   CHN: "China", CN: "China",
 };
 

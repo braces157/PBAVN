@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
-import { request as httpRequest } from "node:http";
+import { Agent as HttpAgent, request as httpRequest } from "node:http";
 import tls from "node:tls";
-import { request as httpsRequest } from "node:https";
+import { Agent as HttpsAgent, request as httpsRequest } from "node:https";
+import { promisify } from "node:util";
+import { brotliDecompress, gunzip, inflate } from "node:zlib";
 import { unstable_cache } from "next/cache";
 import { recordFailure } from "./failures";
 import { GLOBALSIGN_GCCR46_ALPHASSLCA2025_PEM } from "./certs";
@@ -96,6 +98,31 @@ const TRUSTED_CA = [
   GLOBALSIGN_GCCR46_ALPHASSLCA2025_PEM,
 ];
 
+const httpsAgent = new HttpsAgent({
+  keepAlive: true,
+  maxSockets: 16,
+  ca: TRUSTED_CA,
+  rejectUnauthorized: true,
+});
+
+const httpAgent = new HttpAgent({
+  keepAlive: true,
+  maxSockets: 16,
+});
+
+const gunzipAsync = promisify(gunzip);
+const inflateAsync = promisify(inflate);
+const brotliAsync = promisify(brotliDecompress);
+
+async function decodeBody(body: Buffer, encoding: string | undefined): Promise<Buffer> {
+  if (body.length === 0 || !encoding) return body;
+  const enc = encoding.toLowerCase();
+  if (enc.includes("gzip")) return gunzipAsync(body);
+  if (enc.includes("br")) return brotliAsync(body);
+  if (enc.includes("deflate")) return inflateAsync(body);
+  return body;
+}
+
 /** PEM blocks from a `NODE_EXTRA_CA_CERTS` file, or none when it is absent. */
 function extraCaRoots(): string[] {
   const path = process.env.NODE_EXTRA_CA_CERTS;
@@ -129,27 +156,31 @@ function requestUpstream(
         port: target.port || 443,
         path: `${target.pathname}${target.search}`,
         method: options.method,
+        agent: httpsAgent,
         headers: {
           ...options.headers,
-          // Avoid gzip: node:https does not decompress for us.
-          "Accept-Encoding": "identity",
+          "Accept-Encoding": "gzip, deflate, br",
           ...(options.body ? { "Content-Length": Buffer.byteLength(options.body) } : {}),
         },
-        // Full verification; TRUSTED_CA carries the intermediate the upstream
-        // leaves out of its chain.
-        ca: TRUSTED_CA,
-        rejectUnauthorized: true,
         servername: target.hostname,
       },
       (response) => {
         const chunks: Buffer[] = [];
         response.on("data", (chunk: Buffer) => chunks.push(chunk));
         response.on("end", () => {
-          resolve({
-            status: response.statusCode ?? 0,
-            body: Buffer.concat(chunks),
-            contentType: String(response.headers["content-type"] ?? ""),
-          });
+          const raw = Buffer.concat(chunks);
+          const encoding = Array.isArray(response.headers["content-encoding"])
+            ? response.headers["content-encoding"][0]
+            : response.headers["content-encoding"];
+          decodeBody(raw, encoding).then(
+            (body) =>
+              resolve({
+                status: response.statusCode ?? 0,
+                body,
+                contentType: String(response.headers["content-type"] ?? ""),
+              }),
+            reject,
+          );
         });
       },
     );
@@ -177,10 +208,10 @@ function requestPlain(
         port: target.port || 80,
         path: `${target.pathname}${target.search}`,
         method: options.method,
+        agent: httpAgent,
         headers: {
           ...options.headers,
-          // node:http does not decompress either.
-          "Accept-Encoding": "identity",
+          "Accept-Encoding": "gzip, deflate, br",
           ...(options.body ? { "Content-Length": Buffer.byteLength(options.body) } : {}),
         },
       },
@@ -188,11 +219,19 @@ function requestPlain(
         const chunks: Buffer[] = [];
         response.on("data", (chunk: Buffer) => chunks.push(chunk));
         response.on("end", () => {
-          resolve({
-            status: response.statusCode ?? 0,
-            body: Buffer.concat(chunks),
-            contentType: String(response.headers["content-type"] ?? ""),
-          });
+          const raw = Buffer.concat(chunks);
+          const encoding = Array.isArray(response.headers["content-encoding"])
+            ? response.headers["content-encoding"][0]
+            : response.headers["content-encoding"];
+          decodeBody(raw, encoding).then(
+            (body) =>
+              resolve({
+                status: response.statusCode ?? 0,
+                body,
+                contentType: String(response.headers["content-type"] ?? ""),
+              }),
+            reject,
+          );
         });
       },
     );
@@ -204,6 +243,33 @@ function requestPlain(
     if (options.body) request.write(options.body);
     request.end();
   });
+}
+
+const inFlight = new Map<string, Promise<string>>();
+const textCache = new Map<string, { value: string; expires: number }>();
+const TEXT_CACHE_LIMIT = 500;
+
+function readTextCache(key: string): string | undefined {
+  const hit = textCache.get(key);
+  if (!hit) return undefined;
+  if (hit.expires <= Date.now()) {
+    textCache.delete(key);
+    return undefined;
+  }
+  textCache.delete(key);
+  textCache.set(key, hit);
+  return hit.value;
+}
+
+function storeTextCache(key: string, value: string, ttlSeconds: number): void {
+  if (ttlSeconds <= 0) return;
+  const now = Date.now();
+  while (textCache.size >= TEXT_CACHE_LIMIT) {
+    const oldest = textCache.keys().next().value;
+    if (oldest === undefined) break;
+    textCache.delete(oldest);
+  }
+  textCache.set(key, { value, expires: now + ttlSeconds * 1000 });
 }
 
 /**
@@ -250,8 +316,25 @@ async function cachedText(
     { revalidate: options.revalidate },
   );
 
+  const flightKey = `${options.revalidate}\0${options.method}\0${url}\0${options.body ?? ""}`;
+  const hot = options.revalidate > 0 ? readTextCache(flightKey) : undefined;
+  if (hot !== undefined) return hot;
+
+  let pending = inFlight.get(flightKey);
+  if (!pending) {
+    pending = request(url, options.method, options.body)
+      .then((text) => {
+        storeTextCache(flightKey, text, options.revalidate);
+        return text;
+      })
+      .finally(() => {
+        inFlight.delete(flightKey);
+      });
+    inFlight.set(flightKey, pending);
+  }
+
   try {
-    return await request(url, options.method, options.body);
+    return await pending;
   } catch {
     recordFailure(url);
     return null;
@@ -509,7 +592,11 @@ export async function fetchTeamFragment(
 export function asset(path: string | null | undefined): string | null {
   if (!path) return null;
   if (path.startsWith("http")) return path;
-  return `${ASSET_ORIGIN}${path.startsWith("/") ? "" : "/"}${path}`;
+  const trimmed = path.replace(/^\/+/, "");
+  if (trimmed.startsWith("resources/upload/")) {
+    return `https://pbatour.org/${trimmed}`;
+  }
+  return `${ASSET_ORIGIN}/${trimmed}`;
 }
 
 /** Upstream flags a fair number of assets as literal placeholder strings. */

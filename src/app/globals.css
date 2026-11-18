@@ -202,86 +202,33 @@
   font-family: var(--sans);
 }
 
-/* ---------------- flags (CSS only) ---------------- */
+/* ---------------- flags (flag-icons SVG) ---------------- */
 
 .f {
   display: inline-block;
   width: 16px;
-  height: 11px;
+  height: 12px;
   flex: none;
-  border-radius: 1px;
+  border-radius: 1.5px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
   vertical-align: -1px;
+  background-size: cover;
+  background-position: 50%;
+  background-repeat: no-repeat;
+  overflow: hidden;
+}
+
+.f:not(.fi) {
   background: linear-gradient(135deg, var(--bar-2), var(--line-2));
 }
 
-.f-kr {
-  background: radial-gradient(circle at 50% 50%, transparent 0 2.8px, #fff 3px),
-    linear-gradient(#cd2e3a 50%, #0047a0 50%);
+.f.fi {
+  width: 16px;
+  line-height: 12px;
 }
-.f-es {
-  background: linear-gradient(#aa151b 25%, #f1bf00 25% 75%, #aa151b 75%);
-}
-.f-vn {
-  background: radial-gradient(circle, #ffcd00 0 2px, transparent 2.3px), #da251d;
-}
-.f-tr {
-  background: radial-gradient(circle at 46% 50%, #e30a17 0 2.3px, transparent 2.5px),
-    radial-gradient(circle at 40% 50%, #fff 0 3px, transparent 3.2px),
-    #e30a17;
-}
-.f-be {
-  background: linear-gradient(90deg, #111 33%, #fdda24 33% 66%, #ef3340 66%);
-}
-.f-gr {
-  background: repeating-linear-gradient(#0d5eaf 0 1.23px, #fff 1.23px 2.46px);
-}
-.f-co {
-  background: linear-gradient(#fcd116 50%, #003893 50% 75%, #ce1126 75%);
-}
-.f-nl {
-  background: linear-gradient(#ae1c28 33%, #fff 33% 66%, #21468b 66%);
-}
-.f-jp {
-  background: radial-gradient(circle, #bc002d 0 2.6px, transparent 2.9px), #fff;
-}
-.f-at {
-  background: linear-gradient(#ed2939 33%, #fff 33% 66%, #ed2939 66%);
-}
-.f-fr {
-  background: linear-gradient(90deg, #002395 33%, #fff 33% 66%, #ed2939 66%);
-}
-.f-de {
-  background: linear-gradient(#000 33%, #dd0000 33% 66%, #ffce00 66%);
-}
-.f-us {
-  background: linear-gradient(90deg, #3c3b6e 40%, transparent 40%),
-    repeating-linear-gradient(#b22234 0 1.6px, #fff 1.6px 3.2px);
-}
-.f-dk {
-  background: linear-gradient(90deg, transparent 30%, #fff 30% 42%, transparent 42%),
-    linear-gradient(transparent 40%, #fff 40% 60%, transparent 60%),
-    #c60c30;
-}
-.f-eg {
-  background: linear-gradient(#ce1126 33%, #fff 33% 66%, #000 66%);
-}
-.f-it {
-  background: linear-gradient(90deg, #009246 33%, #fff 33% 66%, #ce2b37 66%);
-}
-.f-pt {
-  background: linear-gradient(90deg, #006600 40%, #ff0000 40%);
-}
-.f-se {
-  background: linear-gradient(90deg, transparent 30%, #fecc00 30% 44%, transparent 44%),
-    linear-gradient(transparent 38%, #fecc00 38% 62%, transparent 62%),
-    #006aa7;
-}
-.f-mx {
-  background: linear-gradient(90deg, #006847 33%, #fff 33% 66%, #ce1126 66%);
-}
-.f-cn {
-  background: radial-gradient(circle at 22% 30%, #ffde00 0 1.8px, transparent 2px), #de2910;
+
+.f.fi::before {
+  content: none;
 }
 
 /* ---------------- crest / avatar / ball ---------------- */
@@ -853,14 +800,14 @@
   font-size: 12.5px;
   gap: 8px;
 }
-.lineup li span {
+.lineup li > span:first-child {
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
 }
 .res {
-  font: 700 10.5px var(--cond);
+  font: 700 10.5px/1 var(--cond);
   width: 16px;
   height: 16px;
   display: inline-grid;

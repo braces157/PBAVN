@@ -5,8 +5,10 @@ import { getPressDetail, getPressList } from "@/lib/pba/api";
 import { normalizeArticle } from "@/lib/normalize";
 import { excerpt, fmtDate, grouped, stripTags } from "@/lib/format";
 import { sanitizeCmsHtml, htmlTextLength } from "@/lib/sanitize";
+import { translateArticleFull, translateKoToEn, translatePlainTitles } from "@/lib/translate";
 import { SafeImage } from "@/components/ui/safe-image";
-import { EmptyState, TextLink } from "@/components/ui/primitives";
+import { splitNewsHeadline } from "@/lib/news";
+import { EmptyState, TextLink, cn } from "@/components/ui/primitives";
 
 export const revalidate = 900;
 
@@ -18,9 +20,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { seq } = await params;
   const article = await getPressDetail(seq);
   if (!article) return { title: "Article not found" };
+  const [title, description] = await Promise.all([
+    translateKoToEn(stripTags(article.TITLE)),
+    translateKoToEn(excerpt(article.CONTENT, 180)),
+  ]);
   return {
-    title: article.TITLE,
-    description: excerpt(article.CONTENT, 180),
+    title,
+    description,
   };
 }
 
@@ -29,50 +35,59 @@ export default async function ArticlePage({ params }: PageProps) {
   const [raw, recent] = await Promise.all([getPressDetail(seq), getPressList(1, 5)]);
   if (!raw) notFound();
 
-  const article = normalizeArticle(raw);
-  const related = recent.list.filter((item) => item.SEQ !== article.seq).slice(0, 3);
-  const body = sanitizeCmsHtml(article.body);
-  const hasBody = htmlTextLength(article.body) > 0;
+  const normalized = normalizeArticle(raw);
+  const related = recent.list.filter((item) => item.SEQ !== normalized.seq).slice(0, 3);
+  const [{ article, body }, relatedTitles] = await Promise.all([
+    translateArticleFull(normalized, sanitizeCmsHtml(normalized.body)),
+    translatePlainTitles(related.map((item) => item.TITLE)),
+  ]);
+  const hasBody = htmlTextLength(body) > 0;
+  const { tag, headline } = splitNewsHeadline(article.title);
+  const readMinutes = Math.max(1, Math.round(htmlTextLength(body) / 900));
 
   return (
     <>
-      <div className="border-b border-ink-800 bg-ink-900/60">
+      <div className="border-b border-[var(--line)] bg-[var(--bar)]">
         <div className="mx-auto max-w-[900px] px-4 pb-6 pt-5 sm:px-6">
-          <nav className="flex items-center gap-1.5 text-[11.5px] text-fog-500" aria-label="Breadcrumb">
-            <Link href="/news" className="transition-colors hover:text-carom-300">
+          <nav className="flex items-center gap-1.5 text-[11.5px] text-[var(--muted)]" aria-label="Breadcrumb">
+            <Link href="/news" className="transition-colors hover:text-[var(--link)]">
               Newsroom
             </Link>
             <span aria-hidden="true">/</span>
-            <span className="text-fog-300">Press release</span>
+            <span className="text-[var(--text-2)]">Press release</span>
           </nav>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="tnum rounded border border-ink-700 bg-ink-900 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-fog-300">
+            <span className={cn("tag", tag.cls)}>{tag.label}</span>
+            <span className="tnum rounded border border-[var(--line)] bg-[var(--panel)] px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[var(--text-2)]">
               {fmtDate(article.date)}
             </span>
-            <span className="tnum text-[10.5px] text-fog-550">{grouped(article.views)} views</span>
+            <span className="tnum text-[11px] text-[var(--muted)]">{readMinutes} min read</span>
+            <span className="tnum text-[11px] text-[var(--muted)]">· {grouped(article.views)} views</span>
             {article.featured && (
-              <span className="rounded bg-carom-400/15 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-carom-300">
+              <span className="rounded bg-[var(--yellow)]/20 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-[var(--yellow-ink)]">
                 Featured
               </span>
             )}
           </div>
 
-          <h1 className="mt-3 font-display text-[clamp(1.4rem,2.8vw,2.15rem)] font-bold leading-[1.15] tracking-tight text-fog-100">
-            {article.title}
+          <h1 className="mt-3 font-display text-[clamp(1.45rem,2.9vw,2.2rem)] font-bold leading-[1.15] tracking-tight text-[var(--text)]">
+            {headline}
           </h1>
         </div>
       </div>
 
       <article className="mx-auto max-w-[900px] px-4 py-8 sm:px-6">
         {article.image && (
-          <SafeImage
-            src={article.image}
-            alt={article.title}
-            loading="eager"
-            className="mb-6 w-full rounded-[8px] border border-ink-750 object-cover"
-            fallback={<span />}
-          />
+          <div className="mb-6 overflow-hidden rounded-[6px] border border-[var(--line)] bg-[var(--bar)]">
+            <SafeImage
+              src={article.image}
+              alt={headline}
+              loading="eager"
+              className="mx-auto max-h-[500px] w-full object-contain"
+              fallback={<span />}
+            />
+          </div>
         )}
 
         {hasBody ? (
@@ -103,7 +118,7 @@ export default async function ArticlePage({ params }: PageProps) {
           <section className="mt-10">
             <h2 className="eyebrow">More from the association</h2>
             <div className="mt-3 divide-y divide-ink-800 rounded-[8px] border border-ink-750 bg-ink-900">
-              {related.map((item) => (
+              {related.map((item, index) => (
                 <Link
                   key={item.SEQ}
                   href={`/news/${item.SEQ}`}
@@ -111,7 +126,7 @@ export default async function ArticlePage({ params }: PageProps) {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-semibold text-fog-100 group-hover:text-carom-300">
-                      {stripTags(item.TITLE)}
+                      {relatedTitles[index] || stripTags(item.TITLE)}
                     </p>
                     <p className="tnum mt-0.5 text-[10.5px] text-fog-550">{fmtDate(item.VIEW_DATE)}</p>
                   </div>

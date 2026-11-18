@@ -55,6 +55,9 @@ export function sanitizeCmsHtml(input: string | null | undefined): string {
     return `<a${next} target="_blank" rel="noreferrer noopener">`;
   });
 
+  // Drop empty spacer paragraphs (`<p>&nbsp;</p>`) common in CMS exports.
+  html = html.replace(/<p\b[^>]*>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, "");
+
   return html.trim();
 }
 

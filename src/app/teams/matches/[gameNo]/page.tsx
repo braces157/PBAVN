@@ -4,8 +4,8 @@ import { notFound } from "next/navigation";
 import { getTeamLeagueRounds, getTeamLeagueSeasons, trackFailures } from "@/lib/pba/api";
 import { getRequestFailures } from "@/lib/pba/failures";
 import { FIXTURES_ARCHIVE_TTL, FIXTURES_IN_PLAY_TTL, getBoutInnings, getFixtureBouts } from "@/lib/pba/team-matches";
-import { average } from "@/lib/format";
 import { FilterRow } from "@/components/domain/filter-bar";
+import { TeamBoutList } from "@/components/domain/team-bout-list";
 import { DataStatus } from "@/components/site/data-status";
 import { TeamLogo } from "@/components/ui/media";
 import { Chip, EmptyState, LiveChip, cn } from "@/components/ui/primitives";
@@ -288,127 +288,14 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
           </div>
         </div>
 
-        <ul className="mt-5 space-y-3">
-          {bouts.bouts.map((bout) => {
-            const expanded = selectedSet === bout.setNo;
-            return (
-              <li key={bout.setNo} id={`set-${bout.setNo}`} className="scroll-mt-20">
-                <div className="surface overflow-hidden">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-ink-800 bg-ink-850 px-4 py-2">
-                    <span className="font-display text-[12.5px] font-bold uppercase tracking-wide text-fog-100">
-                      Set {bout.setNo}
-                    </span>
-                    {bout.format && <Chip tone="neutral">{bout.format}</Chip>}
-                    {bout.playedAt && (
-                      <span className="tnum text-[11px] text-fog-500">{bout.playedAt}</span>
-                    )}
-                    <span className="flex-1" />
-                    {bout.tgCode ? (
-                      <Link
-                        href={`/teams/matches/${gameNo}?season=${encodeURIComponent(season?.시즌코드 ?? "")}&round=${encodeURIComponent(roundCode)}&set=${bout.setNo}`}
-                        className={cn(
-                          "text-[11.5px] font-semibold underline-offset-2 hover:underline",
-                          expanded ? "text-carom-300" : "text-carom-400",
-                        )}
-                      >
-                        {expanded ? "Innings shown" : "Innings →"}
-                      </Link>
-                    ) : (
-                      <span className="text-[11px] text-fog-550">In play</span>
-                    )}
-                  </div>
-
-                  <div className="space-y-2 p-4">
-                    {bout.sides.map((side, index) => (
-                      <div
-                        key={`${bout.setNo}-${index}`}
-                        className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5"
-                      >
-                        <span
-                          className={cn(
-                            "w-5 shrink-0 text-center text-[11px] font-bold",
-                            side.won ? "text-carom-300" : "text-fog-600",
-                          )}
-                        >
-                          {side.won ? "W" : ""}
-                        </span>
-                        <span
-                          className={cn(
-                            "min-w-0 flex-1 text-[13px]",
-                            side.won ? "font-bold text-fog-100" : "text-fog-300",
-                          )}
-                        >
-                          {side.names.join(" / ")}
-                        </span>
-                        <span className="tnum font-display text-[13.5px] font-bold text-fog-100">
-                          {side.points ?? "—"}P / {side.innings ?? "—"}
-                        </span>
-                        <span className="tnum w-14 text-right text-[12px] text-fog-400">
-                          {average(side.average)}
-                        </span>
-                        <span className="tnum w-12 text-right text-[12px] text-fog-500">
-                          HR {side.highRun ?? "—"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {expanded &&
-                    (innings && innings.rows.length > 0 ? (
-                      <div className="border-t border-ink-800">
-                        <div className="overflow-x-auto">
-                          <table className="stat-table">
-                            <thead>
-                              <tr>
-                                <th>Inning</th>
-                                <th className="!text-left">Home 1P/2P</th>
-                                <th>Score</th>
-                                <th>Total</th>
-                                <th className="!text-left">Away 1P/2P</th>
-                                <th>Score</th>
-                                <th>Total</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {innings.rows.map((row) => {
-                                const [home, away] = row.sides;
-                                return (
-                                  <tr key={row.inning}>
-                                    <td className="tnum font-semibold text-fog-100">{row.inning}</td>
-                                    <td className="!text-left tnum text-fog-300">
-                                      {home ? `${home.onePoint}/${home.twoPoint}` : "—"}
-                                    </td>
-                                    <td className="tnum text-fog-300">{home?.score ?? "—"}</td>
-                                    <td className="tnum font-bold text-carom-300">
-                                      {home?.total ?? "—"}
-                                    </td>
-                                    <td className="!text-left tnum text-fog-300">
-                                      {away ? `${away.onePoint}/${away.twoPoint}` : "—"}
-                                    </td>
-                                    <td className="tnum text-fog-300">{away?.score ?? "—"}</td>
-                                    <td className="tnum font-bold text-gold-300">
-                                      {away?.total ?? "—"}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                        <p className="border-t border-ink-800 px-4 py-2 text-[11px] text-fog-550">
-                          Score is points in that inning; Total is the cumulative score.
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="border-t border-ink-800 px-4 py-3 text-[12px] text-fog-450">
-                        Per-inning detail publishes once the bout completes.
-                      </p>
-                    ))}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <TeamBoutList
+          bouts={bouts.bouts}
+          gameNo={gameNo}
+          seasonCode={season?.시즌코드 ?? ""}
+          roundCode={roundCode}
+          initialSet={selectedSet}
+          initialInnings={innings}
+        />
 
         <p className="mt-5 text-[12px] text-fog-500">
           <Link
