@@ -37,13 +37,16 @@ function useLiveFeed(initial: LiveFeed, tourCode?: string) {
     prevTourCodeRef.current = tourCode;
     if (!tourChanged && incomingTs < latestFetchedAtRef.current) return;
 
-    requestId.current += 1;
-    controllerRef.current?.abort();
-    controllerRef.current = null;
+    if (tourChanged) {
+      requestId.current += 1;
+      controllerRef.current?.abort();
+      controllerRef.current = null;
+      setRefreshing(false);
+    }
+
     latestFetchedAtRef.current = incomingTs;
     setFeed(initial);
     setLastChecked(new Date(initial.fetchedAt));
-    setRefreshing(false);
   }, [initial, tourCode]);
 
   const refresh = useCallback(async () => {
