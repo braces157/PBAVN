@@ -36,6 +36,7 @@
  * to the next day in a viewer's timezone.
  */
 
+import { unstable_cache } from "next/cache";
 import { fetchDatedHtmlFragment, fetchHtmlFragment } from "./http";
 import { getTournamentDetail } from "./api";
 import { parseBracketRows, type BracketMatch } from "./bracket-parse";
@@ -169,41 +170,105 @@ async function teamLeagueMatches(
 
 /* ---------------------------------------------------------------- tour events */
 
+const PARSED_CACHE_LIMIT = 300;
+const parsedCache = new Map<string, { value: unknown; expires: number }>();
+
+function readParsedCache<T>(key: string): T | undefined {
+  const hit = parsedCache.get(key);
+  if (!hit) return undefined;
+  if (hit.expires <= Date.now()) {
+    parsedCache.delete(key);
+    return undefined;
+  }
+  parsedCache.delete(key);
+  parsedCache.set(key, hit);
+  return hit.value as T;
+}
+
+function writeParsedCache(key: string, value: unknown, ttlSeconds: number): void {
+  if (ttlSeconds <= 0) return;
+  while (parsedCache.size >= PARSED_CACHE_LIMIT) {
+    const oldest = parsedCache.keys().next().value;
+    if (oldest === undefined) break;
+    parsedCache.delete(oldest);
+  }
+  parsedCache.set(key, { value, expires: Date.now() + ttlSeconds * 1000 });
+}
+
 /** The Latin names for a bracket, keyed by match code. */
 async function englishNames(tourCode: string, depth: number, revalidate: number) {
-  const html = await fetchHtmlFragment(
-    `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(tourCode)}&iBLCode=${depth}&iPage=1&txt_Search=&LangCode=en`,
-    { revalidate, timeoutMs: 12_000 },
+  const memKey = `en:${tourCode}:${depth}:${revalidate}`;
+  const hot = readParsedCache<[string, string[]][]>(memKey);
+  if (hot) return { names: new Map<string, string[]>(hot), reachable: true };
+
+  const read = unstable_cache(
+    async (code: string, bracketDepth: number, ttl: number) => {
+      const html = await fetchHtmlFragment(
+        `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(code)}&iBLCode=${bracketDepth}&iPage=1&txt_Search=&LangCode=en`,
+        { revalidate: ttl, timeoutMs: 12_000 },
+      );
+      if (html === null) throw new Error("UNREACHABLE");
+      const rows: BracketMatch[] = parseBracketRows(html, bracketDepth);
+      const pairs = rows.map((row): [string, string[]] => [
+        row.pstCode,
+        row.sides.map((side) => side.name),
+      ]);
+      writeParsedCache(memKey, pairs, ttl);
+      return pairs;
+    },
+    ["pba-day-english-names", `ttl-${revalidate}`],
+    { revalidate },
   );
-  const rows: BracketMatch[] = parseBracketRows(html, depth);
-  const byPst = new Map<string, string[]>();
-  for (const row of rows) byPst.set(row.pstCode, row.sides.map((side) => side.name));
-  return { names: byPst, reachable: html !== null };
+
+  try {
+    const pairs = await read(tourCode, depth, revalidate);
+    return { names: new Map<string, string[]>(pairs), reachable: true };
+  } catch {
+    return { names: new Map<string, string[]>(), reachable: false };
+  }
 }
 
 /** The dated rows for one bracket depth, walking back through the pages until
  * the day is covered. A page holds the 20 newest rows, so a deep draw's first
  * round needs several pages before its oldest row predates `day`. */
 async function datedRows(tourCode: string, depth: number, revalidate: number, day: string) {
-  const rows: DatedMatch[] = [];
-  for (let page = 1; page <= 8; page++) {
-    const html = await fetchDatedHtmlFragment(
-      `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(tourCode)}&iBLCode=${depth}&iPage=${page}&txt_Search=`,
-      { revalidate, timeoutMs: 12_000 },
-    );
-    if (html === null) return { rows, reachable: false };
-    const pageRows = parseDatedBracketRows(html, depth);
-    if (pageRows.length === 0) break;
-    rows.push(...pageRows);
-    // Rows arrive newest first: once the oldest row on this page predates the
-    // day, later pages cannot contain it.
-    const oldest = pageRows
-      .map((row) => row.at)
-      .filter((value): value is string => Boolean(value))
-      .sort()[0];
-    if (oldest && oldest.slice(0, 10) < day) break;
+  const memKey = `dr:${tourCode}:${depth}:${revalidate}:${day}`;
+  const hot = readParsedCache<DatedMatch[]>(memKey);
+  if (hot) return { rows: hot, reachable: true };
+
+  const read = unstable_cache(
+    async (code: string, bracketDepth: number, ttl: number, targetDay: string) => {
+      const rows: DatedMatch[] = [];
+      for (let page = 1; page <= 8; page++) {
+        const html = await fetchDatedHtmlFragment(
+          `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(code)}&iBLCode=${bracketDepth}&iPage=${page}&txt_Search=`,
+          { revalidate: ttl, timeoutMs: 12_000 },
+        );
+        if (html === null) throw new Error("UNREACHABLE");
+        const pageRows = parseDatedBracketRows(html, bracketDepth);
+        if (pageRows.length === 0) break;
+        rows.push(...pageRows);
+        // Rows arrive newest first: once the oldest row on this page predates the
+        // day, later pages cannot contain it.
+        const oldest = pageRows
+          .map((row) => row.at)
+          .filter((value): value is string => Boolean(value))
+          .sort()[0];
+        if (oldest && oldest.slice(0, 10) < targetDay) break;
+      }
+      writeParsedCache(memKey, rows, ttl);
+      return rows;
+    },
+    ["pba-day-dated-rows", `ttl-${revalidate}`],
+    { revalidate },
+  );
+
+  try {
+    const rows = await read(tourCode, depth, revalidate, day);
+    return { rows, reachable: true };
+  } catch {
+    return { rows: [] as DatedMatch[], reachable: false };
   }
-  return { rows, reachable: true };
 }
 
 /** An unplayed row is live once its own kickoff has passed, otherwise up next. */

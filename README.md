@@ -26,8 +26,10 @@ service (`pbatour.org`). Nothing is hand-entered, scraped into a warehouse, or e
 | ![Player profile with season statistics and titles](docs/screenshots/player.webp) | ![Searchable directory of 1,700 professionals](docs/screenshots/directory.webp) |
 | **Prize rankings** | **Team league** |
 | ![Sortable prize-money table](docs/screenshots/rankings.webp) | ![Team-league standings and round fixtures](docs/screenshots/standings.webp) |
-| **Club page** | **Head-to-head** |
-| ![Club roster, statistics and head-to-head record](docs/screenshots/club.webp) | ![Two players compared with every recorded meeting](docs/screenshots/head-to-head.webp) |
+| **Club page** | **Team fixture** |
+| ![Club roster, statistics and head-to-head record](docs/screenshots/club.webp) | ![Team-league fixture with expandable bout innings](docs/screenshots/team-fixture.webp) |
+| **Head-to-head** | **Newsroom** |
+| ![Two players compared with every recorded meeting](docs/screenshots/head-to-head.webp) | ![Translated newsroom with Press, PBA TV and Galleries](docs/screenshots/news.webp) |
 
 <p align="center">
   <img src="docs/screenshots/mobile-home.webp" width="280" alt="Home page on a 390px phone"><br>
@@ -64,7 +66,7 @@ npm run lint       # tsc --noEmit
 npm test           # parser and analytics suites, no network
 npm run build
 npm start &        # in another terminal
-npm run verify     # launches headless Chrome, asserts 25 interactions
+npm run verify     # launches headless Chrome, asserts 28 interactions
 ```
 
 `npm run refresh-data` rebuilds the two committed translation lookups described in

@@ -223,7 +223,7 @@ export function Pagination({
   return (
     <nav className="flex items-center justify-center gap-1 pt-5" aria-label="Pagination">
       {page === 1 ? (
-        <span aria-hidden="true" className={cn(base, "border-[var(--line)] bg-[var(--panel)] text-[var(--muted)] opacity-40")}>
+        <span aria-hidden="true" className={cn(base, "border-[var(--line)] bg-[var(--bar)] text-[var(--muted)] opacity-60")}>
           ←
         </span>
       ) : (
@@ -255,7 +255,7 @@ export function Pagination({
           className={cn(
             base,
             p === page
-              ? "border-[var(--nav)] bg-[var(--nav)] text-white"
+              ? "border-[var(--line-2)] border-b-2 border-b-[var(--yellow)] bg-[var(--bar-2)] text-[var(--text)]"
               : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:border-[var(--link)] hover:text-[var(--link)]",
           )}
         >
@@ -276,7 +276,7 @@ export function Pagination({
       )}
 
       {page === pageCount ? (
-        <span aria-hidden="true" className={cn(base, "border-[var(--line)] bg-[var(--panel)] text-[var(--muted)] opacity-40")}>
+        <span aria-hidden="true" className={cn(base, "border-[var(--line)] bg-[var(--bar)] text-[var(--muted)] opacity-60")}>
           →
         </span>
       ) : (

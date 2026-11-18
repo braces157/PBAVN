@@ -39,6 +39,7 @@ import {
 import { photoUrl } from "@/lib/photo";
 import { SafeImage } from "@/components/ui/safe-image";
 import { clubBadge, flagClass, leagueTagClass } from "@/components/ui/media";
+import { translateArticleTitles } from "@/lib/translate";
 import { cn } from "@/components/ui/primitives";
 import type { RawRankingRow, RawTop5Row } from "@/lib/pba/types";
 
@@ -124,7 +125,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   );
   const lastDay = previousActiveDay(focusDay, events);
 
-  const [feed, dayBoard, recentDayBoard, press, pbaPointsRank, lpbaPointsRank, activeRank, teamSeason, leaders] =
+  const [feed, dayBoard, recentDayBoard, press, pbaPointsRank, lpbaPointsRank, prizeRank, teamSeason, leaders] =
     await Promise.all([
       getLiveFeed(),
       getDayBoard(focusDay),
@@ -132,32 +133,34 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       getPressList(1, 9),
       getRankingBoard({ kind: "point", leagueCode: "PBA1", season: seasonCode }),
       getRankingBoard({ kind: "point", leagueCode: "LPBA1", season: seasonCode }),
-      getRankingBoard({
-        kind: rtab === "money" ? "prize" : "point",
-        leagueCode: rtab === "lpba" ? "LPBA1" : "PBA1",
-        season: seasonCode,
-      }),
+      rtab === "money"
+        ? getRankingBoard({ kind: "prize", leagueCode: "PBA1", season: seasonCode })
+        : Promise.resolve(null),
       getActiveTeamSeason(),
       getLeaders(seasonCode, "PBA1"),
     ]);
 
+  const activeRank = rtab === "money" ? (prizeRank ?? []) : rtab === "lpba" ? lpbaPointsRank : pbaPointsRank;
+  const spotlightRow = pbaPointsRank[0] ?? lpbaPointsRank[0] ?? null;
+
   const liveRound = teamSeason?.liveRound ?? null;
-  const [standings, roundFixtures] = teamSeason
-    ? await Promise.all([
-        getTeamStandings({
+  const [standings, roundFixtures, spotlightRaw] = await Promise.all([
+    teamSeason
+      ? getTeamStandings({
           seasonCode: teamSeason.season.시즌코드,
           leagueCode: String(teamSeason.season.리그코드),
           roundCode: liveRound ? String(liveRound.라운드코드) : "0",
-        }).then((rows) => rows.map(normalizeTeam)),
-        liveRound
-          ? getRoundFixtures(
-              String(liveRound.라운드코드),
-              liveRound.라운드,
-              liveRound.진행상황 === "진행중" ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
-            )
-          : Promise.resolve([] as TeamFixture[]),
-      ])
-    : [[], [] as TeamFixture[]];
+        }).then((rows) => rows.map(normalizeTeam))
+      : Promise.resolve([]),
+    teamSeason && liveRound
+      ? getRoundFixtures(
+          String(liveRound.라운드코드),
+          liveRound.라운드,
+          liveRound.진행상황 === "진행중" ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
+        )
+      : Promise.resolve([] as TeamFixture[]),
+    spotlightRow ? getPlayerCached(spotlightRow.MemCode).catch(() => null) : Promise.resolve(null),
+  ]);
 
   const defaultMTab: MTab = feed.matches.length > 0 ? "live" : dayBoard.matches.length > 0 ? "today" : "upcoming";
   const mtab: MTab = VALID_MTAB.includes(params.mtab as MTab) ? (params.mtab as MTab) : defaultMTab;
@@ -178,8 +181,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     }
   }
 
-  const spotlightRow = pbaPointsRank[0] ?? lpbaPointsRank[0] ?? null;
-  const spotlightRaw = spotlightRow ? await getPlayerCached(spotlightRow.MemCode).catch(() => null) : null;
   const spotlightPlayer = spotlightRaw ? normalizePlayer(spotlightRaw) : null;
 
   // Determine featured Team League fixture bouts if we don't have a live feed match with bouts
@@ -187,11 +188,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const playedFixtures = [...roundFixtures].filter((f) => f.played).reverse();
   const upcomingFixtures = roundFixtures.filter((f) => !f.played);
   const featuredTeamFixture = !liveLead && playedFixtures[0]?.gameNo && liveRound ? playedFixtures[0] : null;
-  const featuredBouts = featuredTeamFixture?.gameNo && liveRound
-    ? await getFixtureBouts(String(liveRound.라운드코드), liveRound.라운드, featuredTeamFixture.gameNo).catch(() => null)
-    : null;
-
-  const articles = press.list.map(normalizeArticle);
+  const [featuredBouts, articles] = await Promise.all([
+    featuredTeamFixture?.gameNo && liveRound
+      ? getFixtureBouts(String(liveRound.라운드코드), liveRound.라운드, featuredTeamFixture.gameNo).catch(() => null)
+      : Promise.resolve(null),
+    translateArticleTitles(press.list.map(normalizeArticle), { budgetMs: 1_500 }),
+  ]);
   const nameIndex = getPlayerNameIndex();
 
   const resolveLeaderName = (row: RawTop5Row) => {
