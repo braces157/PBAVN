@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { splitNewsHeadline } from "@/lib/news";
 import { SafeImage } from "@/components/ui/safe-image";
 import { cn } from "@/components/ui/primitives";
@@ -24,15 +24,23 @@ export interface GalleryCardItem {
 
 export function NewsVideoGrid({ items }: { items: VideoCardItem[] }) {
   const [active, setActive] = useState<VideoCardItem | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const openerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    if (!active) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setActive(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (active?.youtubeId) {
+      if (!dialog.open) dialog.showModal();
+    } else if (dialog.open) {
+      dialog.close();
+    }
   }, [active]);
+
+  const closeDialog = () => {
+    setActive(null);
+    openerRef.current?.focus();
+  };
 
   return (
     <>
@@ -50,8 +58,9 @@ export function NewsVideoGrid({ items }: { items: VideoCardItem[] }) {
             <button
               key={video.seq}
               type="button"
-              onClick={() => {
+              onClick={(e) => {
                 if (video.youtubeId) {
+                  openerRef.current = e.currentTarget;
                   setActive(video);
                 } else if (watchUrl) {
                   window.open(watchUrl, "_blank", "noopener,noreferrer");
@@ -96,18 +105,17 @@ export function NewsVideoGrid({ items }: { items: VideoCardItem[] }) {
         })}
       </div>
 
-      {active && active.youtubeId && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label={active.title}
-          onClick={() => setActive(null)}
-        >
-          <div
-            className="w-full max-w-[920px] overflow-hidden rounded-[6px] border border-[var(--line-2)] bg-[var(--panel)] shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <dialog
+        ref={dialogRef}
+        aria-label={active?.title ?? "Video player"}
+        onClose={closeDialog}
+        onClick={(e) => {
+          if (e.target === dialogRef.current) setActive(null);
+        }}
+        className="m-auto w-[calc(100%-2rem)] max-w-[920px] overflow-hidden rounded-[6px] border border-[var(--line-2)] bg-[var(--panel)] p-0 text-inherit shadow-2xl backdrop:bg-black/80"
+      >
+        {active && active.youtubeId && (
+          <div>
             <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--bar)] px-4 py-2.5">
               <p className="truncate font-display text-[15px] font-bold text-[var(--text)]">
                 {splitNewsHeadline(active.title).headline}
@@ -141,19 +149,30 @@ export function NewsVideoGrid({ items }: { items: VideoCardItem[] }) {
               />
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </dialog>
     </>
   );
 }
 
 export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const openerRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (activeIndex !== null) {
+      if (!dialog.open) dialog.showModal();
+    } else if (dialog.open) {
+      dialog.close();
+    }
+  }, [activeIndex]);
 
   useEffect(() => {
     if (activeIndex === null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setActiveIndex(null);
       if (e.key === "ArrowRight") setActiveIndex((i) => (i === null ? null : (i + 1) % items.length));
       if (e.key === "ArrowLeft")
         setActiveIndex((i) => (i === null ? null : (i - 1 + items.length) % items.length));
@@ -161,6 +180,11 @@ export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [activeIndex, items.length]);
+
+  const closeDialog = () => {
+    setActiveIndex(null);
+    openerRef.current?.focus();
+  };
 
   const active = activeIndex !== null ? items[activeIndex] ?? null : null;
 
@@ -173,7 +197,10 @@ export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
             <button
               key={gallery.seq}
               type="button"
-              onClick={() => setActiveIndex(index)}
+              onClick={(e) => {
+                openerRef.current = e.currentTarget;
+                setActiveIndex(index);
+              }}
               className="surface card-hover group flex flex-col overflow-hidden text-left"
             >
               <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--bar)]">
@@ -203,18 +230,17 @@ export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
         })}
       </div>
 
-      {active && activeIndex !== null && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-xs"
-          role="dialog"
-          aria-modal="true"
-          aria-label={active.title}
-          onClick={() => setActiveIndex(null)}
-        >
-          <div
-            className="w-full max-w-[960px] overflow-hidden rounded-[6px] border border-[var(--line-2)] bg-[var(--panel)] shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <dialog
+        ref={dialogRef}
+        aria-label={active?.title ?? "Photo viewer"}
+        onClose={closeDialog}
+        onClick={(e) => {
+          if (e.target === dialogRef.current) setActiveIndex(null);
+        }}
+        className="m-auto w-[calc(100%-2rem)] max-w-[960px] overflow-hidden rounded-[6px] border border-[var(--line-2)] bg-[var(--panel)] p-0 text-inherit shadow-2xl backdrop:bg-black/85"
+      >
+        {active && activeIndex !== null && (
+          <div>
             <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--bar)] px-4 py-2.5">
               <div className="min-w-0">
                 <p className="truncate font-display text-[15px] font-bold text-[var(--text)]">
@@ -261,8 +287,8 @@ export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
               />
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </dialog>
     </>
   );
 }

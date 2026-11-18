@@ -60,6 +60,16 @@ function httpsJsonRequest(
 ): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const target = new URL(url);
+    let settled = false;
+    let timer: NodeJS.Timeout | undefined;
+
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      fn();
+    };
+
     const req = httpsRequest(
       {
         protocol: target.protocol,
@@ -82,22 +92,45 @@ function httpsJsonRequest(
       (res) => {
         const chunks: Buffer[] = [];
         res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("error", (err) => finish(() => reject(err)));
+        res.on("close", () => {
+          if (!res.complete) {
+            finish(() => reject(new Error("TRANSLATE_INCOMPLETE")));
+          }
+        });
         res.on("end", () => {
-          resolve({
-            status: res.statusCode ?? 0,
-            body: Buffer.concat(chunks).toString("utf8"),
-          });
+          if (!res.complete) {
+            finish(() => reject(new Error("TRANSLATE_INCOMPLETE")));
+            return;
+          }
+          finish(() =>
+            resolve({
+              status: res.statusCode ?? 0,
+              body: Buffer.concat(chunks).toString("utf8"),
+            }),
+          );
         });
       },
     );
 
-    req.setTimeout(REQUEST_TIMEOUT_MS, () => {
-      req.destroy(new Error("TRANSLATE_TIMEOUT"));
-    });
-    req.on("error", reject);
+    // Start the deadline before the agent assigns a socket so queued calls time out on budget.
+    timer = setTimeout(() => {
+      const err = new Error("TRANSLATE_TIMEOUT");
+      req.destroy(err);
+      finish(() => reject(err));
+    }, REQUEST_TIMEOUT_MS);
+
+    req.on("error", (err) => finish(() => reject(err)));
     if (options.body) req.write(options.body);
     req.end();
   });
+}
+
+function validEnglish(out: string | null | undefined): string | null {
+  if (!out) return null;
+  const trimmed = out.trim();
+  if (!trimmed || hasKorean(trimmed)) return null;
+  return out;
 }
 
 async function translateViaGtx(text: string): Promise<string | null> {
@@ -115,8 +148,7 @@ async function translateViaGtx(text: string): Promise<string | null> {
     const parsed = JSON.parse(res.body) as [Array<[string, ...unknown[]]>?];
     const segments = parsed?.[0];
     if (!Array.isArray(segments)) return null;
-    const out = segments.map((part) => part?.[0] ?? "").join("");
-    return out.trim() ? out : null;
+    return validEnglish(segments.map((part) => part?.[0] ?? "").join(""));
   } catch {
     return null;
   }
@@ -135,9 +167,7 @@ async function translateViaSimplyIciba(text: string): Promise<string | null> {
     }
     if (res.status < 200 || res.status >= 300) return null;
     const parsed = JSON.parse(res.body) as { translated_text?: string };
-    const out = parsed.translated_text;
-    if (!out || !out.trim()) return null;
-    return decodeHtmlEntities(out);
+    return validEnglish(parsed.translated_text ? decodeHtmlEntities(parsed.translated_text) : null);
   } catch {
     return null;
   }
@@ -166,8 +196,87 @@ async function translateViaMyMemory(text: string): Promise<string | null> {
       return null;
     }
     const out = parsed.responseData?.translatedText;
-    if (!out || !out.trim() || out.startsWith("QUERY LENGTH LIMIT")) return null;
-    return decodeHtmlEntities(out);
+    if (!out || out.startsWith("QUERY LENGTH LIMIT")) return null;
+    return validEnglish(decodeHtmlEntities(out));
+  } catch {
+    return null;
+  }
+}
+
+async function translateViaGoogleApiBatch(texts: string[], apiKey: string): Promise<string[] | null> {
+  try {
+    const res = await httpsJsonRequest(
+      `https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json; charset=UTF-8" },
+        body: JSON.stringify({ q: texts, source: "ko", target: "en", format: "text" }),
+      },
+    );
+    if (res.status < 200 || res.status >= 300) return null;
+    const parsed = JSON.parse(res.body) as {
+      data?: { translations?: Array<{ translatedText?: string }> };
+    };
+    const items = parsed.data?.translations;
+    if (!Array.isArray(items) || items.length !== texts.length) return null;
+    const mapped = items.map((entry) =>
+      validEnglish(entry?.translatedText ? decodeHtmlEntities(entry.translatedText) : null),
+    );
+    return mapped.every((item): item is string => item !== null) ? mapped : null;
+  } catch {
+    return null;
+  }
+}
+
+async function translateViaDeepLBatch(texts: string[], apiKey: string): Promise<string[] | null> {
+  try {
+    const host = apiKey.endsWith(":fx") ? "api-free.deepl.com" : "api.deepl.com";
+    const res = await httpsJsonRequest(`https://${host}/v2/translate`, {
+      method: "POST",
+      headers: {
+        Authorization: `DeepL-Auth-Key ${apiKey}`,
+        "Content-Type": "application/json; charset=UTF-8",
+      },
+      body: JSON.stringify({ text: texts, source_lang: "KO", target_lang: "EN" }),
+    });
+    if (res.status < 200 || res.status >= 300) return null;
+    const parsed = JSON.parse(res.body) as { translations?: Array<{ text?: string }> };
+    const items = parsed.translations;
+    if (!Array.isArray(items) || items.length !== texts.length) return null;
+    const mapped = items.map((entry) => validEnglish(entry?.text));
+    return mapped.every((item): item is string => item !== null) ? mapped : null;
+  } catch {
+    return null;
+  }
+}
+
+async function translateViaGemini(text: string, apiKey: string): Promise<string | null> {
+  try {
+    const res = await httpsJsonRequest(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json; charset=UTF-8" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Translate the following Korean PBA 3-cushion billiards news text into natural English. Output only the translation:\n\n${text}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: { temperature: 0.1 },
+        }),
+      },
+    );
+    if (res.status < 200 || res.status >= 300) return null;
+    const parsed = JSON.parse(res.body) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const out = parsed.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("");
+    return validEnglish(out);
   } catch {
     return null;
   }
@@ -189,90 +298,31 @@ function chunkText(text: string, maxLen: number): string[] {
   return chunks;
 }
 
-async function translateViaGoogleApi(text: string, apiKey: string): Promise<string | null> {
-  try {
-    const res = await httpsJsonRequest(
-      `https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json; charset=UTF-8" },
-        body: JSON.stringify({ q: text, source: "ko", target: "en", format: "text" }),
-      },
-    );
-    if (res.status < 200 || res.status >= 300) return null;
-    const parsed = JSON.parse(res.body) as {
-      data?: { translations?: Array<{ translatedText?: string }> };
-    };
-    const out = parsed.data?.translations?.[0]?.translatedText;
-    return out && out.trim() ? decodeHtmlEntities(out) : null;
-  } catch {
-    return null;
+async function translateChunks(
+  parts: string[],
+  joiner: string,
+  fn: (part: string) => Promise<string | null>,
+): Promise<string | null> {
+  const out: string[] = [];
+  for (const part of parts) {
+    const translated = await fn(part);
+    if (!translated) return null;
+    out.push(translated);
   }
-}
-
-async function translateViaDeepL(text: string, apiKey: string): Promise<string | null> {
-  try {
-    const host = apiKey.endsWith(":fx") ? "api-free.deepl.com" : "api.deepl.com";
-    const res = await httpsJsonRequest(`https://${host}/v2/translate`, {
-      method: "POST",
-      headers: {
-        Authorization: `DeepL-Auth-Key ${apiKey}`,
-        "Content-Type": "application/json; charset=UTF-8",
-      },
-      body: JSON.stringify({ text: [text], source_lang: "KO", target_lang: "EN" }),
-    });
-    if (res.status < 200 || res.status >= 300) return null;
-    const parsed = JSON.parse(res.body) as { translations?: Array<{ text?: string }> };
-    const out = parsed.translations?.[0]?.text;
-    return out && out.trim() ? out : null;
-  } catch {
-    return null;
-  }
-}
-
-async function translateViaGemini(text: string, apiKey: string): Promise<string | null> {
-  try {
-    const res = await httpsJsonRequest(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json; charset=UTF-8" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `Translate the following Korean PBA 3-cushion billiards news text into natural English. Preserve line breaks exactly (one translated line per input line). Output only the translation:\n\n${text}`,
-                },
-              ],
-            },
-          ],
-          generationConfig: { temperature: 0.1 },
-        }),
-      },
-    );
-    if (res.status < 200 || res.status >= 300) return null;
-    const parsed = JSON.parse(res.body) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-    const out = parsed.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("");
-    return out && out.trim() ? out.trim() : null;
-  } catch {
-    return null;
-  }
+  return validEnglish(out.join(joiner));
 }
 
 async function translateSingleRaw(text: string): Promise<string> {
   const googleKey = process.env.GOOGLE_TRANSLATE_API_KEY?.trim();
   if (googleKey) {
-    const translated = await translateViaGoogleApi(text, googleKey);
-    if (translated) return translated;
+    const translated = await translateViaGoogleApiBatch([text], googleKey);
+    if (translated?.[0]) return translated[0];
   }
 
   const deeplKey = process.env.DEEPL_API_KEY?.trim();
   if (deeplKey) {
-    const translated = await translateViaDeepL(text, deeplKey);
-    if (translated) return translated;
+    const translated = await translateViaDeepLBatch([text], deeplKey);
+    if (translated?.[0]) return translated[0];
   }
 
   const geminiKey = process.env.GEMINI_API_KEY?.trim();
@@ -281,49 +331,19 @@ async function translateSingleRaw(text: string): Promise<string> {
     if (translated) return translated;
   }
 
-  const gtxParts = chunkText(text, 3000);
   if (Date.now() >= gtxBlockedUntil) {
-    const out: string[] = [];
-    let ok = true;
-    for (const part of gtxParts) {
-      const translated = await translateViaGtx(part);
-      if (!translated) {
-        ok = false;
-        break;
-      }
-      out.push(translated);
-    }
-    if (ok) return out.join("");
+    const translated = await translateChunks(chunkText(text, 3000), "", translateViaGtx);
+    if (translated) return translated;
   }
 
-  const icibaParts = chunkText(text, 1400);
   if (Date.now() >= simplyIcibaBlockedUntil) {
-    const out: string[] = [];
-    let ok = true;
-    for (const part of icibaParts) {
-      const translated = await translateViaSimplyIciba(part);
-      if (!translated) {
-        ok = false;
-        break;
-      }
-      out.push(translated);
-    }
-    if (ok) return out.join("\n");
+    const translated = await translateChunks(chunkText(text, 1400), "\n", translateViaSimplyIciba);
+    if (translated) return translated;
   }
 
-  const mmParts = chunkText(text, 380);
   if (Date.now() >= myMemoryBlockedUntil) {
-    const out: string[] = [];
-    let ok = true;
-    for (const part of mmParts) {
-      const translated = await translateViaMyMemory(part);
-      if (!translated) {
-        ok = false;
-        break;
-      }
-      out.push(translated);
-    }
-    if (ok) return out.join("\n");
+    const translated = await translateChunks(chunkText(text, 380), " ", translateViaMyMemory);
+    if (translated) return translated;
   }
 
   throw new Error("TRANSLATE_UNAVAILABLE");
@@ -331,7 +351,7 @@ async function translateSingleRaw(text: string): Promise<string> {
 
 const cachedTranslateSingle = unstable_cache(
   async (text: string) => translateSingleRaw(text),
-  ["pba-translate-ko-en-v3"],
+  ["pba-translate-ko-en-v4"],
   { revalidate: TRANSLATE_TTL_SECONDS },
 );
 
@@ -352,9 +372,10 @@ export async function translateKoToEn(text: string): Promise<string> {
   if (!pending) {
     pending = cachedTranslateSingle(text)
       .then((out) => {
-        if (!out || hasKorean(out)) return text;
-        writeMemory(key, out);
-        return out;
+        const checked = validEnglish(out);
+        if (!checked) return text;
+        writeMemory(key, checked);
+        return checked;
       })
       .finally(() => {
         inFlight.delete(key);
@@ -390,15 +411,21 @@ async function mapConcurrent<T, R>(
 }
 
 /**
- * Translate a list of strings in minimal batched requests so pages with 10-15
- * headlines or paragraphs don't trigger per-request rate limits.
+ * Translate a list of strings using provider-enforced 1:1 per-item mappings
+ * (Google v2 / DeepL batch arrays, or per-item calls for single-string
+ * providers) with optional render budget so callers like the home page never
+ * block on slow external translation.
  */
-async function translateManyKoToEn(texts: string[]): Promise<string[]> {
+async function translateManyKoToEn(
+  texts: string[],
+  options: { budgetMs?: number } = {},
+): Promise<string[]> {
   if (texts.length === 0) return [];
   if (process.env.PBA_OFFLINE === "1") return texts;
 
   const results = [...texts];
-  const missingIndices: number[] = [];
+  const uniqueMissing: string[] = [];
+  const positionsByText = new Map<string, number[]>();
 
   for (let i = 0; i < texts.length; i += 1) {
     const t = texts[i];
@@ -406,84 +433,76 @@ async function translateManyKoToEn(texts: string[]): Promise<string[]> {
     const hot = readMemory(cacheKey("txt", t));
     if (hot !== undefined) {
       results[i] = hot;
-    } else {
-      missingIndices.push(i);
-    }
-  }
-
-  if (missingIndices.length === 0) return results;
-
-  const hasApiKey = Boolean(
-    process.env.GOOGLE_TRANSLATE_API_KEY?.trim() ||
-      process.env.DEEPL_API_KEY?.trim() ||
-      process.env.GEMINI_API_KEY?.trim(),
-  );
-  const maxBatchChars =
-    hasApiKey || Date.now() >= gtxBlockedUntil
-      ? 2400
-      : Date.now() >= simplyIcibaBlockedUntil
-        ? 1400
-        : 360;
-  const batches: number[][] = [];
-  let current: number[] = [];
-  let currentLen = 0;
-
-  for (const idx of missingIndices) {
-    const clean = texts[idx].replace(/\r?\n+/g, " ").trim();
-    if (!clean) continue;
-    if (current.length > 0 && currentLen + clean.length + 1 > maxBatchChars) {
-      batches.push(current);
-      current = [];
-      currentLen = 0;
-    }
-    current.push(idx);
-    currentLen += clean.length + 1;
-  }
-  if (current.length > 0) batches.push(current);
-
-  const fallbackIndices: number[] = [];
-
-  for (const batch of batches) {
-    if (batch.length === 1) {
-      fallbackIndices.push(batch[0]);
       continue;
     }
-
-    const joined = batch.map((idx) => texts[idx].replace(/\r?\n+/g, " ").trim()).join("\n");
-    const batchKey = cacheKey("batch", joined);
-    let translatedJoined: string | null = readMemory(batchKey) ?? null;
-
-    if (translatedJoined === null) {
-      try {
-        translatedJoined = await cachedTranslateSingle(joined);
-        if (translatedJoined && !hasKorean(translatedJoined)) {
-          writeMemory(batchKey, translatedJoined);
-        }
-      } catch {
-        translatedJoined = null;
-      }
-    }
-
-    const lines = translatedJoined ? translatedJoined.split(/\r?\n/).map((l) => l.trim()) : null;
-    if (lines && lines.length === batch.length && lines.every((l) => l.length > 0 && !hasKorean(l))) {
-      for (let i = 0; i < batch.length; i += 1) {
-        const idx = batch[i];
-        results[idx] = lines[i];
-        writeMemory(cacheKey("txt", texts[idx]), lines[i]);
-      }
+    const list = positionsByText.get(t);
+    if (list) {
+      list.push(i);
     } else {
-      fallbackIndices.push(...batch);
+      positionsByText.set(t, [i]);
+      uniqueMissing.push(t);
     }
   }
 
-  if (fallbackIndices.length > 0) {
-    const resolved = await mapConcurrent(fallbackIndices, 2, (idx) => translateKoToEn(texts[idx]));
-    for (let i = 0; i < fallbackIndices.length; i += 1) {
-      results[fallbackIndices[i]] = resolved[i];
+  if (uniqueMissing.length === 0) return results;
+
+  const assign = (source: string, translated: string) => {
+    const positions = positionsByText.get(source);
+    if (!positions) return;
+    for (const pos of positions) results[pos] = translated;
+  };
+
+  const work = (async () => {
+    const googleKey = process.env.GOOGLE_TRANSLATE_API_KEY?.trim();
+    if (googleKey) {
+      const batch = await translateViaGoogleApiBatch(uniqueMissing, googleKey);
+      if (batch) {
+        for (let i = 0; i < uniqueMissing.length; i += 1) {
+          writeMemory(cacheKey("txt", uniqueMissing[i]), batch[i]);
+          assign(uniqueMissing[i], batch[i]);
+        }
+        return;
+      }
     }
+
+    const deeplKey = process.env.DEEPL_API_KEY?.trim();
+    if (deeplKey) {
+      const batch = await translateViaDeepLBatch(uniqueMissing, deeplKey);
+      if (batch) {
+        for (let i = 0; i < uniqueMissing.length; i += 1) {
+          writeMemory(cacheKey("txt", uniqueMissing[i]), batch[i]);
+          assign(uniqueMissing[i], batch[i]);
+        }
+        return;
+      }
+    }
+
+    await mapConcurrent(uniqueMissing, 2, async (item) => {
+      const translated = await translateKoToEn(item);
+      assign(item, translated);
+    });
+  })();
+
+  if (options.budgetMs !== undefined && options.budgetMs > 0) {
+    let timer: NodeJS.Timeout | undefined;
+    await Promise.race([
+      work,
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, options.budgetMs);
+      }),
+    ]);
+    if (timer) clearTimeout(timer);
+  } else {
+    await work;
   }
 
   return results;
+}
+
+function safeFromCodePoint(raw: string, radix: number, fallback: string): string {
+  const code = Number.parseInt(raw, radix);
+  if (!Number.isInteger(code) || code < 0 || code > 0x10ffff) return fallback;
+  return String.fromCodePoint(code);
 }
 
 function decodeHtmlEntities(text: string): string {
@@ -494,28 +513,69 @@ function decodeHtmlEntities(text: string): string {
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&#(\d+);/g, (_m, code) => {
-      const n = Number(code);
-      return Number.isFinite(n) ? String.fromCodePoint(n) : _m;
-    });
+    .replace(/&#(\d+);/g, (m, digits: string) => safeFromCodePoint(digits, 10, m))
+    .replace(/&#x([0-9a-f]+);/gi, (m, hex: string) => safeFromCodePoint(hex, 16, m));
 }
 
 function escapeHtmlText(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+/**
+ * Split HTML into raw tags and text nodes while respecting single- and
+ * double-quoted attribute values so `>` inside attributes is never treated as a
+ * tag terminator.
+ */
+function tokenizeHtml(html: string): { isTag: boolean; value: string }[] {
+  const tokens: { isTag: boolean; value: string }[] = [];
+  let i = 0;
+  let textStart = 0;
+
+  while (i < html.length) {
+    if (html[i] === "<") {
+      if (i > textStart) {
+        tokens.push({ isTag: false, value: html.slice(textStart, i) });
+      }
+      let j = i + 1;
+      let quote: string | null = null;
+      while (j < html.length) {
+        const ch = html[j];
+        if (quote) {
+          if (ch === quote) quote = null;
+        } else if (ch === '"' || ch === "'") {
+          quote = ch;
+        } else if (ch === ">") {
+          j += 1;
+          break;
+        }
+        j += 1;
+      }
+      tokens.push({ isTag: true, value: html.slice(i, j) });
+      i = j;
+      textStart = j;
+    } else {
+      i += 1;
+    }
+  }
+
+  if (textStart < html.length) {
+    tokens.push({ isTag: false, value: html.slice(textStart) });
+  }
+  return tokens;
+}
+
 const cachedTranslateHtml = unstable_cache(
   async (html: string) => {
-    const parts = html.split(/(<[^>]+>)/g);
+    const tokens = tokenizeHtml(html);
     const segmentIndices: number[] = [];
     const segmentCores: string[] = [];
     const leadingSpaces: string[] = [];
     const trailingSpaces: string[] = [];
 
-    for (let i = 0; i < parts.length; i += 1) {
-      const part = parts[i];
-      if (!part || part.startsWith("<")) continue;
-      const decoded = decodeHtmlEntities(part);
+    for (let i = 0; i < tokens.length; i += 1) {
+      const token = tokens[i];
+      if (token.isTag || !token.value) continue;
+      const decoded = decodeHtmlEntities(token.value);
       if (!hasKorean(decoded)) continue;
       const leading = decoded.match(/^\s*/)?.[0] ?? "";
       const trailing = decoded.match(/\s*$/)?.[0] ?? "";
@@ -536,14 +596,14 @@ const cachedTranslateHtml = unstable_cache(
     }
 
     for (let i = 0; i < segmentIndices.length; i += 1) {
-      parts[segmentIndices[i]] = escapeHtmlText(
+      tokens[segmentIndices[i]].value = escapeHtmlText(
         `${leadingSpaces[i]}${translated[i]}${trailingSpaces[i]}`,
       );
     }
 
-    return parts.join("");
+    return tokens.map((token) => token.value).join("");
   },
-  ["pba-translate-html-v3"],
+  ["pba-translate-html-v4"],
   { revalidate: TRANSLATE_TTL_SECONDS },
 );
 
@@ -579,8 +639,14 @@ export async function translateHtmlKoToEn(html: string): Promise<string> {
   }
 }
 
-export async function translateArticleTitles(articles: Article[]): Promise<Article[]> {
-  const translated = await translateManyKoToEn(articles.map((article) => article.title));
+export async function translateArticleTitles(
+  articles: Article[],
+  options: { budgetMs?: number } = {},
+): Promise<Article[]> {
+  const translated = await translateManyKoToEn(
+    articles.map((article) => article.title),
+    options,
+  );
   return articles.map((article, i) => ({
     ...article,
     title: translated[i],

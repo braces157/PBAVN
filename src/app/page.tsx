@@ -192,7 +192,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     featuredTeamFixture?.gameNo && liveRound
       ? getFixtureBouts(String(liveRound.라운드코드), liveRound.라운드, featuredTeamFixture.gameNo).catch(() => null)
       : Promise.resolve(null),
-    translateArticleTitles(press.list.map(normalizeArticle)),
+    translateArticleTitles(press.list.map(normalizeArticle), { budgetMs: 1_500 }),
   ]);
   const nameIndex = getPlayerNameIndex();
 

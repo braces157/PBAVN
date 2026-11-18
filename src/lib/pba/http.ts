@@ -143,55 +143,107 @@ interface RawResponse {
   contentType: string;
 }
 
-function requestUpstream(
+function sendRequest(
+  transport: "https" | "http",
   url: string,
   options: { method: string; headers: Record<string, string>; body?: string; timeoutMs: number },
 ): Promise<RawResponse> {
   return new Promise((resolve, reject) => {
     const target = new URL(url);
-    const request = httpsRequest(
-      {
-        protocol: target.protocol,
-        hostname: target.hostname,
-        port: target.port || 443,
-        path: `${target.pathname}${target.search}`,
-        method: options.method,
-        agent: httpsAgent,
-        headers: {
-          ...options.headers,
-          "Accept-Encoding": "gzip, deflate, br",
-          ...(options.body ? { "Content-Length": Buffer.byteLength(options.body) } : {}),
-        },
-        servername: target.hostname,
-      },
-      (response) => {
-        const chunks: Buffer[] = [];
-        response.on("data", (chunk: Buffer) => chunks.push(chunk));
-        response.on("end", () => {
-          const raw = Buffer.concat(chunks);
-          const encoding = Array.isArray(response.headers["content-encoding"])
-            ? response.headers["content-encoding"][0]
-            : response.headers["content-encoding"];
-          decodeBody(raw, encoding).then(
-            (body) =>
+    let settled = false;
+    let timer: NodeJS.Timeout | undefined;
+
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      fn();
+    };
+
+    const headers: Record<string, string | number> = {
+      ...options.headers,
+      "Accept-Encoding": "gzip, deflate, br",
+      ...(options.body ? { "Content-Length": Buffer.byteLength(options.body) } : {}),
+    };
+
+    const onResponse = (response: import("node:http").IncomingMessage) => {
+      const chunks: Buffer[] = [];
+      response.on("data", (chunk: Buffer) => chunks.push(chunk));
+      response.on("error", (err) => finish(() => reject(err)));
+      response.on("close", () => {
+        if (!response.complete) {
+          finish(() => reject(new Error("PBA_UPSTREAM_INCOMPLETE")));
+        }
+      });
+      response.on("end", () => {
+        if (!response.complete) {
+          finish(() => reject(new Error("PBA_UPSTREAM_INCOMPLETE")));
+          return;
+        }
+        const raw = Buffer.concat(chunks);
+        const encoding = Array.isArray(response.headers["content-encoding"])
+          ? response.headers["content-encoding"][0]
+          : response.headers["content-encoding"];
+        decodeBody(raw, encoding).then(
+          (body) =>
+            finish(() =>
               resolve({
                 status: response.statusCode ?? 0,
                 body,
                 contentType: String(response.headers["content-type"] ?? ""),
               }),
-            reject,
-          );
-        });
-      },
-    );
+            ),
+          (err) => finish(() => reject(err)),
+        );
+      });
+    };
 
-    request.setTimeout(options.timeoutMs, () => {
-      request.destroy(new Error("PBA_UPSTREAM_TIMEOUT"));
-    });
-    request.on("error", reject);
+    const request =
+      transport === "https"
+        ? httpsRequest(
+            {
+              protocol: target.protocol,
+              hostname: target.hostname,
+              port: target.port || 443,
+              path: `${target.pathname}${target.search}`,
+              method: options.method,
+              agent: httpsAgent,
+              headers,
+              servername: target.hostname,
+            },
+            onResponse,
+          )
+        : httpRequest(
+            {
+              protocol: target.protocol,
+              hostname: target.hostname,
+              port: target.port || 80,
+              path: `${target.pathname}${target.search}`,
+              method: options.method,
+              agent: httpAgent,
+              headers,
+            },
+            onResponse,
+          );
+
+    // Start the deadline before the agent assigns a socket so queued requests fail on time.
+    timer = setTimeout(() => {
+      const err = new Error("PBA_UPSTREAM_TIMEOUT");
+      request.destroy(err);
+      finish(() => reject(err));
+    }, options.timeoutMs);
+
+    request.on("error", (err) => finish(() => reject(err)));
     if (options.body) request.write(options.body);
     request.end();
   });
+}
+
+function requestUpstream(
+  url: string,
+  options: { method: string; headers: Record<string, string>; body?: string; timeoutMs: number },
+): Promise<RawResponse> {
+  return sendRequest("https", url, options);
 }
 
 /** Same shape as `requestUpstream`, for the team host that never had TLS. */
@@ -199,50 +251,7 @@ function requestPlain(
   url: string,
   options: { method: string; headers: Record<string, string>; body?: string; timeoutMs: number },
 ): Promise<RawResponse> {
-  return new Promise((resolve, reject) => {
-    const target = new URL(url);
-    const request = httpRequest(
-      {
-        protocol: target.protocol,
-        hostname: target.hostname,
-        port: target.port || 80,
-        path: `${target.pathname}${target.search}`,
-        method: options.method,
-        agent: httpAgent,
-        headers: {
-          ...options.headers,
-          "Accept-Encoding": "gzip, deflate, br",
-          ...(options.body ? { "Content-Length": Buffer.byteLength(options.body) } : {}),
-        },
-      },
-      (response) => {
-        const chunks: Buffer[] = [];
-        response.on("data", (chunk: Buffer) => chunks.push(chunk));
-        response.on("end", () => {
-          const raw = Buffer.concat(chunks);
-          const encoding = Array.isArray(response.headers["content-encoding"])
-            ? response.headers["content-encoding"][0]
-            : response.headers["content-encoding"];
-          decodeBody(raw, encoding).then(
-            (body) =>
-              resolve({
-                status: response.statusCode ?? 0,
-                body,
-                contentType: String(response.headers["content-type"] ?? ""),
-              }),
-            reject,
-          );
-        });
-      },
-    );
-
-    request.setTimeout(options.timeoutMs, () => {
-      request.destroy(new Error("PBA_UPSTREAM_TIMEOUT"));
-    });
-    request.on("error", reject);
-    if (options.body) request.write(options.body);
-    request.end();
-  });
+  return sendRequest("http", url, options);
 }
 
 const inFlight = new Map<string, Promise<string>>();
@@ -298,6 +307,10 @@ async function cachedText(
     revalidate: number;
   },
 ): Promise<string | null> {
+  const flightKey = `${options.revalidate}\0${options.method}\0${url}\0${options.body ?? ""}`;
+  const hot = options.revalidate > 0 ? readTextCache(flightKey) : undefined;
+  if (hot !== undefined) return hot;
+
   const request = unstable_cache(
     async (target: string, cacheMethod: "GET" | "POST", cacheBody: string | undefined) => {
       const result = target.startsWith("http://")
@@ -310,26 +323,20 @@ async function cachedText(
       ) {
         throw new Error(`PBA_UPSTREAM_STATUS_${result.status}`);
       }
-      return result.body.toString("utf8");
+      const text = result.body.toString("utf8");
+      // Populate the in-memory cache only when an actual upstream fetch ran so stale Next cache hits keep their true TTL.
+      storeTextCache(flightKey, text, options.revalidate);
+      return text;
     },
     ["pba-upstream", `ttl-${options.revalidate}`],
     { revalidate: options.revalidate },
   );
 
-  const flightKey = `${options.revalidate}\0${options.method}\0${url}\0${options.body ?? ""}`;
-  const hot = options.revalidate > 0 ? readTextCache(flightKey) : undefined;
-  if (hot !== undefined) return hot;
-
   let pending = inFlight.get(flightKey);
   if (!pending) {
-    pending = request(url, options.method, options.body)
-      .then((text) => {
-        storeTextCache(flightKey, text, options.revalidate);
-        return text;
-      })
-      .finally(() => {
-        inFlight.delete(flightKey);
-      });
+    pending = request(url, options.method, options.body).finally(() => {
+      inFlight.delete(flightKey);
+    });
     inFlight.set(flightKey, pending);
   }
 

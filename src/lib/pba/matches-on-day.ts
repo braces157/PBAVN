@@ -209,7 +209,12 @@ async function englishNames(tourCode: string, depth: number, revalidate: number)
       );
       if (html === null) throw new Error("UNREACHABLE");
       const rows: BracketMatch[] = parseBracketRows(html, bracketDepth);
-      return rows.map((row): [string, string[]] => [row.pstCode, row.sides.map((side) => side.name)]);
+      const pairs = rows.map((row): [string, string[]] => [
+        row.pstCode,
+        row.sides.map((side) => side.name),
+      ]);
+      writeParsedCache(memKey, pairs, ttl);
+      return pairs;
     },
     ["pba-day-english-names", `ttl-${revalidate}`],
     { revalidate },
@@ -217,7 +222,6 @@ async function englishNames(tourCode: string, depth: number, revalidate: number)
 
   try {
     const pairs = await read(tourCode, depth, revalidate);
-    writeParsedCache(memKey, pairs, revalidate);
     return { names: new Map<string, string[]>(pairs), reachable: true };
   } catch {
     return { names: new Map<string, string[]>(), reachable: false };
@@ -252,6 +256,7 @@ async function datedRows(tourCode: string, depth: number, revalidate: number, da
           .sort()[0];
         if (oldest && oldest.slice(0, 10) < targetDay) break;
       }
+      writeParsedCache(memKey, rows, ttl);
       return rows;
     },
     ["pba-day-dated-rows", `ttl-${revalidate}`],
@@ -260,7 +265,6 @@ async function datedRows(tourCode: string, depth: number, revalidate: number, da
 
   try {
     const rows = await read(tourCode, depth, revalidate, day);
-    writeParsedCache(memKey, rows, revalidate);
     return { rows, reachable: true };
   } catch {
     return { rows: [] as DatedMatch[], reachable: false };
