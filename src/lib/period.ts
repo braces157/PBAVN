@@ -10,6 +10,7 @@
  * they are normalised once, here, into names the UI can use.
  */
 
+import { cleanPlayerName, hasHangul, romanizeKoreanName } from "./format";
 import type { RawPeriodStat } from "./pba/types";
 
 export interface TiebreakRecord {
@@ -75,11 +76,15 @@ export function normalizePeriodStat(raw: RawPeriodStat): PeriodStat {
   const wins = n(raw.승수);
   const losses = n(raw.패수);
   const matches = wins + losses;
+  const rawFull = cleanPlayerName(raw.NameFull) || cleanPlayerName(raw.NameShort) || cleanPlayerName(raw.MemCode);
+  const rawShort = cleanPlayerName(raw.NameShort) || cleanPlayerName(raw.NameFull) || cleanPlayerName(raw.MemCode);
+  const name = hasHangul(rawFull) ? romanizeKoreanName(rawFull) : rawFull;
+  const nameShort = hasHangul(rawShort) ? romanizeKoreanName(rawShort) : rawShort;
 
   return {
     memCode: raw.MemCode,
-    name: raw.NameFull || raw.NameShort || raw.MemCode,
-    nameShort: raw.NameShort || raw.NameFull || raw.MemCode,
+    name,
+    nameShort,
     circuit: raw.PBAType ?? "",
 
     matches,

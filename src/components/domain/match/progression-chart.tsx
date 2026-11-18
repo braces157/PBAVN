@@ -1,24 +1,15 @@
 import { cn } from "@/components/ui/primitives";
 
 const WIDTH = 640;
-const HEIGHT = 180;
-const PAD = { left: 30, right: 10, top: 12, bottom: 24 };
+const HEIGHT = 188;
+const PAD = { left: 32, right: 12, top: 14, bottom: 26 };
 
 export interface ProgressionSeries {
   name: string;
-  /** Running score after each inning. */
   values: number[];
-  /** Tailwind text colour class, so the stroke follows currentColor. */
   tone: string;
 }
 
-/**
- * Cumulative score after every inning, as a step chart.
- *
- * A step, not a line: the score only changes when an inning ends, and a
- * diagonal would imply points arriving mid-inning. The racing line is drawn to
- * the set's target so the gap to winning is legible at a glance.
- */
 export function ProgressionChart({
   series,
   target,
@@ -39,7 +30,6 @@ export function ProgressionChart({
   const y = (score: number) => PAD.top + innerHeight - (score / ceiling) * innerHeight;
 
   const path = (line: number[]): string => {
-    // Start on the baseline, then step after each inning.
     let d = `M ${x(0)} ${y(0)} L ${x(1)} ${y(0)}`;
     for (let index = 0; index < line.length; index += 1) {
       d += ` L ${x(index + 1)} ${y(line[index])}`;
@@ -59,7 +49,7 @@ export function ProgressionChart({
     .join(", ");
 
   return (
-    <figure className="mt-3">
+    <figure className="mt-1 rounded-[6px] border border-ink-800 bg-ink-950/70 p-3">
       <svg
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className="h-auto w-full"
@@ -74,21 +64,21 @@ export function ProgressionChart({
             y1={y(ceiling * fraction)}
             y2={y(ceiling * fraction)}
             stroke="currentColor"
-            className="text-ink-700"
+            className="text-ink-750"
             strokeWidth={1}
             strokeDasharray={fraction === 0 ? undefined : "3 5"}
           />
         ))}
 
         <text
-          x={PAD.left - 6}
+          x={PAD.left - 7}
           y={y(ceiling) + 3}
           textAnchor="end"
-          className="fill-fog-600 text-[9px]"
+          className="fill-fog-550 text-[9.5px]"
         >
           {ceiling}
         </text>
-        <text x={PAD.left - 6} y={y(0) + 3} textAnchor="end" className="fill-fog-600 text-[9px]">
+        <text x={PAD.left - 7} y={y(0) + 3} textAnchor="end" className="fill-fog-550 text-[9.5px]">
           0
         </text>
 
@@ -96,9 +86,9 @@ export function ProgressionChart({
           <text
             key={tick}
             x={x(tick)}
-            y={HEIGHT - 6}
+            y={HEIGHT - 7}
             textAnchor="middle"
-            className="fill-fog-600 text-[9px]"
+            className="fill-fog-550 text-[9.5px]"
           >
             {tick}
           </text>
@@ -110,7 +100,7 @@ export function ProgressionChart({
             d={path(line.values)}
             fill="none"
             stroke="currentColor"
-            strokeWidth={1.75}
+            strokeWidth={2}
             strokeLinejoin="round"
             className={line.tone}
           />
@@ -121,17 +111,17 @@ export function ProgressionChart({
             key={`${line.name}-end`}
             cx={x(innings)}
             cy={y(line.values.at(-1) ?? 0)}
-            r={2.5}
+            r={3}
             fill="currentColor"
             className={line.tone}
           />
         ))}
       </svg>
-      <figcaption className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10.5px] text-fog-600">
-        <span>Innings along the bottom</span>
+      <figcaption className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-fog-450">
+        <span className="text-fog-550">Innings (x-axis)</span>
         {series.map((line) => (
-          <span key={line.name} className="inline-flex items-center gap-1.5">
-            <span className={cn("inline-block h-[2px] w-4 rounded", "bg-current", line.tone)} />
+          <span key={line.name} className="inline-flex items-center gap-1.5 font-medium text-fog-200">
+            <span className={cn("inline-block h-[2.5px] w-4 rounded bg-current", line.tone)} />
             {line.name}
           </span>
         ))}

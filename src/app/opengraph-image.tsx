@@ -1,15 +1,9 @@
 import { ImageResponse } from "next/og";
 
-/**
- * The social card, rendered once at build time. The palette mirrors the site:
- * near-black baize, one lime accent. The default satori font carries the type —
- * no custom font is worth shipping for one image.
- */
-export const alt = "PBA Hub — Professional Billiards Association";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-export default function OpengraphImage() {
+export default function OpenGraphImage() {
   return new ImageResponse(
     (
       <div
@@ -19,56 +13,44 @@ export default function OpengraphImage() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          padding: 84,
-          background: "linear-gradient(135deg, #040507 0%, #0b0e13 60%, #10160c 100%)",
-          color: "#f4f5f1",
+          backgroundColor: "#e4e6e9",
+          color: "#1d2329",
+          padding: "56px 64px",
+          borderTop: "10px solid #1f2933",
+          borderBottom: "8px solid #e9b31c",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div
-            style={{
-              width: 72,
-              height: 72,
-              borderRadius: 18,
-              background: "#d4ff4a",
-              color: "#040507",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 44,
-              fontWeight: 800,
-            }}
-          >
-            8
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <div style={{ width: "26px", height: "26px", borderRadius: "50%", backgroundColor: "#fbfaf6", border: "2px solid #c9ced4" }} />
+            <div style={{ width: "26px", height: "26px", borderRadius: "50%", backgroundColor: "#e9b31c", border: "2px solid #c8960c" }} />
+            <div style={{ width: "26px", height: "26px", borderRadius: "50%", backgroundColor: "#d6322a", border: "2px solid #a01f19" }} />
           </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontSize: 40, fontWeight: 800, letterSpacing: "-0.02em" }}>PBA HUB</span>
-            <span style={{ fontSize: 20, color: "#79828e", letterSpacing: "0.14em" }}>
-              BILLIARDS ASSOCIATION
-            </span>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <span
-            style={{
-              fontSize: 68,
-              fontWeight: 700,
-              letterSpacing: "-0.03em",
-              lineHeight: 1.05,
-              maxWidth: 900,
-            }}
-          >
-            Every table, every frame
+          <span style={{ fontSize: "34px", fontWeight: 900, letterSpacing: "-0.02em" }}>
+            PBA<span style={{ color: "#e9b31c", backgroundColor: "#1f2933", padding: "2px 8px", borderRadius: "4px", marginLeft: "4px" }}>HUB</span>
           </span>
-          <span style={{ fontSize: 28, color: "#9aa1a9", marginTop: 18 }}>
-            Live scores, schedule, rankings and the full PBA / LPBA tour calendar
+          <span style={{ fontSize: "18px", color: "#4b5560", marginLeft: "12px", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>
+            3-Cushion Stats &amp; Live Match Centre
           </span>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 22, color: "#79828e" }}>
-          <span style={{ width: 10, height: 10, borderRadius: 999, background: "#ff3d1f" }} />
-          <span>pbatour.org data · updated through the day</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: "18px", backgroundColor: "#ffffff", border: "1px solid #dcdfe3", borderRadius: "4px", padding: "32px" }}>
+          <div style={{ fontSize: "64px", fontWeight: 900, lineHeight: 1.02, letterSpacing: "-0.02em" }}>
+            Scores, Stats &amp; Standings
+          </div>
+          <div style={{ fontSize: "24px", color: "#4b5560", lineHeight: 1.35 }}>
+            Live carom match centres, inning-by-inning scorecards, prize rankings, and PBA Team League standings.
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: "24px", fontSize: "18px", color: "#1d2329", fontWeight: 700 }}>
+          <span>PBA Tour</span>
+          <span>·</span>
+          <span style={{ color: "#c2185b" }}>LPBA Tour</span>
+          <span>·</span>
+          <span style={{ color: "#c8960c" }}>Dream Tour</span>
+          <span>·</span>
+          <span style={{ color: "#1d4f91" }}>Team League</span>
         </div>
       </div>
     ),

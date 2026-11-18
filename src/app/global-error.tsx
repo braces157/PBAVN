@@ -27,30 +27,36 @@ export default function GlobalError({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#040507",
-          color: "#e2e4dd",
-          fontFamily:
-            "var(--font-inter), Inter, 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif",
+          background: "#e4e6e9",
+          color: "#1d2329",
+          fontFamily: '"IBM Plex Sans", Arial, sans-serif',
         }}
       >
         <div
           role="alert"
-          style={{ maxWidth: 480, padding: "0 1rem", textAlign: "center" }}
+          style={{
+            maxWidth: 480,
+            padding: "24px",
+            textAlign: "center",
+            background: "#ffffff",
+            border: "1px solid #dcdfe3",
+            borderRadius: 3,
+          }}
         >
           <p
             style={{
               margin: 0,
               fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: "0.16em",
+              fontWeight: 700,
+              letterSpacing: "0.08em",
               textTransform: "uppercase",
-              color: "#79828e",
+              color: "#6c7682",
             }}
           >
             Something broke
           </p>
-          <h1 style={{ fontSize: 24, margin: "12px 0 0", fontWeight: 700 }}>The site hit an error</h1>
-          <p style={{ fontSize: 13.5, lineHeight: 1.6, color: "#79828e", margin: "12px 0 0" }}>
+          <h1 style={{ fontSize: 22, margin: "10px 0 0", fontWeight: 700 }}>The site hit an error</h1>
+          <p style={{ fontSize: 13, lineHeight: 1.5, color: "#4b5560", margin: "10px 0 0" }}>
             The page failed before it could render. Retrying usually works; the official site is
             the source of truth.
           </p>
@@ -60,26 +66,26 @@ export default function GlobalError({
                 display: "inline-block",
                 marginTop: 12,
                 padding: "2px 8px",
-                border: "1px solid #1a202b",
-                borderRadius: 6,
-                fontSize: 10.5,
-                color: "#79828e",
+                border: "1px solid #dcdfe3",
+                borderRadius: 3,
+                fontSize: 11,
+                color: "#6c7682",
               }}
             >
               ref {error.digest}
             </p>
           ) : null}
-          <div style={{ marginTop: 24, display: "flex", gap: 10, justifyContent: "center" }}>
+          <div style={{ marginTop: 20, display: "flex", gap: 8, justifyContent: "center" }}>
             <button
               type="button"
               onClick={reset}
               style={{
-                background: "#d4ff4a",
-                color: "#040507",
+                background: "#1f2933",
+                color: "#ffffff",
                 border: "none",
-                borderRadius: 9,
-                padding: "10px 16px",
-                fontSize: 13,
+                borderRadius: 3,
+                padding: "8px 14px",
+                fontSize: 12.5,
                 fontWeight: 600,
                 cursor: "pointer",
               }}
@@ -91,12 +97,12 @@ export default function GlobalError({
               target="_blank"
               rel="noreferrer noopener"
               style={{
-                border: "1px solid #1a202b",
-                borderRadius: 9,
-                padding: "10px 16px",
-                fontSize: 13,
+                border: "1px solid #c9ced4",
+                borderRadius: 3,
+                padding: "8px 14px",
+                fontSize: 12.5,
                 fontWeight: 600,
-                color: "#e2e4dd",
+                color: "#1d2329",
                 textDecoration: "none",
               }}
             >

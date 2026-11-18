@@ -22,6 +22,7 @@ import {
   type RankingKind,
 } from "./api";
 import { byStart, eventStatus, normalizeEvent, normalizeTeam, type Event } from "../normalize";
+import { cleanDisplayText, cleanPlayerName, hasHangul, isPlaceholder, romanizeKoreanName } from "../format";
 import { getPlayerSeasonMatches, searchNameOf, type TourMatch } from "./match-search";
 import { FIXTURES_ARCHIVE_TTL, FIXTURES_IN_PLAY_TTL, getRoundFixtures } from "./team-matches";
 import type { RawLeague, RawSeason } from "./types";
@@ -278,6 +279,9 @@ const SPONSORS: Record<string, string> = {
   하나카드: "Hana Card",
   NH농협카드: "NH Nonghyup Card",
   우리금융캐피탈: "Woori Financial Capital",
+  "SK렌터카": "SK rent-a-car",
+  하이원리조트: "High1 Resort",
+  에스와이: "SY",
   크라운해태: "Crown Haitai",
   휴온스: "Huons",
   하림: "Harim",
@@ -306,9 +310,46 @@ export function englishSponsor(value: string | null | undefined): string {
   return partial ? SPONSORS[partial] : raw;
 }
 
-/** `2026-2027` + Korean league title → a stable English league name. */
+/** `2026-2027` + Korean league title -> a stable English league name. */
 export function teamLeagueTitle(seasonName: string): string {
   return `PBA Team League ${seasonName}`;
+}
+
+export function englishRoundStatus(status: string | null | undefined): string {
+  const s = (status ?? "").trim();
+  if (s === "진행중") return "In progress";
+  if (s === "종료") return "Completed";
+  if (s === "예정" || s === "진행예정") return "Upcoming";
+  return s || "—";
+}
+
+export function translateKoreanTourTitle(rawTitle: string | null | undefined): string {
+  const cleaned = cleanDisplayText(rawTitle);
+  if (!cleaned) return "";
+  if (!hasHangul(cleaned)) return cleaned;
+
+  let out = cleaned;
+  for (const [ko, en] of Object.entries(SPONSORS)) {
+    out = out.replaceAll(ko, en);
+  }
+  out = out
+    .replace(/제(\d+)차\s*투어/g, "Tour $1")
+    .replace(/제(\d+)차/g, "No.$1")
+    .replace(/월드\s*챔피언십/g, "World Championship")
+    .replace(/챔피언십/g, "Championship")
+    .replace(/개막전/g, "Opening Tour")
+    .replace(/파이널/g, "Final")
+    .replace(/드림투어/g, "PBA Dream Tour")
+    .replace(/챌린지투어/g, "PBA Challenge Tour")
+    .replace(/투어/g, "Tour")
+    .replace(/채리티/g, "Charity")
+    .replace(/한가위/g, "Hangawi")
+    .replace(/하노이\s*오픈/g, "Hanoi Open")
+    .replace(/팀리그/g, "Team League")
+    .replace(/포스트시즌/g, "Postseason")
+    .replace(/\s+/g, " ")
+    .trim();
+  return out;
 }
 
 export interface TourTitleEntry {
@@ -360,23 +401,62 @@ export function getPlayerNameIndex(): Map<string, string> {
  */
 const KoreanInitialPattern = /^[A-Za-z가-힣]\.\s*/;
 
-export function resolveKoreanName(champion: string, index: Map<string, string>): string {
-  const raw = champion.trim();
-  if (!raw) return champion;
+export function lookupKoreanName(champion: string, index: Map<string, string>): string | null {
+  const raw = cleanDisplayText(champion);
+  if (!raw || isPlaceholder(raw) || !hasHangul(raw)) return null;
+
+  const finish = (candidate: string): string => cleanPlayerName(candidate);
+
   const exact = index.get(raw);
-  if (exact) return exact;
+  if (exact && !hasHangul(exact) && !isPlaceholder(exact)) {
+    const cleaned = finish(exact);
+    if (cleaned) return cleaned;
+  }
 
   const withoutInitial = raw.replace(KoreanInitialPattern, "").trim();
   if (withoutInitial && withoutInitial !== raw) {
     const direct = index.get(withoutInitial);
-    if (direct) return direct;
+    if (direct && !hasHangul(direct) && !isPlaceholder(direct)) {
+      const cleaned = finish(direct);
+      if (cleaned) return cleaned;
+    }
   }
 
   const needle = withoutInitial || raw;
   for (const [ko, en] of index) {
-    if (ko.endsWith(needle)) return en;
+    if (ko.endsWith(needle) && !hasHangul(en) && !isPlaceholder(en)) {
+      const cleaned = finish(en);
+      if (cleaned) return cleaned;
+    }
   }
-  return champion;
+  return null;
+}
+
+export function resolveKoreanName(champion: string, index: Map<string, string>): string {
+  const raw = cleanDisplayText(champion);
+  if (!raw || isPlaceholder(raw)) return "";
+
+  const matched = lookupKoreanName(raw, index);
+  if (matched) return matched;
+
+  const cleaned = cleanPlayerName(raw);
+  if (!cleaned || isPlaceholder(cleaned)) return "";
+  return hasHangul(cleaned) ? romanizeKoreanName(cleaned) : cleaned;
+}
+
+/** Prefer the official English directory spelling for a Team League player when available. */
+export function resolveOfficialTeamPlayer<
+  T extends { name: string; nameEn: string; raw: { 이름?: string; 외국이름?: string } },
+>(player: T, index: Map<string, string>): T {
+  const rawKo = [player.raw.이름, player.raw.외국이름].find((v) => v && hasHangul(v));
+  if (!rawKo) return player;
+  const official = lookupKoreanName(rawKo, index);
+  if (official) return { ...player, name: official, nameEn: official };
+  if (hasHangul(player.name)) {
+    const romanized = resolveKoreanName(rawKo, index);
+    if (romanized) return { ...player, name: romanized, nameEn: romanized };
+  }
+  return player;
 }
 
 /** Resolve a tour row's Korean title and champion into English where possible. */
@@ -389,8 +469,9 @@ export function resolveTourLabels(rows: {
   const names = getPlayerNameIndex();
   return rows.map((row) => {
     const entry = titles.get(String(row.code));
+    const title = cleanDisplayText(entry?.titleEn) || translateKoreanTourTitle(row.title);
     return {
-      title: entry?.titleEn || row.title,
+      title,
       champion: resolveKoreanName(row.champion, names),
     };
   });

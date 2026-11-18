@@ -3,15 +3,6 @@ import { cn } from "@/components/ui/primitives";
 import { dateParts, isoDay, parseIsoDay, startOfWeek } from "@/lib/format";
 import { RailFocus } from "./rail-focus";
 
-/**
- * The day rail.
- *
- * A sports reader opens the page to answer "what is on, and when", so the page
- * opens on a column of dates rather than a paragraph. The rail is laid out as
- * weeks — Monday first, a 26 px date cell flanked by the month and a bar per
- * event — because a week is the unit a fixture list is planned in, and a bare
- * column of numbers makes a Sunday and a Wednesday look alike.
- */
 export function DateRail({
   days,
   counts,
@@ -22,25 +13,21 @@ export function DateRail({
   scrollerId,
 }: {
   days: string[];
-  /** Optional per-day count, drawn as a thin bar. */
   counts?: Map<string, number>;
   selected: string;
   today: string;
   hrefFor: (day: string) => string;
-  /** A small heading above the rail. */
   label?: string;
-  /** Distinguishes two rails on one document; also the scroll-focus key. */
   scrollerId?: string;
 }) {
   if (days.length === 0) {
     return (
-      <div className="rounded-[10px] border border-ink-750 bg-ink-900 p-4">
+      <div className="rounded-[8px] border border-ink-750 bg-ink-900 p-4">
         <p className="text-[11.5px] leading-relaxed text-fog-500">No dated events in this window.</p>
       </div>
     );
   }
 
-  // Group into Monday-first weeks, keeping the month label of each week's start.
   const weeks: { key: string; label: string; days: string[] }[] = [];
   for (const day of days) {
     const monday = startOfWeek(day);
@@ -57,101 +44,90 @@ export function DateRail({
   return (
     <nav
       aria-label={label ?? "Dates"}
-      className="overflow-hidden rounded-[10px] border border-ink-750 bg-ink-900"
+      className="overflow-hidden rounded-[8px] border border-ink-750 bg-ink-900"
     >
       {label && (
-        <p className="border-b border-ink-800 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-fog-600">
+        <p className="border-b border-ink-750 bg-ink-850 px-2.5 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-fog-450">
           {label}
         </p>
       )}
-      <div className="rail-scroll max-h-[calc(100vh-240px)] overflow-x-hidden" data-rail-scroll={scrollerId}>
-        {/* The reveal follows the selection, not today: on /schedule?day=X the
-            highlighted row is the day being read, and on the home page the two
-            are the same. */}
+      <div className="rail-scroll max-h-[calc(100vh-200px)] overflow-x-hidden" data-rail-scroll={scrollerId}>
         <RailFocus id={`day-${selected}`} />
-        {weeks.map((week, index) => (
-          <div key={week.key} className="border-b border-ink-800/60 last:border-b-0">
-            {(index === 0 || weeks[index - 1].label !== week.label) && (
-            <p className="flex items-baseline justify-between bg-ink-900 px-2.5 pb-0.5 pt-1.5 text-[9.5px] font-semibold uppercase tracking-[0.1em] text-fog-600">
-              <span className="truncate">{week.label}</span>
-            </p>
-            )}
-            <ul>
-              {week.days.map((day) => {
-                const parts = dateParts(day);
-                const active = day === selected;
-                const isToday = day === today;
-                const count = counts?.get(day) ?? 0;
-                return (
-                  <li key={day}>
-                    <Link
-                      href={hrefFor(day)}
-                      id={`day-${day}`}
-                      aria-current={active ? "date" : undefined}
-                      className={cn(
-                        "flex h-[27px] items-center gap-1.5 px-2 text-[11px] transition-colors",
-                        active
-                          ? "bg-ink-800 text-fog-100"
-                          : "text-fog-300 hover:bg-ink-850 hover:text-fog-100",
-                      )}
-                    >
-                      <span
+        {weeks.map((week, index) => {
+          const showMonth = index === 0 || week.label !== weeks[index - 1]?.label;
+          return (
+            <div key={week.key} className="border-b border-ink-800/60 last:border-b-0">
+              {showMonth && week.label && (
+                <p className="flex items-baseline justify-between bg-ink-900 px-2.5 pb-0.5 pt-2 text-[10px] font-bold uppercase tracking-[0.08em] text-fog-550">
+                  <span className="truncate">{week.label}</span>
+                </p>
+              )}
+              <ul className={showMonth ? undefined : "pt-0.5"}>
+                {week.days.map((day) => {
+                  const parts = dateParts(day);
+                  const active = day === selected;
+                  const isToday = day === today;
+                  const count = counts?.get(day) ?? 0;
+                  return (
+                    <li key={day}>
+                      <Link
+                        href={hrefFor(day)}
+                        id={`day-${day}`}
+                        aria-current={active ? "date" : undefined}
                         className={cn(
-                          "flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-[4px] tabular-nums",
+                          "flex h-[27px] items-center gap-1.5 px-2 text-[11.5px] transition-colors",
                           active
-                            ? "bg-lime-400 font-bold text-ink-950"
-                            : isToday
-                              ? "ring-1 ring-inset ring-lime-400 font-semibold text-lime-400"
-                              : "font-medium text-fog-300",
+                            ? "bg-ink-800 text-fog-100"
+                            : "text-fog-300 hover:bg-ink-850 hover:text-fog-100",
                         )}
                       >
-                        {Number(parts.day)}
-                      </span>
-                      <span
-                        className={cn(
-                          "flex-1 truncate text-[10.5px] tracking-[0.01em]",
-                          active ? "text-fog-100" : "text-fog-400",
-                        )}
-                      >
-                        {parts.weekday}
-                      </span>
-                      {count > 0 && (
-                        <span className="flex shrink-0 items-center gap-[2px]">
-                          {Array.from({ length: Math.min(count, 3) }, (_, index) => (
-                            <span
-                              key={index}
-                              aria-hidden="true"
-                              className={cn(
-                                "h-[3px] w-[3px] rounded-full",
-                                active ? "bg-ink-950" : isToday ? "bg-lime-400" : "bg-ink-500",
-                              )}
-                            />
-                          ))}
-                          {/* The dots are decorative; the count rides along as
-                              text a screen reader will actually announce. */}
-                          <span className="sr-only">{`${count} event${count === 1 ? "" : "s"}`}</span>
+                        <span
+                          className={cn(
+                            "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px] tabular-nums",
+                            active
+                              ? "bg-[var(--yellow)] font-bold text-[#1d2329]"
+                              : isToday
+                                ? "font-bold text-[var(--live)] ring-1 ring-inset ring-[var(--live)]"
+                                : "font-medium text-fog-300",
+                          )}
+                        >
+                          {Number(parts.day)}
                         </span>
-                      )}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+                        <span
+                          className={cn(
+                            "flex-1 truncate text-[11px]",
+                            active ? "font-semibold text-fog-100" : "text-fog-400",
+                          )}
+                        >
+                          {parts.weekday}
+                        </span>
+                        {count > 0 && (
+                          <span className="flex shrink-0 items-center gap-[2px]" aria-label={`${count} events`}>
+                            {Array.from({ length: Math.min(count, 3) }, (_, index2) => (
+                              <span
+                                key={index2}
+                                className={cn(
+                                  "h-[3px] w-[3px] rounded-full",
+                                  active ? "bg-carom-300" : isToday ? "bg-carom-400" : "bg-fog-500",
+                                )}
+                              />
+                            ))}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
       </div>
     </nav>
   );
 }
 
-/**
- * The same day window as a horizontal strip for phones.
- *
- * The week-rail above is desktop-only, which left a handset with no day
- * navigation at all on the schedule — the one page where picking a day is the
- * point. Same window, same links, touch-sized cells; the selected day scrolls
- * into view on mount like the rail does.
- */
+/** Mobile horizontal date strip mirroring `DateRail` below the `lg` breakpoint. */
 export function DateStrip({
   days,
   counts,
@@ -170,8 +146,8 @@ export function DateStrip({
   if (days.length === 0) return null;
 
   return (
-    <nav aria-label={label ?? "Dates"} className="lg:hidden">
-      <div className="rail-scroll flex gap-1.5 overflow-x-auto pb-1 pt-0.5" data-rail-scroll="">
+    <nav aria-label={label ?? "Dates"} className="relative max-w-full overflow-hidden lg:hidden">
+      <div className="rail-scroll flex max-w-full gap-1.5 overflow-x-auto pb-1.5 pt-0.5" data-rail-scroll="">
         <RailFocus id={`strip-day-${selected}`} axis="x" />
         {days.map((day) => {
           const parts = dateParts(day);
@@ -185,36 +161,36 @@ export function DateStrip({
               id={`strip-day-${day}`}
               aria-current={active ? "date" : undefined}
               className={cn(
-                "flex h-[54px] w-[54px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-[9px] border transition-colors",
+                "relative flex h-[54px] w-[54px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-[3px] border transition-colors hover:no-underline",
                 active
-                  ? "border-lime-400/60 bg-ink-800 text-fog-100"
-                  : "border-ink-750 bg-ink-900 text-fog-300 hover:border-ink-600 hover:text-fog-100",
+                  ? "border-[var(--line-2)] border-b-2 border-b-[var(--yellow)] bg-[var(--bar-2)] text-[var(--text)]"
+                  : isToday
+                    ? "border-[var(--live)] bg-[var(--panel)] text-[var(--text)]"
+                    : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:border-[var(--link)] hover:text-[var(--text)]",
               )}
             >
-              <span className="text-[8.5px] font-semibold uppercase tracking-[0.08em] text-fog-550">
+              <span className="text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--muted)]">
                 {parts.weekday.slice(0, 3)} {day.slice(5, 7)}
               </span>
               <span
                 className={cn(
-                  "flex h-[18px] min-w-[18px] items-center justify-center rounded-[4px] text-[12px] tabular-nums",
-                  active
-                    ? "bg-lime-400 font-bold text-ink-950"
-                    : isToday
-                      ? "font-semibold text-lime-400"
-                      : "font-medium",
+                  "tnum text-[14px] font-bold leading-none",
+                  isToday ? "text-[var(--live)]" : "text-[var(--text)]",
                 )}
               >
                 {Number(parts.day)}
               </span>
-              {/* Same signal as the rail's dots: how busy the day is. */}
               {count > 0 && (
-                <span
-                  className={cn(
-                    "h-[3px] w-[3px] rounded-full",
-                    active ? "bg-lime-400" : isToday ? "bg-lime-400" : "bg-ink-500",
-                  )}
-                  aria-hidden="true"
-                />
+                <span className="flex items-center gap-[2px]">
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "h-[3px] w-[3px] rounded-full",
+                      active ? "bg-[var(--link)]" : isToday ? "bg-[var(--live)]" : "bg-[var(--muted)]",
+                    )}
+                  />
+                  <span className="sr-only">{`${count} event${count === 1 ? "" : "s"}`}</span>
+                </span>
               )}
             </Link>
           );

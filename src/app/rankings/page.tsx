@@ -4,7 +4,7 @@ import { getRanking, getRankingTours, trackFailures } from "@/lib/pba/api";
 import { getRequestFailures } from "@/lib/pba/failures";
 import { getCurrentSeason, getSeasonList } from "@/lib/pba/service";
 import { PLAYER_LEAGUES, leagueByCode } from "@/lib/normalize";
-import { grouped, wonCompact, pick } from "@/lib/format";
+import { cleanDisplayText, cleanPlayerName, grouped, wonCompact, pick } from "@/lib/format";
 import { asset, isRealAsset } from "@/lib/pba/http";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
 import { RankingTable } from "@/components/domain/ranking-table";
@@ -53,18 +53,31 @@ export default async function RankingsPage({ searchParams }: PageProps) {
       <PageHeader
         failures={failures}
         eyebrow="Standings"
-        title={`${league.name} money list`}
-        description={`Prize money and ranking points as published by the association${tourName ? ` for ${tourName}` : " across every event of the season"}.`}
+        title={`${league.name} Rankings`}
+        description={`${metric === "prize" ? "Prize money" : "Ranking points"}${tourName ? ` · ${tourName}` : " · Full season"}`}
       >
-        <div className="flex flex-col gap-4">
-          <FilterRow
-            label="Circuit"
-            basePath="/rankings"
-            paramKey="league"
-            active={leagueCode}
-            params={{ season, tour: tourCode, metric }}
-            options={PLAYER_LEAGUES.map((l) => ({ value: l.code, label: l.name }))}
-          />
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <FilterRow
+              label="Circuit"
+              basePath="/rankings"
+              paramKey="league"
+              active={leagueCode}
+              params={{ season, tour: tourCode, metric }}
+              options={PLAYER_LEAGUES.map((l) => ({ value: l.code, label: l.name }))}
+            />
+            <FilterRow
+              label="Metric"
+              basePath="/rankings"
+              paramKey="metric"
+              active={metric}
+              params={{ league: leagueCode, season, tour: tourCode }}
+              options={[
+                { value: "prize", label: "Prize money" },
+                { value: "point", label: "Ranking points" },
+              ]}
+            />
+          </div>
           <FilterRow
             label="Season"
             basePath="/rankings"
@@ -72,17 +85,6 @@ export default async function RankingsPage({ searchParams }: PageProps) {
             active={season}
             params={{ league: leagueCode, tour: tourCode, metric }}
             options={seasons.map((s) => ({ value: s.SeasonCode, label: s.SeasonTitle || s.SeasonCode }))}
-          />
-          <FilterRow
-            label="Metric"
-            basePath="/rankings"
-            paramKey="metric"
-            active={metric}
-            params={{ league: leagueCode, season, tour: tourCode }}
-            options={[
-              { value: "prize", label: "Prize money" },
-              { value: "point", label: "Ranking points" },
-            ]}
           />
           {tours.length > 0 && (
             <FilterRow
@@ -94,10 +96,16 @@ export default async function RankingsPage({ searchParams }: PageProps) {
               options={[
                 { value: "0", label: "All events" },
                 ...tours.map((tour) => {
-                  const label = tour.TourTitleEn || tour.TourTitle;
+                  const raw = cleanDisplayText(tour.TourTitleEn || tour.TourTitle)
+                    .replace(/Recreation area for Nationals\s*/i, "")
+                    .replace(/\b(LPBA|PBA)\s+Championship(\s+20\d{2}(-\d{2})?)?/i, "")
+                    .replace(/\bCHAMPIONSHIP\b/gi, "")
+                    .replace(/\s+/g, " ")
+                    .trim();
+                  const label = raw || cleanDisplayText(tour.TourTitleEn || tour.TourTitle);
                   return {
                     value: tour.TourCode,
-                    label: label.length > 34 ? `${label.slice(0, 32).trimEnd()}…` : label,
+                    label: label.length > 24 ? `${label.slice(0, 22).trimEnd()}…` : label,
                   };
                 }),
               ]}
@@ -106,15 +114,15 @@ export default async function RankingsPage({ searchParams }: PageProps) {
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         {rows.length === 0 ? (
           <EmptyState
             title="No ranking published"
-            description="The association has not released a table for this combination of circuit, season and event."
+            description="No ranking table has been released for this combination of circuit, season and event."
             action={
               <Link
                 href={`/rankings?league=${leagueCode}`}
-                className="mt-1 rounded-md border border-ink-700 px-3 py-1.5 text-[12.5px] text-fog-300 hover:border-ink-500 hover:text-fog-100"
+                className="mt-1 rounded-md border border-ink-700 bg-ink-900 px-3 py-1.5 text-[12px] font-semibold text-fog-200 hover:border-carom-400/50 hover:text-carom-300"
               >
                 Reset filters
               </Link>
@@ -122,64 +130,50 @@ export default async function RankingsPage({ searchParams }: PageProps) {
           />
         ) : (
           <>
-            {/* podium */}
             <div className="grid gap-3 sm:grid-cols-3">
               {podium.map((row, index) => (
                 <Link
                   key={row.MemCode}
                   href={`/players/${row.MemCode}`}
-                  className="surface card-hover group relative overflow-hidden p-5"
+                  className="surface card-hover group flex items-center gap-3.5 p-4"
                 >
-                  {index === 0 && (
-                    <div
-                      className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-20 blur-2xl"
-                      style={{ background: "var(--color-gold-400)" }}
-                      aria-hidden="true"
-                    />
-                  )}
-                  <div className="relative flex items-start justify-between">
-                    <RankBadge rank={row.Rank || index + 1} />
-                    <Chip tone={index === 0 ? "gold" : "neutral"}>
-                      {metric === "prize" ? wonCompact(row.Prize) : `${grouped(row.RankingPoint)} pts`}
-                    </Chip>
-                  </div>
-                  <div className="relative mt-4 flex items-center gap-3">
-                    <PlayerAvatar
-                      path={row.ImgURL}
-                      src={isRealAsset(row.ImgURL) ? asset(row.ImgURL) : null}
-                      name={row.PlayerNameEN || row.PlayerNameKO}
-                      size="lg"
-                      ring={index === 0}
-                    />
-                    <div className="min-w-0">
-                      <p className="truncate font-display text-[15px] font-bold text-fog-100 group-hover:text-lime-300">
-                        {pick(row.PlayerNameEN, row.PlayerNameKO)}
-                      </p>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <NationPlate code={row.NationCode} />
-                        <span className="tnum text-[11px] text-fog-500">
-                          {metric === "prize"
-                            ? `${grouped(row.RankingPoint)} pts`
-                            : wonCompact(row.Prize)}
-                        </span>
-                      </div>
+                  <RankBadge rank={row.Rank || index + 1} />
+                  <PlayerAvatar
+                    path={row.ImgURL}
+                    src={isRealAsset(row.ImgURL) ? asset(row.ImgURL) : null}
+                    name={cleanPlayerName(pick(row.PlayerNameEN, row.PlayerNameKO))}
+                    size="md"
+                    ring={index === 0}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-display text-[14.5px] font-bold text-fog-100 group-hover:text-carom-300">
+                      {cleanPlayerName(pick(row.PlayerNameEN, row.PlayerNameKO))}
+                    </p>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <NationPlate code={row.NationCode} />
+                      <span className="tnum text-[11px] text-fog-450">
+                        {metric === "prize"
+                          ? `${grouped(row.RankingPoint)} pts`
+                          : wonCompact(row.Prize)}
+                      </span>
                     </div>
                   </div>
+                  <Chip tone={index === 0 ? "gold" : "carom"}>
+                    {metric === "prize" ? wonCompact(row.Prize) : `${grouped(row.RankingPoint)}`}
+                  </Chip>
                 </Link>
               ))}
             </div>
 
-            <div className="mt-6 surface overflow-hidden">
-              <div className="flex items-center justify-between border-b border-ink-800 px-4 py-3">
-                <p className="text-[12px] font-semibold text-fog-300">
-                  Full table{" "}
-                  <span className="tnum ml-1 font-normal text-fog-600">{rows.length} players</span>
+            <div className="surface mt-5 overflow-hidden">
+              <div className="flex items-center justify-between border-b border-ink-750 bg-ink-850 px-4 py-2.5">
+                <p className="text-[12px] font-bold text-fog-100">
+                  Full Standings{" "}
+                  <span className="tnum ml-1.5 font-normal text-fog-500">{rows.length} players</span>
                 </p>
-                <p className="text-[11px] text-fog-600">
-                  {metric === "prize" ? "Sorted by prize money" : "Sorted by ranking points"}
-                </p>
+                <p className="text-[11px] text-fog-500">Click any column header to sort</p>
               </div>
-              <RankingTable rows={rows} metric={metric} />
+              <RankingTable rows={rows} metric={metric} className="border-0 rounded-none" />
             </div>
           </>
         )}

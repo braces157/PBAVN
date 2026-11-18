@@ -25,8 +25,8 @@ interface PageProps {
 export default async function NewsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const tab: Tab = params.tab === "videos" ? "videos" : params.tab === "gallery" ? "gallery" : "news";
-  const requestedPage = Number(params.page ?? 1);
-  const page = Number.isFinite(requestedPage) ? Math.max(1, Math.floor(requestedPage)) : 1;
+  const rawPage = Number(params.page ?? 1);
+  const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
   const pageSize = 12;
 
   const [press, videos, galleries] = await Promise.all([
@@ -42,8 +42,8 @@ export default async function NewsPage({ searchParams }: PageProps) {
     <>
       <PageHeader
         eyebrow="Media"
-        title="The newsroom"
-        description="Official announcements from the association, plus video and photography from the tour."
+        title="Newsroom"
+        description="Official announcements, PBA TV highlights, and tour photography."
       >
         <TabLinks
           active={tab === "news" ? "/news" : `/news?tab=${tab}`}
@@ -55,13 +55,13 @@ export default async function NewsPage({ searchParams }: PageProps) {
         />
       </PageHeader>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         {tab === "news" && (
           <>
             {articles.length === 0 ? (
               <EmptyState title="No press releases" description="The association has not published anything yet." />
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-3">
                 {articles.map((article, index) => (
                   <Link
                     key={article.seq}
@@ -70,13 +70,13 @@ export default async function NewsPage({ searchParams }: PageProps) {
                       index === 0 ? "md:col-span-2" : ""
                     }`}
                   >
-                    <div className={`relative w-full overflow-hidden bg-ink-800 ${index === 0 ? "h-64" : "flex-1 min-h-44"}`}>
+                    <div className={`relative w-full overflow-hidden bg-ink-850 ${index === 0 ? "h-60" : "flex-1 min-h-40"}`}>
                       <SafeImage
                         src={article.image}
                         alt={article.title}
-                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                         fallback={
-                          <div className="grid h-full w-full place-items-center">
+                          <div className="grid h-full w-full place-items-center bg-ink-850">
                             <span className="eyebrow">PBA Newsroom</span>
                           </div>
                         }
@@ -84,26 +84,26 @@ export default async function NewsPage({ searchParams }: PageProps) {
                     </div>
                     <div className="p-4">
                       <div className="flex items-center gap-2">
-                        <span className="tnum text-[10.5px] uppercase tracking-[0.1em] text-fog-600">
+                        <span className="tnum text-[10.5px] font-semibold uppercase tracking-[0.06em] text-fog-500">
                           {fmtDate(article.date)}
                         </span>
                         {article.featured && (
-                          <span className="rounded bg-lime-400/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-lime-300">
+                          <span className="rounded bg-carom-400/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-carom-300">
                             Featured
                           </span>
                         )}
                       </div>
                       <h2
-                        className={`mt-2 line-clamp-2 font-display font-semibold leading-snug text-fog-100 group-hover:text-lime-300 ${
-                          index === 0 ? "text-[19px]" : "text-[15px]"
+                        className={`mt-1.5 line-clamp-2 font-display font-bold leading-snug text-fog-100 group-hover:text-carom-300 ${
+                          index === 0 ? "text-[18px]" : "text-[15px]"
                         }`}
                       >
                         {article.title}
                       </h2>
-                      <p className="mt-2 line-clamp-2 text-[12.5px] leading-relaxed text-fog-500">
+                      <p className="mt-1.5 line-clamp-2 text-[12.5px] leading-relaxed text-fog-450">
                         {excerpt(article.body, 140)}
                       </p>
-                      <p className="tnum mt-3 text-[10.5px] text-fog-600">{grouped(article.views)} views</p>
+                      <p className="tnum mt-2.5 text-[10.5px] text-fog-550">{grouped(article.views)} views</p>
                     </div>
                   </Link>
                 ))}
@@ -123,7 +123,7 @@ export default async function NewsPage({ searchParams }: PageProps) {
             {videos.length === 0 ? (
               <EmptyState title="No videos published" />
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {videos.map((video) => {
                   const id = youtubeId(video.VIDEO_URL);
                   const thumb = isRealAsset(video.IMAGE_FILE_PATH) ? asset(video.IMAGE_FILE_PATH) : null;
@@ -135,14 +135,14 @@ export default async function NewsPage({ searchParams }: PageProps) {
                       rel="noreferrer noopener"
                       className="surface card-hover group overflow-hidden"
                     >
-                      <div className="relative aspect-video overflow-hidden bg-ink-800">
+                      <div className="relative aspect-video overflow-hidden bg-ink-850">
                         {thumb ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={thumb}
                             alt={video.IMAGE_ALT || video.TITLE}
                             loading="lazy"
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                           />
                         ) : id ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -150,7 +150,7 @@ export default async function NewsPage({ searchParams }: PageProps) {
                             src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`}
                             alt={video.TITLE}
                             loading="lazy"
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                           />
                         ) : (
                           <div className="grid h-full place-items-center">
@@ -158,15 +158,15 @@ export default async function NewsPage({ searchParams }: PageProps) {
                           </div>
                         )}
                         <span className="absolute inset-0 grid place-items-center">
-                          <span className="grid h-11 w-11 place-items-center rounded-full bg-ink-950/70 text-lime-400 ring-1 ring-lime-400/40 backdrop-blur-sm transition-transform duration-300 group-hover:scale-110">
+                          <span className="grid h-10 w-10 place-items-center rounded-full bg-ink-950/80 text-carom-300 ring-1 ring-carom-400/50 transition-transform duration-200 group-hover:scale-105">
                             <svg viewBox="0 0 24 24" className="ml-0.5 h-4 w-4" aria-hidden="true">
                               <path d="M8 5.5v13l11-6.5z" fill="currentColor" />
                             </svg>
                           </span>
                         </span>
                       </div>
-                      <div className="p-3.5">
-                        <p className="line-clamp-2 text-[13px] font-medium leading-snug text-fog-100 group-hover:text-lime-300">
+                      <div className="p-3">
+                        <p className="line-clamp-2 text-[12.5px] font-semibold leading-snug text-fog-100 group-hover:text-carom-300">
                           {video.TITLE || video.VIDEO_NAME_EN || video.VIDEO_NAME}
                         </p>
                       </div>
@@ -183,17 +183,17 @@ export default async function NewsPage({ searchParams }: PageProps) {
             {galleries.length === 0 ? (
               <EmptyState title="No galleries published" />
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {galleries.map((gallery) => (
                   <figure key={gallery.SEQ} className="surface card-hover group overflow-hidden">
-                    <div className="aspect-[4/3] overflow-hidden bg-ink-800">
+                    <div className="aspect-[4/3] overflow-hidden bg-ink-850">
                       {isRealAsset(gallery.IMAGE_FULL_PATH) ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={asset(gallery.IMAGE_FULL_PATH) ?? ""}
                           alt={gallery.ALT || gallery.TITLE}
                           loading="lazy"
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                         />
                       ) : (
                         <div className="grid h-full place-items-center">
@@ -202,8 +202,8 @@ export default async function NewsPage({ searchParams }: PageProps) {
                       )}
                     </div>
                     <figcaption className="p-3">
-                      <p className="line-clamp-2 text-[12.5px] text-fog-200">{gallery.TITLE}</p>
-                      <p className="tnum mt-1 text-[10.5px] text-fog-600">{fmtDate(gallery.VIEW_DATE)}</p>
+                      <p className="line-clamp-2 text-[12.5px] font-medium text-fog-100">{gallery.TITLE}</p>
+                      <p className="tnum mt-1 text-[10.5px] text-fog-550">{fmtDate(gallery.VIEW_DATE)}</p>
                     </figcaption>
                   </figure>
                 ))}

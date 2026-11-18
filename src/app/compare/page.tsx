@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getHeadToHead, getPlayerSeasonStats, getPlayers } from "@/lib/pba/api";
-import { getPlayerCached } from "@/lib/pba/service";
+import { getHeadToHead, getPlayer, getPlayerSeasonStats, getPlayers } from "@/lib/pba/api";
 import { getCurrentSeason, getSeasonList, getRankingBoard } from "@/lib/pba/service";
 import {
   hasStatData,
@@ -11,7 +10,7 @@ import {
   winRate,
   type Player,
 } from "@/lib/normalize";
-import { average, grouped, percent, pick } from "@/lib/format";
+import { average, cleanPlayerName, grouped, percent, pick } from "@/lib/format";
 import { asset, isRealAsset } from "@/lib/pba/http";
 import { PlayerAvatar, NationPlate } from "@/components/ui/media";
 import { Chip, EmptyState, SectionHeading, cn } from "@/components/ui/primitives";
@@ -22,14 +21,13 @@ export const revalidate = 900;
 export const metadata: Metadata = {
   title: "Head-to-head",
   description:
-    "Compare any two PBA or LPBA professionals — career profile, season averages and their direct head-to-head record.",
+    "Compare any two PBA or LPBA 3-cushion professionals — career profile, season averages and direct head-to-head record.",
 };
 
 interface PageProps {
   searchParams: Promise<{ a?: string; b?: string; q1?: string; q2?: string; season?: string }>;
 }
 
-/** Resolve a typed name to a member code so the page stays linkable. */
 async function resolveCode(code?: string, query?: string): Promise<string | null> {
   if (code) return code;
   const term = (query ?? "").trim();
@@ -40,36 +38,24 @@ async function resolveCode(code?: string, query?: string): Promise<string | null
 
 export default async function ComparePage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const [seasons, current] = await Promise.all([getSeasonList(), getCurrentSeason()]);
+  const seasons = await getSeasonList();
+  const current = await getCurrentSeason();
   const seasonCode =
     params.season && seasons.some((s) => s.SeasonCode === params.season) ? params.season : current.SeasonCode;
 
-  // The money list only renders on the empty view, but whether the view is
-  // empty is not known until both names resolve — so the read rides along from
-  // the start (it is a cheap cached call) and is awaited only if used.
-  const suggestionsPromise = getRankingBoard({ kind: "prize", leagueCode: "PBA1", season: seasonCode })
-    .then((rows) => rows.slice(0, 4))
-    .catch(() => []);
-
-  // Each side resolves its name to a code and reads its profile as one chain,
-  // so player B is never waiting on player A's lookups.
-  const [sideA, sideB] = await Promise.all([
-    resolveCode(params.a, params.q1).then(async (code) => {
-      const raw = code ? await getPlayerCached(code) : null;
-      return { code, player: raw ? normalizePlayer(raw) : null };
-    }),
-    resolveCode(params.b, params.q2).then(async (code) => {
-      const raw = code ? await getPlayerCached(code) : null;
-      return { code, player: raw ? normalizePlayer(raw) : null };
-    }),
+  const [codeA, codeB] = await Promise.all([
+    resolveCode(params.a, params.q1),
+    resolveCode(params.b, params.q2),
   ]);
-  const codeA = sideA.code;
-  const codeB = sideB.code;
-  const playerA = sideA.player;
-  const playerB = sideB.player;
 
-  // The stats service keys on the circuit, so each player is read with their
-  // own. A head-to-head record only exists when both play the same circuit.
+  const [rawA, rawB] = await Promise.all([
+    codeA ? getPlayer(codeA) : null,
+    codeB ? getPlayer(codeB) : null,
+  ]);
+
+  const playerA = rawA ? normalizePlayer(rawA) : null;
+  const playerB = rawB ? normalizePlayer(rawB) : null;
+
   const pbaTypeA = playerA?.league || "PBA1";
   const pbaTypeB = playerB?.league || "PBA1";
   const sharedType = pbaTypeA === pbaTypeB ? pbaTypeA : null;
@@ -85,16 +71,17 @@ export default async function ComparePage({ searchParams }: PageProps) {
   const lineA = normalizePlayerStat(statA);
   const lineB = normalizePlayerStat(statB);
 
-  // On the empty view, offer the money-list leaders as one-click pairings so
-  // the page demonstrates what a comparison looks like before any input.
-  const suggestions = !playerA && !playerB ? await suggestionsPromise : [];
+  const suggestions =
+    !playerA && !playerB
+      ? (await getRankingBoard({ kind: "prize", leagueCode: "PBA1", season: seasonCode })).slice(0, 4)
+      : [];
 
   return (
     <>
       <PageHeader
         eyebrow="Comparison"
-        title="Head-to-head"
-        description="Put two professionals side by side: career profile, current-season statistics and every recorded meeting between them."
+        title="Head-to-Head"
+        description="Compare career averages, season statistics, and direct head-to-head records."
       >
         <form action="/compare" className="grid max-w-2xl gap-2 sm:grid-cols-[1fr_1fr_auto]">
           <input
@@ -115,31 +102,31 @@ export default async function ComparePage({ searchParams }: PageProps) {
           />
           <button
             type="submit"
-            className="press rounded-md bg-lime-400 px-4 py-2 text-[12.5px] font-semibold text-ink-950 transition-colors hover:bg-lime-300"
+            className="press rounded-[3px] bg-[var(--nav)] px-4 py-1.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-[var(--link)]"
           >
             Compare
           </button>
         </form>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         {!playerA && !playerB ? (
           <div>
             <EmptyState
               title="Pick two players"
-              description="Search by name above — English or Korean both work. You can also open any player profile and use the compare link."
+              description="Search by name above — English or Korean — or launch a comparison from any player profile."
               action={
                 <Link
                   href="/players"
-                  className="mt-1 rounded-md border border-ink-700 px-3 py-1.5 text-[12.5px] text-fog-300 hover:border-ink-500 hover:text-fog-100"
+                  className="mt-1 rounded-md border border-ink-700 bg-ink-900 px-3 py-1.5 text-[12px] font-semibold text-fog-200 hover:border-carom-400/50 hover:text-carom-300"
                 >
-                  Browse the directory
+                  Browse players
                 </Link>
               }
             />
             {suggestions.length >= 2 && (
               <section className="mt-6">
-                <p className="eyebrow mb-3">Or start from the money list</p>
+                <p className="eyebrow mb-2.5">Top Ranked Matchups</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[0, 2].map((start) => {
                     const a = suggestions[start];
@@ -149,30 +136,30 @@ export default async function ComparePage({ searchParams }: PageProps) {
                       <Link
                         key={`${a.MemCode}-${b.MemCode}`}
                         href={`/compare?a=${a.MemCode}&b=${b.MemCode}&season=${seasonCode}`}
-                        className="surface card-hover flex items-center justify-between gap-3 p-4"
+                        className="surface card-hover grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 p-3.5"
                       >
-                        <span className="flex min-w-0 items-center gap-2.5">
+                        <span className="flex min-w-0 items-center gap-2">
                           <PlayerAvatar
                             path={a.ImgURL}
                             src={isRealAsset(a.ImgURL) ? asset(a.ImgURL) : null}
-                            name={pick(a.PlayerNameEN, a.PlayerNameKO)}
+                            name={cleanPlayerName(pick(a.PlayerNameEN, a.PlayerNameKO))}
                             size="sm"
                           />
-                          <span className="truncate text-[13px] font-semibold text-fog-100">
-                            {pick(a.PlayerNameEN, a.PlayerNameKO)}
+                          <span className="truncate text-[12.5px] font-semibold text-fog-100 sm:text-[13px]">
+                            {cleanPlayerName(pick(a.PlayerNameEN, a.PlayerNameKO))}
                           </span>
                         </span>
-                        <span className="shrink-0 text-[10.5px] font-bold uppercase tracking-[0.1em] text-fog-600">
+                        <span className="shrink-0 text-[10.5px] font-bold uppercase tracking-[0.08em] text-carom-300">
                           vs
                         </span>
-                        <span className="flex min-w-0 items-center justify-end gap-2.5">
-                          <span className="truncate text-[13px] font-semibold text-fog-100">
-                            {pick(b.PlayerNameEN, b.PlayerNameKO)}
+                        <span className="flex min-w-0 items-center justify-end gap-2">
+                          <span className="truncate text-right text-[12.5px] font-semibold text-fog-100 sm:text-[13px]">
+                            {cleanPlayerName(pick(b.PlayerNameEN, b.PlayerNameKO))}
                           </span>
                           <PlayerAvatar
                             path={b.ImgURL}
                             src={isRealAsset(b.ImgURL) ? asset(b.ImgURL) : null}
-                            name={pick(b.PlayerNameEN, b.PlayerNameKO)}
+                            name={cleanPlayerName(pick(b.PlayerNameEN, b.PlayerNameKO))}
                             size="sm"
                           />
                         </span>
@@ -186,39 +173,39 @@ export default async function ComparePage({ searchParams }: PageProps) {
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
-              <CompareCard player={playerA} code={codeA} label="Player one" />
-              <CompareCard player={playerB} code={codeB} label="Player two" />
+              <CompareCard player={playerA} code={codeA} label="Player one" tone="carom" />
+              <CompareCard player={playerB} code={codeB} label="Player two" tone="gold" />
             </div>
 
             {h2h && playerA && playerB ? (
-              <section className="mt-10">
+              <section className="mt-8">
                 <SectionHeading
-                  eyebrow="Direct record"
-                  title="When they meet"
+                  eyebrow="Head-to-Head Record"
+                  title="Direct Meetings"
                   description={`${h2h.total_matches} recorded meetings in the ${seasons.find((s) => s.SeasonCode === seasonCode)?.SeasonTitle ?? seasonCode} season.`}
                 />
 
-                <div className="mt-6 surface overflow-hidden">
-                  <div className="grid grid-cols-3 items-center gap-2 border-b border-ink-800 px-5 py-5">
+                <div className="surface mt-4 overflow-hidden">
+                  <div className="grid grid-cols-3 items-center gap-2 border-b border-ink-800 bg-ink-850 px-5 py-4">
                     <div className="text-left">
-                      <p className="truncate text-[13px] font-semibold text-fog-100">
+                      <p className="truncate text-[12.5px] font-bold text-fog-100">
                         {playerA.name.split(" ").slice(-1)[0]}
                       </p>
-                      <p className="tnum mt-1 font-display text-3xl font-bold text-lime-400">
+                      <p className="tnum mt-1 font-display text-3xl font-extrabold text-carom-300">
                         {h2h.player1_wins ?? 0}
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fog-600">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-fog-500">
                         Matches won
                       </p>
-                      <p className="tnum mt-1 text-[11px] text-fog-500">{h2h.total_matches} played</p>
+                      <p className="tnum mt-1 text-[11.5px] text-fog-450">{h2h.total_matches} played</p>
                     </div>
                     <div className="text-right">
-                      <p className="truncate text-[13px] font-semibold text-fog-100">
+                      <p className="truncate text-[12.5px] font-bold text-fog-100">
                         {playerB.name.split(" ").slice(-1)[0]}
                       </p>
-                      <p className="tnum mt-1 font-display text-3xl font-bold text-rose-450">
+                      <p className="tnum mt-1 font-display text-3xl font-extrabold text-gold-300">
                         {h2h.player2_wins ?? 0}
                       </p>
                     </div>
@@ -231,8 +218,6 @@ export default async function ComparePage({ searchParams }: PageProps) {
                         ["High run", h2h.player1_hr, h2h.player2_hr, "int"],
                         ["Innings", h2h.player1_inn, h2h.player2_inn, "int"],
                         ["Points", h2h.player1_total_score, h2h.player2_total_score, "int"],
-                        // Closing probability is the clutch stat the tour
-                        // publishes and almost nobody shows.
                         ["Closing rate", h2h.player1_closing_rate, h2h.player2_closing_rate, "pct"],
                         ["Attack success", h2h.player1_success_rate, h2h.player2_success_rate, "pct"],
                         ["1-pointers", h2h.player1_1point, h2h.player2_1point, "int"],
@@ -249,31 +234,31 @@ export default async function ComparePage({ searchParams }: PageProps) {
                       const total = l + r || 1;
                       const leftPct = (l / total) * 100;
                       return (
-                        <div key={label} className="px-5 py-3">
+                        <div key={label} className="px-5 py-2.5">
                           <div className="flex items-center justify-between gap-4">
                             <span
                               className={cn(
-                                "tnum w-16 text-left text-[13px] font-semibold",
-                                l > r ? "text-lime-400" : "text-fog-200",
+                                "tnum w-16 text-left text-[12.5px] font-bold",
+                                l > r ? "text-carom-300" : "text-fog-300",
                               )}
                             >
                               {formatH2H(unit, left)}
                             </span>
-                            <span className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-fog-600">
+                            <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-fog-500">
                               {label}
                             </span>
                             <span
                               className={cn(
-                                "tnum w-16 text-right text-[13px] font-semibold",
-                                r > l ? "text-rose-450" : "text-fog-200",
+                                "tnum w-16 text-right text-[12.5px] font-bold",
+                                r > l ? "text-gold-300" : "text-fog-300",
                               )}
                             >
                               {formatH2H(unit, right)}
                             </span>
                           </div>
-                          <div className="mt-2 flex h-1 overflow-hidden rounded-full bg-ink-800">
-                            <span className="bg-lime-400/70" style={{ width: `${leftPct}%` }} />
-                            <span className="bg-rose-450/70" style={{ width: `${100 - leftPct}%` }} />
+                          <div className="mt-1.5 flex h-1 overflow-hidden rounded-full bg-ink-800">
+                            <span className="bg-carom-400/80" style={{ width: `${leftPct}%` }} />
+                            <span className="bg-gold-400/80" style={{ width: `${100 - leftPct}%` }} />
                           </div>
                         </div>
                       );
@@ -285,23 +270,23 @@ export default async function ComparePage({ searchParams }: PageProps) {
               playerA &&
               playerB && (
                 <EmptyState
-                  className="mt-10"
+                  className="mt-8"
                   title="No recorded meetings"
-                  description={`${playerA.name} and ${playerB.name} have not met in the ${seasonCode} season according to the association's records. Try another season.`}
+                  description={`${playerA.name} and ${playerB.name} have not met in the ${seasonCode} season.`}
                 />
               )
             )}
 
             {hasStatData(lineA) || hasStatData(lineB) ? (
-              <section className="mt-12">
-                <SectionHeading eyebrow="Season form" title="Current season statistics" />
-                <div className="mt-6 overflow-x-auto rounded-[14px] border border-ink-750 bg-ink-900">
+              <section className="mt-8">
+                <SectionHeading eyebrow="Season Comparison" title="Season Statistics" />
+                <div className="mt-4 overflow-x-auto rounded-[8px] border border-ink-750 bg-ink-900">
                   <table className="stat-table">
                     <thead>
                       <tr>
                         <th className="!text-left">Metric</th>
-                        <th>{playerA?.shortName ?? "—"}</th>
-                        <th>{playerB?.shortName ?? "—"}</th>
+                        <th className="!text-carom-300">{playerA?.shortName ?? "—"}</th>
+                        <th className="!text-gold-300">{playerB?.shortName ?? "—"}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -324,16 +309,16 @@ export default async function ComparePage({ searchParams }: PageProps) {
                           <td className="!text-left text-fog-400">{label}</td>
                           <td
                             className={cn(
-                              "font-semibold",
-                              Number(left) > Number(right) ? "text-lime-400" : "text-fog-200",
+                              "font-bold",
+                              Number(left) > Number(right) ? "text-carom-300" : "text-fog-200",
                             )}
                           >
                             {formatH2H(unit, left)}
                           </td>
                           <td
                             className={cn(
-                              "font-semibold",
-                              Number(right) > Number(left) ? "text-rose-450" : "text-fog-200",
+                              "font-bold",
+                              Number(right) > Number(left) ? "text-gold-300" : "text-fog-200",
                             )}
                           >
                             {formatH2H(unit, right)}
@@ -364,15 +349,17 @@ function CompareCard({
   player,
   code,
   label,
+  tone,
 }: {
   player: Player | null;
   code: string | null;
   label: string;
+  tone: "carom" | "gold";
 }) {
   if (!player) {
     return (
-      <div className="surface flex min-h-[132px] items-center justify-center p-5">
-        <p className="text-[13px] text-fog-500">
+      <div className="surface flex min-h-[108px] items-center justify-center p-4">
+        <p className="text-[12.5px] text-fog-450">
           {code ? `No player found for ${code}` : `${label} — search a name above`}
         </p>
       </div>
@@ -382,7 +369,13 @@ function CompareCard({
   const league = leagueByCode(player.league);
 
   return (
-    <Link href={`/players/${player.code}`} className="surface card-hover group flex items-center gap-4 p-4">
+    <Link
+      href={`/players/${player.code}`}
+      className={cn(
+        "surface card-hover group flex items-center gap-3.5 p-4",
+        tone === "carom" ? "border-l-2 border-l-carom-400" : "border-l-2 border-l-gold-400",
+      )}
+    >
       <PlayerAvatar path={player.photoPath} src={player.photo} name={player.name} size="lg" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -391,10 +384,10 @@ function CompareCard({
           </Chip>
           <NationPlate code={player.nation} />
         </div>
-        <p className="mt-1.5 truncate font-display text-[15px] font-bold text-fog-100 group-hover:text-lime-300">
-          {pick(player.name, player.nameKo)}
+        <p className="mt-1.5 truncate font-display text-[15px] font-bold text-fog-100 group-hover:text-carom-300">
+          {cleanPlayerName(pick(player.name, player.nameKo))}
         </p>
-        <p className="tnum mt-1 text-[11.5px] text-fog-500">
+        <p className="tnum mt-0.5 text-[11.5px] text-fog-450">
           AVG {average(player.average)} · HR {player.highRun} · {percent(winRate(player), 0)} win
         </p>
       </div>

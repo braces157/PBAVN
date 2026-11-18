@@ -8,10 +8,6 @@ export interface FilterOption {
   count?: number;
 }
 
-/**
- * Filters are links, not client state: every view stays shareable, cacheable and
- * server-rendered, and the back button behaves the way people expect.
- */
 export function FilterRow({
   label,
   options,
@@ -40,12 +36,19 @@ export function FilterRow({
     return qs ? `${basePath}?${qs}` : basePath;
   };
 
+  const scrollable = options.length > 4;
+
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      <span className="mr-1 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fog-600">
+    <div className={cn("flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2.5", className)}>
+      <span className="min-w-[50px] shrink-0 font-display text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--muted)]">
         {label}
       </span>
-      <div className="flex flex-wrap gap-1.5">
+      <div
+        className={cn(
+          "flex w-full min-w-0 max-w-full gap-1 sm:w-auto",
+          scrollable ? "no-scrollbar flex-nowrap overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0" : "flex-wrap",
+        )}
+      >
         {options.map((option) => {
           const isActive = option.value === active;
           return (
@@ -54,15 +57,17 @@ export function FilterRow({
               href={buildHref(option.value)}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "rounded-md border px-2.5 py-1 text-[12.5px] font-medium transition-colors",
+                "shrink-0 rounded-[3px] border px-2 py-0.5 text-[12px] font-semibold transition-colors hover:no-underline",
                 isActive
-                  ? "border-lime-400/45 bg-lime-400/10 text-lime-300"
-                  : "border-ink-700 text-fog-400 hover:border-ink-500 hover:text-fog-100",
+                  ? "border-[var(--line-2)] border-b-2 border-b-[var(--yellow)] bg-[var(--bar-2)] text-[var(--text)]"
+                  : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:bg-[var(--hover)] hover:text-[var(--text)]",
               )}
             >
               {option.label}
               {typeof option.count === "number" && (
-                <span className="tnum ml-1.5 text-[10.5px] text-fog-600">{option.count}</span>
+                <span className={cn("tnum ml-1.5 text-[10.5px]", isActive ? "text-[var(--text)]" : "text-[var(--muted)]")}>
+                  {option.count}
+                </span>
               )}
             </Link>
           );
@@ -83,24 +88,24 @@ export function PageHeader({
   title: string;
   description?: string;
   children?: React.ReactNode;
-  /** Feeds that failed while this page loaded; renders the partial-data notice. */
   failures?: string[];
 }) {
   return (
-    <header className="relative overflow-hidden border-b border-ink-800">
-      <div className="pointer-events-none absolute inset-0 grid-field opacity-40" aria-hidden="true" />
-      <div
-        className="pointer-events-none absolute -left-24 -top-32 h-[380px] w-[380px] rounded-full opacity-[0.10] blur-[110px]"
-        style={{ background: "var(--color-lime-400)" }}
-        aria-hidden="true"
-      />
-      <div className="relative mx-auto max-w-[1440px] px-4 pb-8 pt-12 sm:px-6 lg:px-10 lg:pb-10 lg:pt-14">
-        <p className="eyebrow">{eyebrow}</p>
-        <h1 className="display-lg mt-3 max-w-3xl text-fog-100">{title}</h1>
-        {description && (
-          <p className="mt-4 max-w-2xl text-[14.5px] leading-relaxed text-fog-400">{description}</p>
-        )}
-        {children && <div className="mt-7">{children}</div>}
+    <header className="border-b border-[var(--line)] bg-[var(--panel)]">
+      <div className="wrap py-3.5 sm:py-4">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <p className="eyebrow">{eyebrow}</p>
+          {description && (
+            <>
+              <span aria-hidden="true" className="text-[var(--muted)]">
+                ·
+              </span>
+              <p className="text-[12px] text-[var(--text-2)]">{description}</p>
+            </>
+          )}
+        </div>
+        <h1 className="display-md mt-1 text-[var(--text)]">{title}</h1>
+        {children && <div className="mt-3">{children}</div>}
         <DataStatus failures={failures} />
       </div>
     </header>

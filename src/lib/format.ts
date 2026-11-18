@@ -314,11 +314,138 @@ export function isPlaceholder(value: string | null | undefined): boolean {
   return /^(tbd|tba|n\/a|null|undefined|-|—|미정|없음|추후|0)$/i.test(value.trim());
 }
 
+/** Clean full-width Unicode glyphs and stray mojibake question marks from upstream labels. */
+export function cleanDisplayText(value: string | null | undefined): string {
+  if (!value) return "";
+  return value
+    .normalize("NFKC")
+    .replace(/\uFFFD/g, " ")
+    .replace(/([A-Za-z0-9])\?([A-Za-z0-9])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Clean a player's display name: normalize full-width characters, remove stray
+ * encoding artifacts (`Sung-ki?JUNG`), and strip upstream disambiguation digits
+ * appended after the family name (`Won-jun CHOI1` -> `Won-jun CHOI`).
+ */
+export function cleanPlayerName(value: string | null | undefined): string {
+  const cleaned = cleanDisplayText(value);
+  if (!cleaned) return "";
+  return cleaned
+    .replace(/\?+/g, " ")
+    .replace(/([A-Za-z])\s*[1-9]$/, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const INITIALS_RR = [
+  "g", "kk", "n", "d", "tt", "r", "m", "b", "pp", "s", "ss", "", "j", "jj", "ch", "k", "t", "p", "h",
+];
+const MEDIALS_RR = [
+  "a", "ae", "ya", "yae", "eo", "e", "yeo", "ye", "o", "wa", "wae", "oe", "yo", "u", "wo", "we", "wi", "yu", "eu", "ui", "i",
+];
+const FINALS_RR = [
+  "", "k", "k", "ks", "n", "nj", "nh", "t", "l", "lk", "lm", "lb", "ls", "lt", "lp", "lh", "m", "p", "ps", "t", "t", "ng", "t", "t", "k", "t", "p", "t",
+];
+
+const SURNAMES_RR: Record<string, string> = {
+  김: "KIM",
+  이: "LEE",
+  박: "PARK",
+  최: "CHOI",
+  정: "JUNG",
+  강: "KANG",
+  조: "CHO",
+  윤: "YOON",
+  장: "JANG",
+  임: "LIM",
+  한: "HAN",
+  오: "OH",
+  서: "SEO",
+  신: "SHIN",
+  권: "KWON",
+  황: "HWANG",
+  안: "AHN",
+  송: "SONG",
+  유: "YOO",
+  류: "RYU",
+  전: "JEON",
+  홍: "HONG",
+  고: "KO",
+  문: "MOON",
+  양: "YANG",
+  손: "SON",
+  배: "BAE",
+  백: "BAEK",
+  허: "HEO",
+  남: "NAM",
+  심: "SIM",
+  노: "NOH",
+  하: "HA",
+  곽: "KWAK",
+  성: "SEONG",
+  차: "CHA",
+  주: "JOO",
+  우: "WOO",
+  구: "KOO",
+  나: "NA",
+  민: "MIN",
+  엄: "EOM",
+  진: "JIN",
+  원: "WON",
+  지: "JI",
+  채: "CHAE",
+  천: "CHEON",
+  방: "BANG",
+  현: "HYUN",
+  변: "BYUN",
+  염: "YEOM",
+  추: "CHOO",
+  석: "SEOK",
+  선: "SUN",
+  설: "SEOL",
+};
+
+function romanizeSyllable(ch: string): string {
+  const code = ch.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return ch;
+  const idx = code - 0xac00;
+  const initial = Math.floor(idx / 588);
+  const medial = Math.floor((idx % 588) / 28);
+  const final = idx % 28;
+  return `${INITIALS_RR[initial]}${MEDIALS_RR[medial]}${FINALS_RR[final]}`;
+}
+
+export function hasHangul(value: string | null | undefined): boolean {
+  return Boolean(value && /[\uAC00-\uD7A3]/.test(value));
+}
+
+/** Transliterate a Korean personal name (e.g. `오성욱` -> `Seong-uk OH`) when no English directory entry exists. */
+export function romanizeKoreanName(value: string | null | undefined): string {
+  const cleaned = cleanPlayerName(value);
+  if (!cleaned) return "";
+  if (!hasHangul(cleaned)) return cleaned;
+
+  const stripped = cleaned.replace(/[1-9]+$/, "").trim();
+  const syllables = [...stripped];
+  if (syllables.length >= 2 && syllables.length <= 4 && syllables.every((c) => hasHangul(c))) {
+    const surname = SURNAMES_RR[syllables[0]] ?? romanizeSyllable(syllables[0]).toUpperCase();
+    const givenParts = syllables.slice(1).map(romanizeSyllable);
+    const given = givenParts.join("-");
+    const formattedGiven = given ? `${given[0].toUpperCase()}${given.slice(1)}` : "";
+    return formattedGiven ? `${formattedGiven} ${surname}` : surname;
+  }
+
+  return syllables.map(romanizeSyllable).join("");
+}
+
 /** Upstream duplicates every label in EN and KO; prefer EN, fall back gracefully. */
 export function pick(en: string | null | undefined, ko: string | null | undefined): string {
-  const english = (en ?? "").trim();
+  const english = cleanDisplayText(en);
   if (!isPlaceholder(english)) return english;
-  const korean = (ko ?? "").trim();
+  const korean = cleanDisplayText(ko);
   if (!isPlaceholder(korean)) return korean;
   return "—";
 }

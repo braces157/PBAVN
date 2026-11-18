@@ -4,24 +4,96 @@ import { SafeImage } from "./safe-image";
 import { cn } from "./primitives";
 
 const SIZES = {
-  xs: "h-7 w-7 text-[10px]",
-  sm: "h-9 w-9 text-[11px]",
-  md: "h-12 w-12 text-sm",
-  lg: "h-16 w-16 text-base",
-  xl: "h-24 w-24 text-xl",
-  "2xl": "h-32 w-32 text-2xl",
+  xs: "h-6 w-6 text-[9.5px]",
+  sm: "h-8 w-8 text-[10.5px]",
+  md: "h-11 w-11 text-xs",
+  lg: "h-14 w-14 text-sm",
+  xl: "h-20 w-20 text-lg",
+  "2xl": "h-24 w-24 text-xl",
 } as const;
 
-/** The rendered width of each size, so the proxy can resize to it instead of the browser. */
-const PIXELS = { xs: 28, sm: 36, md: 48, lg: 64, xl: 96, "2xl": 128 } as const;
+const PIXELS = { xs: 24, sm: 32, md: 44, lg: 56, xl: 80, "2xl": 96 } as const;
 
 export type AvatarSize = keyof typeof SIZES;
+
+const FLAG_MAP: Record<string, string> = {
+  KR: "f-kr", KOR: "f-kr",
+  ES: "f-es", ESP: "f-es",
+  VN: "f-vn", VIE: "f-vn", VNM: "f-vn",
+  TR: "f-tr", TUR: "f-tr",
+  BE: "f-be", BEL: "f-be",
+  GR: "f-gr", GRE: "f-gr", GRC: "f-gr",
+  CO: "f-co", COL: "f-co",
+  NL: "f-nl", NED: "f-nl", NLD: "f-nl",
+  JP: "f-jp", JPN: "f-jp",
+  AT: "f-at", AUT: "f-at",
+  FR: "f-fr", FRA: "f-fr",
+  DE: "f-de", GER: "f-de", DEU: "f-de",
+  US: "f-us", USA: "f-us",
+  DK: "f-dk", DEN: "f-dk", DNK: "f-dk",
+  EG: "f-eg", EGY: "f-eg",
+  IT: "f-it", ITA: "f-it",
+  PT: "f-pt", POR: "f-pt", PRT: "f-pt",
+  SE: "f-se", SWE: "f-se",
+  MX: "f-mx", MEX: "f-mx",
+  CN: "f-cn", CHN: "f-cn",
+};
+
+export function flagClass(nation: string | null | undefined): string {
+  const key = (nation ?? "").trim().toUpperCase();
+  const specific = FLAG_MAP[key];
+  return specific ? `f ${specific}` : "f";
+}
+
+const CLUB_CRESTS: Record<string, { code: string; cls: string }> = {
+  huons: { code: "HL", cls: "c1" },
+  crown: { code: "CH", cls: "c2" },
+  harim: { code: "HY", cls: "c3" },
+  hana: { code: "HC", cls: "c4" },
+  nh: { code: "NH", cls: "c5" },
+  nonghyup: { code: "NH", cls: "c5" },
+  woori: { code: "WF", cls: "c6" },
+  sy: { code: "SY", cls: "c7" },
+  welcome: { code: "WS", cls: "c8" },
+  high1: { code: "H1", cls: "c9" },
+  sk: { code: "SK", cls: "c10" },
+  breakers: { code: "BR", cls: "c10" },
+  blueone: { code: "BO", cls: "c9" },
+  ts: { code: "TS", cls: "c7" },
+};
+
+const CREST_CLASSES = ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "c10"];
+
+export function clubBadge(name: string, index = 0): { code: string; cls: string } {
+  const lower = name.toLowerCase();
+  for (const [needle, badge] of Object.entries(CLUB_CRESTS)) {
+    if (lower.includes(needle)) return badge;
+  }
+  const letters = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+  return {
+    code: letters || name.slice(0, 2).toUpperCase() || "TM",
+    cls: CREST_CLASSES[index % CREST_CLASSES.length],
+  };
+}
+
+export function leagueTagClass(league: string | null | undefined): string {
+  const l = (league ?? "").trim().toUpperCase();
+  if (l === "TLG" || l === "TEAM") return "t-team";
+  if (l === "LPBA1" || l === "LPBA") return "t-lpba";
+  if (l === "PBA2" || l === "DRM" || l === "DREAM") return "t-dream";
+  return "t-pba";
+}
 
 function Initials({ name, className }: { name: string; className?: string }) {
   return (
     <span
       className={cn(
-        "grid h-full w-full place-items-center bg-ink-750 font-display font-bold text-fog-400",
+        "grid h-full w-full place-items-center bg-[var(--bar-2)] font-display font-bold text-[var(--text-2)]",
         className,
       )}
       aria-hidden="true"
@@ -31,29 +103,13 @@ function Initials({ name, className }: { name: string; className?: string }) {
   );
 }
 
-/**
- * The stand-in for a player with no photo on file — roughly half the directory.
- * A flat empty rectangle reads as a broken image, so this plate is deliberately
- * designed: a soft baize gradient, a faint billiard-cloth grid and the initials
- * set in the display face. It should look like a choice, not a failure.
- */
 export function InitialsPlate({ name, className }: { name: string; className?: string }) {
   return (
     <div
-      className={cn(
-        "relative grid h-full w-full place-items-center overflow-hidden bg-gradient-to-br from-ink-700 via-ink-800 to-ink-900",
-        className,
-      )}
+      className={cn("grid h-full w-full place-items-center bg-[var(--bar-2)]", className)}
       aria-hidden="true"
     >
-      <span
-        className="absolute inset-0 opacity-40"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 28% 18%, rgba(212,255,74,0.10), transparent 55%), repeating-linear-gradient(45deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 7px)",
-        }}
-      />
-      <span className="relative font-display text-[clamp(15px,3.2vw,30px)] font-bold tracking-[0.02em] text-fog-400">
+      <span className="font-display text-[clamp(16px,2.8vw,28px)] font-bold tracking-[0.04em] text-[var(--text-2)]">
         {initials(name)}
       </span>
     </div>
@@ -68,7 +124,6 @@ export function PlayerAvatar({
   className,
   ring = false,
 }: {
-  /** Raw upstream photo path — resized from the big copy by `/api/photo`. */
   path?: string | null;
   src?: string | null;
   name: string;
@@ -79,9 +134,9 @@ export function PlayerAvatar({
   return (
     <span
       className={cn(
-        "relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full bg-ink-750 font-display font-bold text-fog-400",
+        "relative inline-grid shrink-0 place-items-center overflow-hidden rounded-[3px] border border-[var(--line)] bg-[var(--bar-2)] font-display font-bold text-[var(--text)]",
         SIZES[size],
-        ring && "ring-2 ring-lime-400/40 ring-offset-2 ring-offset-ink-950",
+        ring && "ring-2 ring-[var(--yellow)] ring-offset-1 ring-offset-[var(--panel)]",
         className,
       )}
     >
@@ -108,21 +163,22 @@ export function TeamLogo({
   size?: AvatarSize;
   className?: string;
 }) {
+  const badge = clubBadge(name);
   return (
     <span
       className={cn(
-        "inline-grid shrink-0 place-items-center overflow-hidden rounded-lg bg-ink-800 p-1.5",
+        "inline-grid shrink-0 place-items-center overflow-hidden rounded-[3px] border border-[var(--line)] bg-[#ffffff] p-1",
         SIZES[size],
         className,
       )}
     >
       <SafeImage
         src={src}
-        alt=""
+        alt={name}
         className="h-full w-full object-contain"
         fallback={
-          <span className="font-display text-[11px] font-bold text-fog-500" aria-hidden="true">
-            {initials(name)}
+          <span className={cn("cr", badge.cls)} aria-hidden="true">
+            {badge.code}
           </span>
         }
       />
@@ -130,7 +186,6 @@ export function TeamLogo({
   );
 }
 
-/** Tournament / sponsor artwork, which arrives on an opaque plate. */
 export function EventLogo({
   src,
   name,
@@ -145,7 +200,7 @@ export function EventLogo({
     <span className={cn("inline-grid place-items-center", className)}>
       <SafeImage
         src={src}
-        alt=""
+        alt={name}
         className="max-h-full max-w-full object-contain"
         fallback={<span />}
       />
@@ -153,78 +208,107 @@ export function EventLogo({
   );
 }
 
-/**
- * The crest on a console header or event row. Unlike `EventLogo` it is always
- * present: an event with no artwork published gets a neutral plate carrying
- * the circuit's initial, so a long list of events keeps one visual rhythm.
- */
+const CREST_SIZES = {
+  sm: "h-9 w-9 text-[10px]",
+  md: "h-11 w-11 text-xs",
+  lg: "h-12 w-12 text-sm",
+} as const;
+
 export function EventCrest({
   src,
-  name,
   league,
+  name,
+  alt,
   size = "md",
   className,
 }: {
   src?: string | null;
-  name: string;
-  league?: string;
-  size?: "sm" | "md" | "lg";
+  srcSet?: string;
+  league: string;
+  name?: string;
+  alt?: string;
+  size?: keyof typeof CREST_SIZES;
   className?: string;
 }) {
-  const box = { sm: "h-8 w-8", md: "h-11 w-11", lg: "h-14 w-14" }[size];
-  const px = { sm: 32, md: 44, lg: 56 }[size];
+  const entry = LEAGUES.find((item) => item.code === league);
+  const tag = entry?.tag ?? (league || "PBA");
+  const label = alt ?? name ?? tag;
+
+  const fallback = (
+    <span
+      className={cn(
+        "grid h-full w-full place-items-center rounded-[3px] font-display font-bold tracking-[0.04em] text-white",
+        leagueTagClass(league),
+      )}
+    >
+      {tag}
+    </span>
+  );
+
+  if (!src) {
+    return (
+      <span className={cn("inline-grid shrink-0 place-items-center", CREST_SIZES[size], className)} aria-label={label}>
+        {fallback}
+      </span>
+    );
+  }
+
   return (
     <span
       className={cn(
-        "relative grid shrink-0 place-items-center overflow-hidden rounded-[8px] border border-ink-750 bg-ink-800",
-        box,
+        "inline-grid shrink-0 place-items-center overflow-hidden rounded-[3px] border border-[var(--line)] bg-[#ffffff] p-1",
+        CREST_SIZES[size],
         className,
       )}
     >
-      {src ? (
-        <SafeImage
-          src={src}
-          alt=""
-          className="h-full w-full object-contain p-1"
-          fallback={<CrestFallback label={league ?? name} />}
-        />
-      ) : (
-        <CrestFallback label={league ?? name} />
-      )}
+      <SafeImage src={src} alt={label} className="h-full w-full object-contain" fallback={fallback} />
     </span>
   );
 }
 
-function CrestFallback({ label }: { label: string }) {
-  // A circuit code ("TLG", "PBA1") reads better as its mark ("TLG", "PBA") than
-  // the initials of a long event title, which are often the sponsor's first
-  // two letters.
-  const raw = label.trim();
-  const circuit = LEAGUES.find((league) => league.code === raw);
-  const mark = circuit?.tag ?? (/^[A-Z]{2,4}$/.test(raw) ? raw : initials(raw || "PBA"));
-  return (
-    <span
-      aria-hidden="true"
-      className="grid h-full w-full place-items-center bg-gradient-to-br from-ink-700 to-ink-850 font-display text-[10px] font-bold tracking-[0.02em] text-fog-500"
-    >
-      {mark}
-    </span>
-  );
+const COUNTRIES: Record<string, string> = {
+  KOR: "Korea", KR: "Korea",
+  VNM: "Vietnam", VN: "Vietnam", VIE: "Vietnam",
+  ESP: "Spain", ES: "Spain",
+  BEL: "Belgium", BE: "Belgium",
+  TUR: "Turkey", TR: "Turkey",
+  NLD: "Netherlands", NL: "Netherlands", NED: "Netherlands",
+  JPN: "Japan", JP: "Japan",
+  GRE: "Greece", GR: "Greece", GRC: "Greece",
+  COL: "Colombia", CO: "Colombia",
+  ITA: "Italy", IT: "Italy",
+  GER: "Germany", DE: "Germany", DEU: "Germany",
+  FRA: "France", FR: "France",
+  USA: "United States", US: "United States",
+  MEX: "Mexico", MX: "Mexico",
+  ECU: "Ecuador", EC: "Ecuador",
+  EGY: "Egypt", EG: "Egypt",
+  AUT: "Austria", AT: "Austria",
+  DEN: "Denmark", DK: "Denmark", DNK: "Denmark",
+  SWE: "Sweden", SE: "Sweden",
+  POR: "Portugal", PT: "Portugal", PRT: "Portugal",
+  PER: "Peru",
+  CAM: "Cambodia", KHM: "Cambodia",
+  CHN: "China", CN: "China",
+};
+
+export function NationFlag({ code }: { code: string | null | undefined }) {
+  const trimmed = (code || "").trim().toUpperCase();
+  if (!trimmed || trimmed === "—") return null;
+  return <i className={flagClass(trimmed)} title={COUNTRIES[trimmed] ?? trimmed} aria-hidden="true" />;
 }
 
-/** Country is shown as a code plate rather than a flag: upstream ships no flag art. */
-export function NationPlate({ code, className }: { code: string; className?: string }) {
-  const normalised = (code || "").trim().toUpperCase().slice(0, 3);
-  if (!normalised || normalised === "—") return null;
+export function NationPlate({ code }: { code: string }) {
+  const trimmed = (code || "").trim().toUpperCase();
+  if (!trimmed || trimmed === "—") return null;
+  const full = COUNTRIES[trimmed];
   return (
     <span
-      className={cn(
-        "tnum inline-grid h-[18px] min-w-[26px] place-items-center rounded border border-ink-650 bg-ink-800 px-1 text-[9.5px] font-bold tracking-[0.06em] text-fog-400",
-        className,
-      )}
-      title={normalised}
+      title={full ?? trimmed}
+      className="tnum inline-flex items-center gap-1.5 rounded-[2px] border border-[var(--line)] bg-[var(--bar)] px-1.5 py-[1px] text-[10.5px] font-semibold uppercase tracking-[0.03em] text-[var(--text)]"
     >
-      {normalised}
+      <i className={flagClass(trimmed)} aria-hidden="true" />
+      <span>{trimmed}</span>
     </span>
   );
 }

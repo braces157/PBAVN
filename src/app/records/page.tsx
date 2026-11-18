@@ -2,8 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getPeriodStats, getSeasonLeaders, getTourHistory, trackFailures } from "@/lib/pba/api";
 import { getRequestFailures } from "@/lib/pba/failures";
-import { getCurrentSeason, getSeasonList, resolveTourLabels } from "@/lib/pba/service";
-import { LEADER_CATEGORIES } from "@/lib/normalize";
+import {
+  getCurrentSeason,
+  getPlayerNameIndex,
+  getSeasonList,
+  resolveKoreanName,
+  resolveTourLabels,
+} from "@/lib/pba/service";
+import { LEADER_CATEGORIES, leagueShort } from "@/lib/normalize";
 import {
   PERIOD_CATEGORIES,
   normalizePeriodStat,
@@ -12,7 +18,7 @@ import {
   rankPeriod,
   seasonWindow,
 } from "@/lib/period";
-import { grouped, percent } from "@/lib/format";
+import { cleanPlayerName, grouped, hasHangul, percent } from "@/lib/format";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
 import { PeriodTable } from "@/components/domain/period-table";
 import { EmptyState, SectionHeading, TextLink, cn } from "@/components/ui/primitives";
@@ -20,9 +26,9 @@ import { EmptyState, SectionHeading, TextLink, cn } from "@/components/ui/primit
 export const revalidate = 900;
 
 export const metadata: Metadata = {
-  title: "Records",
+  title: "Stats & Records",
   description:
-    "Season statistical leaders and the full roll of honour for the PBA and LPBA tours — averages, high runs, perfect cues and titles.",
+    "Season 3-cushion statistical leaders and the full roll of honour for the PBA and LPBA tours — averages, high runs, bank-shot rates and titles.",
 };
 
 const CIRCUITS = [
@@ -56,16 +62,18 @@ export default async function RecordsPage({ searchParams }: PageProps) {
   });
 
   const ranked = rankPeriod(period.map(normalizePeriodStat), category);
+  const nameIndex = getPlayerNameIndex();
   const byCategory = new Map<string, typeof leaders>();
   for (const row of leaders) {
+    if (!(Number(row.Value) > 0)) continue;
     const bucket = byCategory.get(row.Category) ?? [];
     bucket.push(row);
     byCategory.set(row.Category, bucket);
   }
 
-  const categories = LEADER_CATEGORIES.filter((category) => byCategory.has(category.key)).map((category) => ({
-    ...category,
-    rows: (byCategory.get(category.key) ?? []).sort((a, b) => a.Rank - b.Rank).slice(0, 5),
+  const categories = LEADER_CATEGORIES.filter((cat) => (byCategory.get(cat.key)?.length ?? 0) > 0).map((cat) => ({
+    ...cat,
+    rows: (byCategory.get(cat.key) ?? []).sort((a, b) => a.Rank - b.Rank).slice(0, 5),
   }));
 
   const seasonTours = tours
@@ -88,11 +96,11 @@ export default async function RecordsPage({ searchParams }: PageProps) {
     <>
       <PageHeader
         failures={failures}
-        eyebrow="Record book"
-        title="The numbers behind the titles"
-        description="Statistical leaders for the selected season, plus every champion the tour has crowned."
+        eyebrow="Statistics"
+        title="Tour Statistics & Leaders"
+        description="3-cushion category leaders, period form tables, and tournament champions."
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
           <FilterRow
             label="Season"
             basePath="/records"
@@ -112,51 +120,54 @@ export default async function RecordsPage({ searchParams }: PageProps) {
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         <SectionHeading
-          eyebrow="Leaders"
-          title="Season category leaders"
-          description="Top five in each recorded statistical category. Categories the association does not publish for this circuit are omitted."
+          eyebrow="Category leaders"
+          title="Season Statistical Leaders"
+          description="Top five in each recorded 3-cushion category."
         />
 
         {categories.length === 0 ? (
           <EmptyState
-            className="mt-6"
+            className="mt-4"
             title="No leader data published"
-            description="The association has not released category leaders for this season and circuit yet."
+            description="No category leaders have been released for this season and circuit yet."
           />
         ) : (
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {categories.map((category) => (
-              <div key={category.key} className="surface overflow-hidden">
-                <div className="flex items-baseline justify-between border-b border-ink-800 px-4 py-2.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-fog-400">
-                    {category.label}
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {categories.map((cat) => (
+              <div key={cat.key} className="surface overflow-hidden">
+                <div className="flex items-baseline justify-between border-b border-ink-750 bg-ink-850 px-3.5 py-2">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-fog-100">
+                    {cat.label}
                   </p>
-                  <span className="text-[9.5px] uppercase tracking-[0.1em] text-fog-600">
+                  <span className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-carom-300">
                     {circuit.startsWith("LPBA") ? "LPBA" : circuit}
                   </span>
                 </div>
-                <ul className="divide-y divide-ink-800">
-                  {category.rows.map((row) => (
-                    <li key={`${category.key}-${row.MemCode}-${row.Rank}`}>
+                <ul className="divide-y divide-ink-800/70">
+                  {cat.rows.map((row) => (
+                    <li key={`${cat.key}-${row.MemCode}-${row.Rank}`}>
                       <Link
                         href={`/players/${row.MemCode}`}
-                        className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-ink-850"
+                        className="row-hover group flex items-center gap-2.5 px-3.5 py-2"
                       >
                         <span
                           className={cn(
                             "tnum grid h-5 w-5 shrink-0 place-items-center rounded text-[10px] font-bold",
-                            row.Rank === 1 ? "bg-gold-400/15 text-gold-400" : "text-fog-600",
+                            row.Rank === 1 ? "bg-gold-400/15 text-gold-300" : "text-fog-550",
                           )}
                         >
                           {row.Rank}
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-[12.5px] text-fog-200 group-hover:text-lime-300">
-                          {row.MemNameEn || row.MemName}
+                        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-fog-200 group-hover:text-carom-300">
+                          {(() => {
+                            const rawName = cleanPlayerName(row.MemNameEn || row.MemName);
+                            return hasHangul(rawName) ? resolveKoreanName(rawName, nameIndex) : rawName;
+                          })()}
                         </span>
                         <span className="tnum shrink-0 font-display text-[12.5px] font-bold text-fog-100">
-                          {formatValue(category.unit, row.Value)}
+                          {formatValue(cat.unit, row.Value)}
                         </span>
                       </Link>
                     </li>
@@ -167,15 +178,15 @@ export default async function RecordsPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        <section className="mt-14">
+        <section className="mt-10">
           <SectionHeading
             eyebrow="Season form"
-            title={`${category.label} leaders`}
-            description={`${category.hint} Ranked across ${periodWindow(window.startDate, window.endDate)}, the window the association reports for this season. Every row also carries the supporting figures behind it.`}
+            title={`${category.label} Leaders`}
+            description={`${category.hint} Ranked across ${periodWindow(window.startDate, window.endDate)}.`}
           />
-          <div className="mt-5">
+          <div className="mt-4">
             <FilterRow
-              label="Category"
+              label="Metric"
               basePath="/records"
               paramKey="stat"
               active={category.key}
@@ -183,27 +194,27 @@ export default async function RecordsPage({ searchParams }: PageProps) {
               options={PERIOD_CATEGORIES.map((item) => ({ value: item.key, label: item.label }))}
             />
           </div>
-          <div className="mt-4 overflow-x-auto rounded-[14px] border border-ink-750 bg-ink-900">
+          <div className="mt-3 overflow-x-auto rounded-[8px] border border-ink-750 bg-ink-900">
             {ranked.length > 0 ? (
               <PeriodTable rows={ranked} category={category} />
             ) : (
               <EmptyState
                 className="border-0"
                 title="No period data published"
-                description="The association's statistics service has not published per-player records for this circuit and window."
+                description="No per-player statistics published for this circuit and window."
               />
             )}
           </div>
         </section>
 
-        <div className="mt-14 grid gap-10 lg:grid-cols-2 lg:gap-12">
+        <div className="mt-10 grid gap-8 lg:grid-cols-2 lg:gap-10">
           <section className="min-w-0">
             <SectionHeading
               eyebrow="This season"
-              title="Events and champions"
+              title="Events & Champions"
               action={<TextLink href={`/schedule?season=${seasonCode}`}>Schedule</TextLink>}
             />
-            <div className="mt-5 overflow-x-auto rounded-[14px] border border-ink-750 bg-ink-900">
+            <div className="mt-4 overflow-x-auto rounded-[8px] border border-ink-750 bg-ink-900">
               {seasonTours.length > 0 ? (
                 <table className="stat-table">
                   <thead>
@@ -218,16 +229,16 @@ export default async function RecordsPage({ searchParams }: PageProps) {
                     {seasonTours.map((tour, index) => (
                       <tr key={tour.투어코드}>
                         <td className="!text-left">
-                          <span className="block max-w-[240px] truncate text-[12.5px] text-fog-100">
+                          <span className="block max-w-[240px] truncate text-[12.5px] font-medium text-fog-100">
                             {seasonLabels[index]?.title ?? tour.투어명}
                           </span>
                         </td>
                         <td className="!text-left">
-                          <span className="text-[12.5px] font-semibold text-gold-400">
+                          <span className="text-[12.5px] font-bold text-gold-300">
                             {seasonLabels[index]?.champion || "—"}
                           </span>
                         </td>
-                        <td className="hidden text-[11.5px] text-fog-500 sm:table-cell">{tour.PBA타입}</td>
+                        <td className="hidden text-[11.5px] text-fog-450 sm:table-cell">{leagueShort(tour.PBA타입)}</td>
                         <td className="tnum hidden text-[11.5px] text-fog-500 md:table-cell">
                           {tour.투어시작일자} → {tour.투어종료일자}
                         </td>
@@ -242,8 +253,8 @@ export default async function RecordsPage({ searchParams }: PageProps) {
           </section>
 
           <section className="min-w-0">
-            <SectionHeading eyebrow="All time" title="Roll of honour" />
-            <div className="mt-5 overflow-x-auto rounded-[14px] border border-ink-750 bg-ink-900">
+            <SectionHeading eyebrow="All time" title="Roll of Honour" />
+            <div className="mt-4 overflow-x-auto rounded-[8px] border border-ink-750 bg-ink-900">
               {rollOfHonour.length > 0 ? (
                 <table className="stat-table">
                   <thead>
@@ -258,11 +269,11 @@ export default async function RecordsPage({ searchParams }: PageProps) {
                       <tr key={`${tour.투어코드}-h`}>
                         <td className="tnum !text-left text-[11.5px] text-fog-500">{tour.시즌코드}</td>
                         <td className="!text-left">
-                          <span className="block max-w-[220px] truncate text-[12px] text-fog-300">
+                          <span className="block max-w-[220px] truncate text-[12px] text-fog-200">
                             {honourLabels[index]?.title ?? tour.투어명}
                           </span>
                         </td>
-                        <td className="!text-left text-[12px] font-semibold text-gold-400">
+                        <td className="!text-left text-[12px] font-bold text-gold-300">
                           {honourLabels[index]?.champion || "—"}
                         </td>
                       </tr>
