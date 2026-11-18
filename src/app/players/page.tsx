@@ -179,14 +179,14 @@ export default async function PlayersPage({ searchParams }: PageProps) {
               />
               <button
                 type="submit"
-                className="press bg-[var(--ink)] px-3.5 py-1.5 text-[12.5px] font-bold text-[var(--paper)] transition-colors hover:bg-[var(--red)] hover:text-white"
+                className="press rounded-[3px] bg-[var(--nav)] px-3.5 py-1.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-[var(--link)]"
               >
                 Search
               </button>
               {query && (
                 <Link
                   href={`/players?league=${league || "PBA1"}`}
-                  className="px-1.5 text-[12px] font-medium text-fog-450 hover:text-fog-100"
+                  className="px-1.5 text-[12px] font-medium text-[var(--muted)] hover:text-[var(--link)]"
                 >
                   Clear
                 </Link>
@@ -241,7 +241,7 @@ export default async function PlayersPage({ searchParams }: PageProps) {
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         {players.length === 0 ? (
           <EmptyState
             title="No players matched"

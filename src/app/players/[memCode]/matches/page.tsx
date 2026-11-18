@@ -31,15 +31,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 function HistorySkeleton() {
   return (
-    <div className="border border-[var(--hair)] bg-[var(--paper)] p-4" aria-hidden="true">
+    <div className="rounded-[3px] border border-[var(--line)] bg-[var(--panel)] p-4" aria-hidden="true">
       <div className="space-y-3">
         {[0, 1, 2, 3, 4, 5].map((row) => (
           <div key={row} className="flex items-center gap-3">
-            <span className="h-3 w-14 bg-[var(--paper-2)]" />
-            <span className="h-3 w-1/3 bg-[var(--paper-2)]" />
-            <span className="h-3 w-16 bg-[var(--paper-2)]" />
-            <span className="h-3 w-20 bg-[var(--paper-2)]" />
-            <span className="h-3 w-8 bg-[var(--paper-2)]" />
+            <span className="h-3 w-14 rounded bg-[var(--bar-2)]" />
+            <span className="h-3 w-1/3 rounded bg-[var(--bar-2)]" />
+            <span className="h-3 w-16 rounded bg-[var(--bar-2)]" />
+            <span className="h-3 w-20 rounded bg-[var(--bar-2)]" />
+            <span className="h-3 w-8 rounded bg-[var(--bar-2)]" />
           </div>
         ))}
       </div>
@@ -106,7 +106,7 @@ async function HistorySection({
         />
       ) : (
         <>
-          <div className="overflow-x-auto border border-[var(--hair)] bg-[var(--paper)]">
+          <div className="overflow-x-auto rounded-[3px] border border-[var(--line)] bg-[var(--panel)]">
             <table className="stat-table">
               <thead>
                 <tr>
@@ -118,6 +118,7 @@ async function HistorySection({
                   <th>Sets</th>
                   <th>Avg</th>
                   <th className="hidden sm:table-cell">HR</th>
+                  <th className="w-0 !p-0" aria-hidden="true" />
                 </tr>
               </thead>
               <tbody>
@@ -127,28 +128,28 @@ async function HistorySection({
                   if (!own) return null;
                   return (
                     <tr key={`${match.tourCode}-${match.pstCode}`} className="group relative">
-                      <td className="!text-left tnum text-[var(--ink-2)]">
+                      <td className="!text-left tnum text-[var(--text-2)]">
                         {match.scheduledAt ?? "—"}
                       </td>
                       <td className="!text-left">
-                        <span className="block max-w-[280px] truncate text-[12.5px] font-medium text-[var(--ink)]">
+                        <span className="block max-w-[280px] truncate text-[12.5px] font-medium text-[var(--text)]">
                           {match.tourTitle}
                         </span>
                       </td>
-                      <td className="!text-left text-[var(--ink-2)]">{match.round || "—"}</td>
-                      <td className="!text-left font-semibold text-[var(--ink)] group-hover:text-[var(--red)]">
+                      <td className="!text-left text-[var(--text-2)]">{match.round || "—"}</td>
+                      <td className="!text-left font-semibold text-[var(--link)] group-hover:underline">
                         {opponent?.name ?? "—"}
                       </td>
                       <td
-                        className={`font-bold ${own.won ? "text-[var(--red)]" : "text-[var(--ink-3)]"}`}
+                        className={`font-bold ${own.won ? "text-[var(--win)]" : "text-[var(--muted)]"}`}
                       >
                         {own.won ? "W" : "L"}
                       </td>
-                      <td className="tnum font-bold text-[var(--ink)]">
+                      <td className="tnum font-bold text-[var(--text)]">
                         {own.sets}–{opponent?.sets ?? "—"}
                       </td>
-                      <td className="tnum text-[var(--ink-2)]">{average(own.average)}</td>
-                      <td className="hidden tnum text-[var(--ink-2)] sm:table-cell">
+                      <td className="tnum text-[var(--text-2)]">{average(own.average)}</td>
+                      <td className="hidden tnum text-[var(--text-2)] sm:table-cell">
                         {own.highRun ?? "—"}
                       </td>
                       <td className="p-0">
@@ -166,7 +167,7 @@ async function HistorySection({
           </div>
 
           {history.partial && (
-            <p className="mt-3 text-[11.5px] text-[var(--ink-3)]">
+            <p className="mt-3 text-[11.5px] text-[var(--muted)]">
               The search was capped partway through this season, so a common surname may have pushed some rows past the page limit.
             </p>
           )}
@@ -214,14 +215,14 @@ export default async function PlayerMatchesPage({ params, searchParams }: PagePr
           />
           <Link
             href={`/players/${memCode}`}
-            className="text-[12px] font-bold text-[var(--ink)] hover:text-[var(--red)] hover:underline"
+            className="text-[12px] font-semibold text-[var(--link)] hover:underline"
           >
             ← Back to profile
           </Link>
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         <Suspense fallback={<HistorySkeleton />}>
           <HistorySection
             memCode={memCode}

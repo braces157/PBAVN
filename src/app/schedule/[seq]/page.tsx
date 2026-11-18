@@ -100,7 +100,7 @@ export default async function EventPage({ params, searchParams }: PageProps) {
         keys={keys}
       />
 
-      <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         <NowNextStrip
           event={entry}
           live={
@@ -167,8 +167,8 @@ function EventHeader({
   const dayNumber = keys.includes(today) ? keys.indexOf(today) + 1 : null;
 
   return (
-    <header className="border-b border-ink-800 bg-ink-900/60">
-      <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
+    <header className="border-b border-ink-800 bg-ink-900">
+      <div className="mx-auto max-w-[1300px] px-3">
         <nav className="flex flex-wrap items-center gap-1.5 py-2.5 text-[11px] text-fog-500" aria-label="Breadcrumb">
           <Link href="/schedule" className="transition-colors hover:text-carom-300">
             Schedule
@@ -224,7 +224,7 @@ function EventHeader({
                 href={entry.guideUrl}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="press inline-flex items-center gap-1 bg-[var(--ink)] px-3 py-1.5 text-[12.5px] font-bold text-[var(--paper)] transition-colors hover:bg-[var(--red)] hover:text-white"
+                className="press inline-flex items-center gap-1 rounded-[3px] bg-[var(--nav)] px-3 py-1.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-[var(--link)] hover:text-white"
               >
                 Event guide ↗
               </a>

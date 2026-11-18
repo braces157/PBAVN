@@ -138,7 +138,7 @@ export default async function TeamFixturesPage({ searchParams }: PageProps) {
         )}
       </PageHeader>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         {!season || !selectedRound ? (
           <EmptyState
             title="No team league season published"

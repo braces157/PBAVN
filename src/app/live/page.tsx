@@ -48,10 +48,10 @@ async function LiveWireSection({ tourCode }: { tourCode?: string }) {
 function LiveWireSkeleton() {
   return (
     <div className="surface p-5" aria-hidden="true">
-      <div className="h-4 w-36 bg-[var(--paper-2)]" />
+      <div className="h-4 w-36 rounded bg-[var(--bar-2)]" />
       <div className="mt-4 space-y-2.5">
-        <div className="h-12 bg-[var(--paper-2)]" />
-        <div className="h-12 bg-[var(--paper-2)]" />
+        <div className="h-12 rounded bg-[var(--bar-2)]" />
+        <div className="h-12 rounded bg-[var(--bar-2)]" />
       </div>
     </div>
   );
@@ -94,8 +94,8 @@ export default async function LivePage() {
 
   return (
     <>
-      <header className="border-b border-ink-800 bg-ink-900/60">
-        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+      <header className="border-b border-ink-800 bg-ink-900">
+        <div className="mx-auto flex max-w-[1300px] flex-wrap items-center justify-between gap-3 px-3 py-3.5">
           <div>
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
               <p className="eyebrow">Match centre</p>
@@ -120,7 +120,7 @@ export default async function LivePage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1440px] px-4 pb-10 pt-5 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 pb-10 pt-4">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_316px]">
           <div className="min-w-0 space-y-5">
             <Suspense fallback={<LiveWireSkeleton />}>

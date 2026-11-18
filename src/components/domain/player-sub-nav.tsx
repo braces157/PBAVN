@@ -53,19 +53,19 @@ export function PlayerSubNav({
   return (
     <nav
       aria-label="Sections"
-      className="sticky top-0 z-30 mb-6 border-b border-[var(--hair)] bg-[var(--paper)]"
+      className="sticky top-0 z-30 mb-5 rounded-[3px] border border-[var(--line)] bg-[var(--panel)] px-2.5"
     >
-      <div className="no-scrollbar flex gap-4 overflow-x-auto">
+      <div className="no-scrollbar flex gap-3 overflow-x-auto">
         {sections.map((section) => (
           <a
             key={section.id}
             href={`#${section.id}`}
             aria-current={active === section.id ? "true" : undefined}
             className={cn(
-              "relative -mb-px shrink-0 border-b-2 py-2.5 text-[13.5px] font-bold transition-colors hover:no-underline",
+              "relative -mb-px shrink-0 border-b-2 py-2 font-display text-[12px] font-semibold uppercase tracking-[0.04em] transition-colors hover:no-underline",
               active === section.id
-                ? "border-[var(--ink)] text-[var(--ink)]"
-                : "border-transparent text-[var(--ink-3)] hover:border-[var(--hair)] hover:text-[var(--ink)]",
+                ? "border-[var(--yellow)] text-[var(--text)]"
+                : "border-transparent text-[var(--muted)] hover:text-[var(--text)]",
             )}
           >
             {section.label}

@@ -89,7 +89,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
 
   if (!bouts) {
     return (
-      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         <nav className="mb-3 flex items-center gap-1.5 text-[11.5px] text-fog-500" aria-label="Breadcrumb">
           <Link href="/teams" className="hover:text-carom-300">Team League</Link>
           <span>/</span>
@@ -123,8 +123,8 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
 
   return (
     <>
-      <header className="border-b border-ink-800 bg-ink-900/60">
-        <div className="mx-auto max-w-[1440px] px-4 py-3.5 sm:px-6 lg:px-8">
+      <header className="border-b border-ink-800 bg-ink-900">
+        <div className="mx-auto max-w-[1300px] px-3 py-3.5">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[11.5px] text-fog-500">
             <nav className="flex flex-wrap items-center gap-1.5" aria-label="Breadcrumb">
               <Link href="/teams" className="hover:text-carom-300">Team League</Link>
@@ -166,7 +166,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         <div className="surface-raised p-4 sm:p-6">
           <div className="space-y-3 sm:hidden">
             {([

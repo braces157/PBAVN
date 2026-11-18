@@ -91,7 +91,7 @@ export default async function MatchPage({
 
   if (analysed.length === 0) {
     return (
-      <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 py-6">
         <nav className="mb-4 flex items-center gap-1.5 text-[11.5px] text-fog-500" aria-label="Breadcrumb">
           <Link href="/schedule" className="hover:text-carom-300">
             Schedule
@@ -114,7 +114,7 @@ export default async function MatchPage({
   const covered = summary.coveredSets;
 
   return (
-    <div className="mx-auto max-w-[1440px] px-4 pb-12 pt-4 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-[1300px] px-3 pb-10 pt-4">
       <nav className="mb-4 flex flex-wrap items-center justify-between gap-3 text-[11.5px] text-fog-500" aria-label="Breadcrumb">
         <div className="flex flex-wrap items-center gap-1.5">
           <Link href="/schedule" className="transition-colors hover:text-carom-300">

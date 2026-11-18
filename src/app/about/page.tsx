@@ -56,8 +56,8 @@ export default function AboutPage() {
         description="Independent scores, brackets, and statistics reader for the Professional Billiards Association."
       />
 
-      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
-        <div className="grid gap-px overflow-hidden rounded-[8px] border border-ink-750 bg-ink-750 sm:grid-cols-4">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
+        <div className="grid gap-px overflow-hidden rounded-[3px] border border-ink-750 bg-ink-750 sm:grid-cols-4">
           <div className="bg-ink-900 p-4">
             <Stat label="Circuits covered" value="5" />
           </div>
@@ -165,7 +165,7 @@ export default function AboutPage() {
                 href="https://www.pbatour.org/en/index"
                 target="_blank"
                 rel="noreferrer noopener"
-                className="press bg-[var(--ink)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--paper)] transition-colors hover:bg-[var(--red)] hover:text-white"
+                className="press rounded-[3px] bg-[var(--nav)] px-3.5 py-2 text-[12.5px] font-semibold text-white transition-colors hover:bg-[var(--link)] hover:text-white"
               >
                 pbatour.org ↗
               </a>

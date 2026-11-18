@@ -32,7 +32,7 @@ export default function RouteError({
         <button
           type="button"
           onClick={reset}
-          className="press bg-[var(--ink)] px-4 py-2 text-[12.5px] font-bold text-[var(--paper)] transition-colors hover:bg-[var(--red)] hover:text-white"
+          className="press rounded-[3px] bg-[var(--nav)] px-4 py-2 text-[12.5px] font-semibold text-white transition-colors hover:bg-[var(--link)]"
         >
           Retry
         </button>

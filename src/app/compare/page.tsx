@@ -102,14 +102,14 @@ export default async function ComparePage({ searchParams }: PageProps) {
           />
           <button
             type="submit"
-            className="press bg-[var(--ink)] px-4 py-1.5 text-[12.5px] font-bold text-[var(--paper)] transition-colors hover:bg-[var(--red)] hover:text-white"
+            className="press rounded-[3px] bg-[var(--nav)] px-4 py-1.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-[var(--link)]"
           >
             Compare
           </button>
         </form>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         {!playerA && !playerB ? (
           <div>
             <EmptyState

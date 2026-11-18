@@ -99,7 +99,7 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
     return (
       <>
         <PageHeader eyebrow="Team league" title="Player Statistics" />
-        <div className="mx-auto max-w-[1440px] px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1300px] px-3 py-10">
           <EmptyState title="No team league season published" />
         </div>
       </>
@@ -180,7 +180,7 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
           <span className="mr-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-fog-500">
             Rank by

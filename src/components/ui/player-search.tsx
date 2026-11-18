@@ -153,22 +153,26 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
   };
 
   const showPanel = open && term.trim().length >= 2;
+  const isHeader = variant === "header";
 
   return (
     <div
       ref={containerRef}
-      className={cn(
-        "relative",
-        variant === "page" ? "w-full" : "w-[200px] xl:w-[230px]",
-      )}
+      className={cn("relative", isHeader ? "min-w-0 flex-1 md:flex-none" : "w-full")}
     >
-      <label className="flex items-center gap-2 border-b-2 border-[var(--ink)] pb-1.5 pt-1 text-[14px] text-[var(--ink-3)] focus-within:border-[var(--red)]">
+      <label
+        className={
+          isHeader
+            ? "srch"
+            : "flex items-center gap-2 rounded-[3px] border border-[var(--line-2)] bg-[var(--panel)] px-2.5 py-1.5 text-[13px] text-[var(--muted)] focus-within:border-[var(--link)]"
+        }
+      >
         <svg
-          width="15"
-          height="15"
+          width="13"
+          height="13"
           viewBox="0 0 16 16"
           aria-hidden="true"
-          className="shrink-0 text-[var(--ink-2)]"
+          className="shrink-0 opacity-75"
         >
           <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" strokeWidth="1.8" />
           <path d="m11 11 4 4" stroke="currentColor" strokeWidth="1.8" />
@@ -186,7 +190,7 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
             void load();
           }}
           onKeyDown={onKeyDown}
-          placeholder="Player, team or event"
+          placeholder="Search players, teams, events"
           aria-label="Search players"
           role="combobox"
           aria-expanded={showPanel}
@@ -195,34 +199,37 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
             showPanel && results.length > 0 ? `player-search-option-${cursor}` : undefined
           }
           aria-autocomplete="list"
-          className="min-w-0 flex-1 bg-transparent text-[13.5px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-3)]"
+          className={cn(
+            "min-w-0 flex-1 bg-transparent outline-none",
+            isHeader
+              ? "text-[12.5px] text-white placeholder:text-[#7c8894]"
+              : "text-[13px] text-[var(--text)] placeholder:text-[var(--muted)]",
+          )}
         />
-        <kbd className="hidden border border-[var(--hair)] px-1.5 py-0 text-[11px] text-[var(--ink-3)] lg:inline-block">
-          /
-        </kbd>
+        <kbd className={isHeader ? "hidden sm:inline-block" : "hidden"}>/</kbd>
       </label>
 
       {showPanel && (
         <div
           id="player-search-results"
           role="listbox"
-          className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 border border-[var(--ink)] bg-[var(--paper)] shadow-lg"
+          className="absolute right-0 top-[calc(100%+4px)] z-50 min-w-[270px] rounded-[3px] border border-[var(--line-2)] bg-[var(--panel)] text-[var(--text)] shadow-lg sm:left-0 sm:right-0"
         >
           {loading && !rows ? (
-            <p className="px-3.5 py-4 text-[12.5px] text-[var(--ink-3)]">Indexing directory…</p>
+            <p className="px-3 py-3 text-[12px] text-[var(--muted)]">Indexing directory…</p>
           ) : results.length === 0 ? (
-            <div className="px-3.5 py-4">
-              <p className="text-[13px] text-[var(--ink-2)]">No player matches “{term}”.</p>
+            <div className="px-3 py-3">
+              <p className="text-[12.5px] text-[var(--text-2)]">No player matches “{term}”.</p>
               <Link
                 href={`/players?q=${encodeURIComponent(term)}`}
                 onClick={() => setOpen(false)}
-                className="mt-1.5 inline-block text-[12.5px] font-bold text-[var(--red)] hover:underline"
+                className="mt-1 inline-block text-[12px] font-semibold text-[var(--link)] hover:underline"
               >
                 Search full directory →
               </Link>
             </div>
           ) : (
-            <ul className="max-h-[336px] divide-y divide-[var(--hair)] overflow-y-auto">
+            <ul className="max-h-[320px] divide-y divide-[var(--line)] overflow-y-auto">
               {results.map((row, index) => (
                 <li key={row.c}>
                   <button
@@ -233,18 +240,25 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
                     onMouseEnter={() => setCursor(index)}
                     onClick={() => go(row)}
                     className={cn(
-                      "flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors",
-                      index === cursor ? "bg-[var(--paper-2)]" : "hover:bg-[var(--paper-2)]",
+                      "flex w-full items-center gap-2 px-2.5 py-2 text-left transition-colors",
+                      index === cursor ? "bg-[var(--hover)]" : "hover:bg-[var(--hover)]",
                     )}
                   >
-                    <span className="grid h-7 w-7 shrink-0 place-items-center bg-[var(--ink)] font-bold text-[10px] text-[var(--paper)]">
+                    <span className="av shrink-0">
                       {(row.e || row.k).split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase()}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-bold text-[var(--ink)]">{row.e || row.k}</span>
-                      {row.k && <span className="block truncate text-[11px] text-[var(--ink-3)]">{row.k}</span>}
+                      <span className="block truncate text-[12.5px] font-semibold text-[var(--text)]">
+                        {row.e || row.k}
+                      </span>
+                      {row.k && <span className="block truncate text-[11px] text-[var(--muted)]">{row.k}</span>}
                     </span>
-                    <span className="shrink-0 border border-[var(--hair)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-[var(--ink-3)]">
+                    <span
+                      className={cn(
+                        "tag shrink-0",
+                        row.l === "LPBA1" ? "t-lpba" : row.l === "PBA2" ? "t-dream" : "t-pba",
+                      )}
+                    >
                       {row.l}
                     </span>
                   </button>
@@ -252,8 +266,8 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
               ))}
             </ul>
           )}
-          <div className="border-t border-[var(--hair)] bg-[var(--paper-2)] px-3 py-1.5">
-            <p className="text-[11px] text-[var(--ink-3)]">↑↓ navigate · Enter open · Esc close</p>
+          <div className="border-t border-[var(--line)] bg-[var(--bar)] px-2.5 py-1.5">
+            <p className="text-[11px] text-[var(--muted)]">↑↓ navigate · Enter open · Esc close</p>
           </div>
         </div>
       )}

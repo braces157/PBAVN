@@ -39,13 +39,13 @@ export function FilterRow({
   const scrollable = options.length > 4;
 
   return (
-    <div className={cn("flex min-w-0 flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3", className)}>
-      <span className="min-w-[54px] shrink-0 text-[11.5px] font-bold uppercase tracking-[0.05em] text-[var(--ink-3)]">
+    <div className={cn("flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2.5", className)}>
+      <span className="min-w-[50px] shrink-0 font-display text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--muted)]">
         {label}
       </span>
       <div
         className={cn(
-          "flex max-w-full gap-1.5",
+          "flex w-full min-w-0 max-w-full gap-1 sm:w-auto",
           scrollable ? "no-scrollbar flex-nowrap overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0" : "flex-wrap",
         )}
       >
@@ -57,15 +57,15 @@ export function FilterRow({
               href={buildHref(option.value)}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "shrink-0 border px-2.5 py-1 text-[12.5px] font-bold transition-colors hover:no-underline",
+                "shrink-0 rounded-[3px] border px-2 py-0.5 text-[12px] font-semibold transition-colors hover:no-underline",
                 isActive
-                  ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
-                  : "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
+                  ? "border-[var(--line-2)] border-b-2 border-b-[var(--yellow)] bg-[var(--bar-2)] text-[var(--text)]"
+                  : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:bg-[var(--hover)] hover:text-[var(--text)]",
               )}
             >
               {option.label}
               {typeof option.count === "number" && (
-                <span className={cn("tnum ml-1.5 text-[11px]", isActive ? "opacity-80" : "text-[var(--ink-3)]")}>
+                <span className={cn("tnum ml-1.5 text-[10.5px]", isActive ? "text-[var(--text)]" : "text-[var(--muted)]")}>
                   {option.count}
                 </span>
               )}
@@ -91,21 +91,21 @@ export function PageHeader({
   failures?: string[];
 }) {
   return (
-    <header className="border-b-2 border-[var(--ink)] bg-[var(--paper)]">
-      <div className="wrap py-5 sm:py-6">
-        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+    <header className="border-b border-[var(--line)] bg-[var(--panel)]">
+      <div className="wrap py-3.5 sm:py-4">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <p className="eyebrow">{eyebrow}</p>
           {description && (
             <>
-              <span aria-hidden="true" className="text-[var(--ink-3)]">
+              <span aria-hidden="true" className="text-[var(--muted)]">
                 ·
               </span>
-              <p className="font-serif-ed text-[14px] text-[var(--ink-2)]">{description}</p>
+              <p className="text-[12px] text-[var(--text-2)]">{description}</p>
             </>
           )}
         </div>
-        <h1 className="x mt-1.5 text-[36px] text-[var(--ink)] sm:text-[48px]">{title}</h1>
-        {children && <div className="mt-4">{children}</div>}
+        <h1 className="display-md mt-1 text-[var(--text)]">{title}</h1>
+        {children && <div className="mt-3">{children}</div>}
         <DataStatus failures={failures} />
       </div>
     </header>

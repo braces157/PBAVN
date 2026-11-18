@@ -45,7 +45,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
     return (
       <>
         <PageHeader failures={seasonFailures} eyebrow="Team league" title="PBA Team League" />
-        <div className="mx-auto max-w-[1440px] px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1300px] px-3 py-10">
           <EmptyState title="No team league season published" description="The association has not opened a team league season yet." />
         </div>
       </>
@@ -137,7 +137,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         {selectedRound && (
           <div className="surface-raised mb-6 flex flex-wrap items-center justify-between gap-x-8 gap-y-3 px-4 py-3.5">
             <div className="flex items-center gap-3">

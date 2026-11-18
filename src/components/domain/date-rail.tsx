@@ -83,11 +83,11 @@ export function DateRail({
                       >
                         <span
                           className={cn(
-                            "flex h-[18px] w-[18px] shrink-0 items-center justify-center tabular-nums",
+                            "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px] tabular-nums",
                             active
-                              ? "bg-[var(--ink)] font-bold text-[var(--paper)]"
+                              ? "bg-[var(--yellow)] font-bold text-[#1d2329]"
                               : isToday
-                                ? "font-bold text-[var(--red)] ring-1 ring-inset ring-[var(--red)]"
+                                ? "font-bold text-[var(--live)] ring-1 ring-inset ring-[var(--live)]"
                                 : "font-medium text-fog-300",
                           )}
                         >
@@ -146,8 +146,8 @@ export function DateStrip({
   if (days.length === 0) return null;
 
   return (
-    <nav aria-label={label ?? "Dates"} className="lg:hidden">
-      <div className="rail-scroll flex gap-1.5 overflow-x-auto pb-1.5 pt-0.5" data-rail-scroll="">
+    <nav aria-label={label ?? "Dates"} className="relative max-w-full overflow-hidden lg:hidden">
+      <div className="rail-scroll flex max-w-full gap-1.5 overflow-x-auto pb-1.5 pt-0.5" data-rail-scroll="">
         <RailFocus id={`strip-day-${selected}`} axis="x" />
         {days.map((day) => {
           const parts = dateParts(day);
@@ -161,26 +161,21 @@ export function DateStrip({
               id={`strip-day-${day}`}
               aria-current={active ? "date" : undefined}
               className={cn(
-                "flex h-[54px] w-[54px] shrink-0 flex-col items-center justify-center gap-0.5 border transition-colors hover:no-underline",
+                "relative flex h-[54px] w-[54px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-[3px] border transition-colors hover:no-underline",
                 active
-                  ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
+                  ? "border-[var(--line-2)] border-b-2 border-b-[var(--yellow)] bg-[var(--bar-2)] text-[var(--text)]"
                   : isToday
-                    ? "border-[var(--red)] bg-[var(--paper-2)] text-[var(--ink)]"
-                    : "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
+                    ? "border-[var(--live)] bg-[var(--panel)] text-[var(--text)]"
+                    : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:border-[var(--link)] hover:text-[var(--text)]",
               )}
             >
-              <span
-                className={cn(
-                  "text-[9px] font-bold uppercase tracking-[0.06em]",
-                  active ? "text-[var(--paper)]/75" : "text-[var(--ink-3)]",
-                )}
-              >
+              <span className="text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--muted)]">
                 {parts.weekday.slice(0, 3)} {day.slice(5, 7)}
               </span>
               <span
                 className={cn(
-                  "tnum text-[14px] font-extrabold leading-none",
-                  active ? "text-[var(--paper)]" : isToday ? "text-[var(--red)]" : "text-[var(--ink)]",
+                  "tnum text-[14px] font-bold leading-none",
+                  isToday ? "text-[var(--live)]" : "text-[var(--text)]",
                 )}
               >
                 {Number(parts.day)}
@@ -191,7 +186,7 @@ export function DateStrip({
                     aria-hidden="true"
                     className={cn(
                       "h-[3px] w-[3px] rounded-full",
-                      active ? "bg-[var(--paper)]" : isToday ? "bg-[var(--red)]" : "bg-[var(--ink-3)]",
+                      active ? "bg-[var(--link)]" : isToday ? "bg-[var(--live)]" : "bg-[var(--muted)]",
                     )}
                   />
                   <span className="sr-only">{`${count} event${count === 1 ? "" : "s"}`}</span>

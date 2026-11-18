@@ -4,7 +4,7 @@ import { InningTable } from "./inning-table";
 import { ProgressionChart } from "./progression-chart";
 import type { AnalysedSet } from "@/lib/match";
 
-const TONES = ["text-[var(--ink)]", "text-[var(--red)]", "text-[var(--cloth)]", "text-[var(--yellow-ink)]"];
+const TONES = ["text-[var(--link)]", "text-[var(--live)]", "text-[var(--gold)]", "text-[var(--win)]"];
 
 export function SetPanel({ set }: { set: AnalysedSet }) {
   const winner = set.winner === null ? null : set.sides[set.winner];

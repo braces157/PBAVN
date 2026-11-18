@@ -4,25 +4,20 @@ import "./globals.css";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
 
-const archivo = localFont({
-  src: "./fonts/archivo-latin.woff2",
-  weight: "400 900",
-  variable: "--font-archivo",
-  display: "swap",
-  declarations: [{ prop: "font-stretch", value: "62% 125%" }],
-});
-
-const sourceSerif = localFont({
-  src: "./fonts/source-serif-4-latin.woff2",
+const ibmPlexSans = localFont({
+  src: "./fonts/ibm-plex-sans-latin.woff2",
   weight: "400 700",
-  variable: "--font-serif",
+  variable: "--font-sans",
   display: "swap",
 });
 
-const inter = localFont({
-  src: "./fonts/inter-latin.woff2",
-  weight: "400 700",
-  variable: "--font-inter",
+const ibmPlexCondensed = localFont({
+  src: [
+    { path: "./fonts/ibm-plex-condensed-500-latin.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/ibm-plex-condensed-600-latin.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/ibm-plex-condensed-700-latin.woff2", weight: "700", style: "normal" },
+  ],
+  variable: "--font-cond",
   display: "swap",
 });
 
@@ -64,8 +59,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f3efe6" },
-    { media: "(prefers-color-scheme: dark)", color: "#121110" },
+    { media: "(prefers-color-scheme: light)", color: "#1f2933" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e1217" },
   ],
   colorScheme: "light dark",
 };
@@ -76,7 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       data-theme="light"
       suppressHydrationWarning
-      className={`${archivo.variable} ${sourceSerif.variable} ${inter.variable}`}
+      className={`${ibmPlexSans.variable} ${ibmPlexCondensed.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
@@ -84,7 +79,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen antialiased">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:bg-[var(--ink)] focus:px-3.5 focus:py-2 focus:text-sm focus:font-bold focus:text-[var(--paper)]"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-[3px] focus:bg-[var(--nav)] focus:px-3.5 focus:py-2 focus:text-sm focus:font-bold focus:text-white"
         >
           Skip to content
         </a>

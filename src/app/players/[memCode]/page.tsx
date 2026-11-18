@@ -113,8 +113,8 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
 
   return (
     <>
-      <section id="overview" className="scroll-mt-24 border-b border-ink-800 bg-ink-900/60">
-        <div className="mx-auto max-w-[1440px] px-4 pb-6 pt-4 sm:px-6 lg:px-8">
+      <section id="overview" className="scroll-mt-24 border-b border-ink-800 bg-ink-900">
+        <div className="mx-auto max-w-[1300px] px-3 pb-5 pt-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <nav className="flex items-center gap-1.5 text-[11.5px] text-fog-500" aria-label="Breadcrumb">
               <Link href="/players" className="transition-colors hover:text-carom-300">
@@ -198,12 +198,12 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
         </div>
       </section>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         <PlayerSubNav hasSeason={hasData} hasEvents={tourStats.length > 0} hasTitles={championships.length > 0} />
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_340px]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1.4fr)_340px]">
           <div className="min-w-0">
-            <div id="season" className="scroll-mt-24 flex flex-wrap items-end justify-between gap-3">
+            <div id="season" className="scroll-mt-24 flex min-w-0 flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="eyebrow">Season Statistics</p>
                 <h2 className="display-md mt-1 text-fog-100">
@@ -326,7 +326,7 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
             )}
           </div>
 
-          <aside id="career" className="scroll-mt-24 space-y-4">
+          <aside id="career" className="min-w-0 scroll-mt-24 space-y-4">
             {seasonRank && (
               <div className="surface p-4">
                 <p className="eyebrow">Season Standing</p>

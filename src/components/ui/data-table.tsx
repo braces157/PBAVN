@@ -81,12 +81,12 @@ function Cell({ value }: { value: CellValue }) {
     return (
       <span
         className={cn(
-          "tnum inline-grid h-6 min-w-6 place-items-center px-1 text-[11px] font-bold",
+          "tnum inline-grid h-5 min-w-5 place-items-center rounded-[2px] px-1 text-[11px] font-bold",
           value.value === 1
-            ? "bg-[var(--ink)] text-[var(--paper)]"
+            ? "bg-[var(--yellow)] text-[#1d2329]"
             : value.value <= 3
-              ? "border border-[var(--ink)] bg-[var(--paper-2)] text-[var(--ink)]"
-              : "text-[var(--ink-3)]",
+              ? "text-[var(--gold)]"
+              : "text-[var(--muted)]",
         )}
       >
         {value.value || "—"}
@@ -96,7 +96,7 @@ function Cell({ value }: { value: CellValue }) {
 
   if (value.kind === "tag") {
     return (
-      <span className="border border-[var(--hair)] bg-[var(--paper-2)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-[var(--ink-2)]">
+      <span className="rounded-[2px] border border-[var(--line)] bg-[var(--bar-2)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-[var(--text-2)]">
         {value.text}
       </span>
     );
@@ -111,8 +111,8 @@ function Cell({ value }: { value: CellValue }) {
       .toUpperCase() || "–";
 
   return (
-    <Link href={value.href} className="group/cell flex items-center gap-2 transition-colors hover:text-[var(--red)] hover:no-underline">
-      <span className="grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded-full border border-[var(--hair)] bg-[var(--paper-2)] text-[9.5px] font-bold text-[var(--ink)]">
+    <Link href={value.href} className="group/cell flex items-center gap-2 transition-colors hover:text-[var(--link)] hover:no-underline">
+      <span className="av overflow-hidden">
         <SafeImage
           src={value.photo}
           alt=""
@@ -121,13 +121,13 @@ function Cell({ value }: { value: CellValue }) {
         />
       </span>
       <span className="block min-w-0 max-w-[165px]">
-        <span className="block truncate text-[13px] font-bold text-[var(--ink)] group-hover/cell:text-[var(--red)]">
+        <span className="block truncate text-[12.5px] font-semibold text-[var(--text)] group-hover/cell:text-[var(--link)]">
           {value.name}
         </span>
-        {value.sub && <span className="block truncate text-[11px] text-[var(--ink-3)]">{value.sub}</span>}
+        {value.sub && <span className="block truncate text-[11px] text-[var(--muted)]">{value.sub}</span>}
       </span>
       {value.badge && (
-        <span className="shrink-0 border border-[var(--hair)] px-1 py-0.5 text-[9.5px] font-bold uppercase text-[var(--ink-2)]">
+        <span className="shrink-0 rounded-[2px] border border-[var(--line)] bg-[var(--bar-2)] px-1 py-0.5 text-[9.5px] font-semibold uppercase text-[var(--text-2)]">
           {value.badge}
         </span>
       )}
@@ -182,17 +182,19 @@ export function DataTable({
   const showReset = sort !== null;
 
   return (
-    <div className={cn("overflow-hidden border-b border-[var(--ink)] bg-[var(--paper)]", className)}>
+    <div className={cn("overflow-hidden rounded-[3px] border border-[var(--line)] bg-[var(--panel)]", className)}>
       {!hideSortBar && ordered.length > 0 && (showReset || hiddenSortable.length > 0) && (
         <div
           className={cn(
-            "flex flex-wrap items-center gap-2 border-b border-[var(--hair)] bg-[var(--paper-2)] px-3 py-1.5 text-[11.5px]",
+            "flex flex-wrap items-center gap-2 border-b border-[var(--line)] bg-[var(--bar)] px-2.5 py-1.5 text-[11.5px]",
             !showReset && "lg:hidden",
           )}
         >
           {hiddenSortable.length > 0 && (
             <div className="flex flex-wrap items-center gap-1 lg:hidden">
-              <span className="mr-1 font-bold uppercase tracking-[0.06em] text-[var(--ink-3)]">Sort</span>
+              <span className="mr-1 font-display text-[10.5px] font-bold uppercase tracking-[0.05em] text-[var(--muted)]">
+                Sort
+              </span>
               {hiddenSortable.map((column) => {
                 const active = sort?.id === column.id;
                 return (
@@ -202,10 +204,10 @@ export function DataTable({
                     onClick={() => toggle(column)}
                     aria-pressed={active}
                     className={cn(
-                      "inline-flex items-center gap-1 border px-2 py-0.5 font-bold uppercase tracking-[0.04em] transition-colors",
+                      "inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 font-display text-[11px] font-semibold uppercase tracking-[0.04em] transition-colors",
                       active
-                        ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
-                        : "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
+                        ? "border-[var(--line-2)] border-b-2 border-b-[var(--yellow)] bg-[var(--bar-2)] text-[var(--text)]"
+                        : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:text-[var(--text)]",
                     )}
                   >
                     {column.shortLabel ?? column.label}
@@ -219,7 +221,7 @@ export function DataTable({
             <button
               type="button"
               onClick={() => setSort(null)}
-              className="ml-auto border border-[var(--hair)] bg-[var(--paper)] px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.05em] text-[var(--ink-2)] transition-colors hover:border-[var(--ink)] hover:text-[var(--ink)]"
+              className="ml-auto rounded-[2px] border border-[var(--line)] bg-[var(--panel)] px-2 py-0.5 font-display text-[10.5px] font-semibold uppercase tracking-[0.04em] text-[var(--text-2)] transition-colors hover:border-[var(--link)] hover:text-[var(--link)]"
             >
               Reset order
             </button>
@@ -227,7 +229,7 @@ export function DataTable({
         </div>
       )}
       {ordered.length === 0 ? (
-        <div className="border-t-2 border-[var(--ink)] px-4 py-10 text-center text-[13.5px] text-[var(--ink-2)]">
+        <div className="px-4 py-10 text-center text-[13px] text-[var(--muted)]">
           {empty ?? "No rows to show."}
         </div>
       ) : (
@@ -249,7 +251,7 @@ export function DataTable({
                       className={cn(
                         column.hideBelow && HIDE_CLASS[column.hideBelow],
                         !alignRight && "!text-left",
-                        active && "!text-[var(--ink)]",
+                        active && "!text-[var(--text)]",
                       )}
                       aria-sort={active ? (sort?.direction === "desc" ? "descending" : "ascending") : undefined}
                     >
@@ -258,12 +260,12 @@ export function DataTable({
                         onClick={() => toggle(column)}
                         aria-pressed={active}
                         className={cn(
-                          "inline-flex items-center gap-1 font-bold uppercase tracking-[0.05em] transition-colors hover:text-[var(--ink)]",
+                          "inline-flex items-center gap-1 font-display font-semibold uppercase tracking-[0.05em] transition-colors hover:text-[var(--text)]",
                           alignRight && "ml-auto",
                         )}
                       >
                         {column.label}
-                        <span aria-hidden="true" className={cn("text-[9px] leading-none", active ? "opacity-100 text-[var(--red)]" : "opacity-45")}>
+                        <span aria-hidden="true" className={cn("text-[9px] leading-none", active ? "text-[var(--link)] opacity-100" : "opacity-45")}>
                           {active ? (sort?.direction === "desc" ? "▼" : "▲") : "⇅"}
                         </span>
                       </button>
@@ -293,12 +295,8 @@ export function DataTable({
                           href={row.href}
                           aria-label={row.linkLabel ?? "Open details"}
                           className={cn(
-                            "tnum inline-grid h-6 min-w-6 place-items-center px-1 text-[11px] font-bold transition-colors hover:no-underline",
-                            rankNumber === 1
-                              ? "bg-[var(--ink)] text-[var(--paper)]"
-                              : rankNumber <= 3
-                                ? "border border-[var(--ink)] bg-[var(--paper-2)] text-[var(--ink)]"
-                                : "text-[var(--ink-3)] group-hover:text-[var(--red)]",
+                            "tnum inline-grid h-5 min-w-5 place-items-center rounded-[2px] px-1 text-[11px] font-bold transition-colors hover:no-underline",
+                            rankNumber <= 3 ? "text-[var(--gold)]" : "text-[var(--muted)] group-hover:text-[var(--link)]",
                           )}
                         >
                           {rankNumber}
@@ -306,8 +304,8 @@ export function DataTable({
                       ) : (
                         <span
                           className={cn(
-                            "tnum inline-grid h-6 min-w-6 place-items-center px-1 text-[11px] font-bold",
-                            rankNumber === 1 ? "bg-[var(--ink)] text-[var(--paper)]" : "text-[var(--ink-3)]",
+                            "tnum inline-grid h-5 min-w-5 place-items-center rounded-[2px] px-1 text-[11px] font-bold",
+                            rankNumber <= 3 ? "text-[var(--gold)]" : "text-[var(--muted)]",
                           )}
                         >
                           {rankNumber}

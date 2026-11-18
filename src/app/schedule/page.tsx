@@ -78,8 +78,8 @@ export default async function SchedulePage({ searchParams }: PageProps) {
 
   return (
     <>
-      <header className="border-b border-ink-800 bg-ink-900/60">
-        <div className="mx-auto max-w-[1440px] px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+      <header className="border-b border-ink-800 bg-ink-900">
+        <div className="mx-auto max-w-[1300px] px-3 py-3.5">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
@@ -125,10 +125,10 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                 href={query({ season: entry.code })}
                 aria-current={entry.code === seasonCode ? "page" : undefined}
                 className={cn(
-                  "tnum rounded-[6px] border px-2.5 py-1 text-[11.5px] font-semibold transition-colors",
+                  "tnum rounded-[3px] border px-2.5 py-0.5 text-[11.5px] font-semibold transition-colors",
                   entry.code === seasonCode
-                    ? "border-carom-400/50 bg-carom-400/14 text-carom-300"
-                    : "border-ink-750 bg-ink-900 text-fog-400 hover:border-ink-600 hover:text-fog-100",
+                    ? "border-[var(--line-2)] border-b-2 border-b-[var(--yellow)] bg-[var(--bar)] text-[var(--text)]"
+                    : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:border-[var(--link)] hover:text-[var(--text)]",
                 )}
               >
                 {entry.code}
@@ -138,7 +138,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1440px] px-3 pb-10 pt-5 sm:px-5 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 pb-10 pt-4">
         <div className="mb-3 lg:hidden">
           <DateStrip
             days={railDays}
@@ -149,7 +149,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
             label="Dates"
           />
         </div>
-        <div className="grid gap-5 lg:grid-cols-[118px_minmax(0,1fr)_308px]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[118px_minmax(0,1fr)_308px]">
           <aside className="hidden lg:block">
             <DateRail
               days={railDays}
@@ -410,10 +410,10 @@ function FilterChip({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "rounded-[6px] border px-2.5 py-1 text-[11.5px] font-semibold transition-colors",
+        "rounded-[3px] border px-2.5 py-1 text-[11.5px] font-semibold transition-colors",
         active
-          ? "border-carom-400/50 bg-carom-400/14 text-carom-300"
-          : "border-ink-750 bg-ink-900 text-fog-300 hover:border-ink-600 hover:text-fog-100",
+          ? "border-[var(--line-2)] border-b-2 border-b-[var(--yellow)] bg-[var(--bar)] text-[var(--text)]"
+          : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:border-[var(--link)] hover:text-[var(--text)]",
       )}
     >
       {label}

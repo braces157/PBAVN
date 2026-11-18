@@ -1,25 +1,15 @@
 import Link from "next/link";
 
-export function Wordmark({
-  compact = false,
-  inverse = false,
-}: {
-  compact?: boolean;
-  inverse?: boolean;
-}) {
+export function Wordmark({ compact = false }: { compact?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-2.5">
-      <span className="flex shrink-0 items-center gap-[3px]" aria-hidden="true">
-        <i className="ball w lg" />
-        <i className="ball y lg" />
-        <i className="ball r lg" />
+    <span className="logo">
+      <span className="mk" aria-hidden="true">
+        <i style={{ background: "#fbfaf6" }} />
+        <i style={{ background: "var(--yellow)" }} />
+        <i style={{ background: "#d6322a" }} />
       </span>
-      <span
-        className={`x tracking-[-0.01em] ${compact ? "text-[32px]" : "text-[36px] sm:text-[40px]"} ${
-          inverse ? "text-[#f3efe6]" : "text-[var(--ink)]"
-        }`}
-      >
-        PBA<span className="text-[var(--red)]">Hub</span>
+      <span className={compact ? "text-[16px]" : undefined}>
+        PBA<b>HUB</b>
       </span>
     </span>
   );
@@ -31,7 +21,7 @@ export function LogoLink() {
       <span className="hidden sm:inline-flex">
         <Wordmark />
       </span>
-      <span className="inline-flex items-center sm:hidden">
+      <span className="inline-flex sm:hidden">
         <Wordmark compact />
       </span>
     </Link>

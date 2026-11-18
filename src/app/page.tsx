@@ -1,16 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getPlayerCached, getActiveTeamSeason, getCurrentSeason, getLeaders, getPlayerNameIndex, getRankingBoard, resolveKoreanName, seasonLabel } from "@/lib/pba/service";
 import { getPressList, getTeamStandings } from "@/lib/pba/api";
-import { getDayBoard } from "@/lib/pba/matches-on-day";
-import {
-  getActiveTeamSeason,
-  getCurrentSeason,
-  getLeaders,
-  getPlayerNameIndex,
-  getRankingBoard,
-  resolveKoreanName,
-  seasonLabel,
-} from "@/lib/pba/service";
+import { getDayBoard, type DayMatch } from "@/lib/pba/matches-on-day";
+import { getLiveFeed, type LiveMatch } from "@/lib/pba/live";
+import { getRoundFixtures, getFixtureBouts, FIXTURES_ARCHIVE_TTL, FIXTURES_IN_PLAY_TTL, type TeamFixture, type FixtureBouts } from "@/lib/pba/team-matches";
 import {
   calendarEvents,
   eventsOnDay,
@@ -18,18 +12,19 @@ import {
   previousActiveDay,
   type CalendarEvent,
 } from "@/lib/pba/calendar";
-import { getLiveFeed, type LiveMatch } from "@/lib/pba/live";
 import {
   LEADER_CATEGORIES,
   leagueByCode,
   leagueShort,
   normalizeArticle,
+  normalizePlayer,
   normalizeTeam,
+  winRate,
 } from "@/lib/normalize";
 import {
+  cleanDisplayText,
   cleanPlayerName,
   dateParts,
-  excerpt,
   fmtDate,
   fmtRange,
   grouped,
@@ -37,13 +32,15 @@ import {
   isoDay,
   kstDay,
   percent,
-  pick,
   relativeDay,
   shiftIsoDay,
+  wonCompact,
 } from "@/lib/format";
+import { photoUrl } from "@/lib/photo";
 import { SafeImage } from "@/components/ui/safe-image";
+import { clubBadge, flagClass, leagueTagClass } from "@/components/ui/media";
 import { cn } from "@/components/ui/primitives";
-import type { RawTop5Row } from "@/lib/pba/types";
+import type { RawRankingRow, RawTop5Row } from "@/lib/pba/types";
 
 export const revalidate = 300;
 
@@ -54,47 +51,65 @@ export const metadata: Metadata = {
 };
 
 interface HomePageProps {
-  searchParams?: Promise<{ day?: string; circuit?: string; money?: string }>;
+  searchParams?: Promise<{ day?: string; mtab?: string; rtab?: string }>;
 }
 
-const VALID_CIRCUITS = ["PBA1", "LPBA1", "PBA2"] as const;
-const VALID_MONEY = ["PBA1", "LPBA1"] as const;
+const VALID_MTAB = ["live", "today", "upcoming"] as const;
+const VALID_RTAB = ["pba", "lpba", "money"] as const;
+
+type MTab = (typeof VALID_MTAB)[number];
+type RTab = (typeof VALID_RTAB)[number];
+
+function shortClock(value: string | null | undefined): string {
+  if (!value) return "—";
+  const m = value.match(/(\d{1,2}:\d{2})$/);
+  return m ? m[1] : value;
+}
+
+function shortDayLabel(value: string | null | undefined): string {
+  if (!value) return "";
+  const parts = dateParts(value);
+  return parts.day !== "—" ? `${Number(parts.day)} ${parts.month.slice(0, 1)}${parts.month.slice(1).toLowerCase()}` : value.slice(5, 10);
+}
+
+function parseSetsList(value: string | null | undefined): string[] {
+  if (!value) return [];
+  return value.split(/\s+/).filter(Boolean).slice(0, 4);
+}
+
+function shortClubName(name: string): string {
+  const cleaned = cleanDisplayText(name);
+  const low = cleaned.toLowerCase();
+  if (low.includes("huons")) return "Huons Legend";
+  if (low.includes("nonghyup") || low.includes("nh pay")) return "NH Pay";
+  if (low.includes("crown")) return "Crown Haitai";
+  if (low.includes("builders") || low.startsWith("sy ")) return "SY Builders";
+  if (low.includes("harim")) return "Harim";
+  if (low.includes("woori")) return "Woori Won";
+  if (low.includes("welcome")) return "Welcome Phoenix";
+  if (low.includes("high1")) return "High1 Winners";
+  if (low.includes("hana")) return "HanaPay";
+  if (low.includes("breakers")) return "Breakers";
+  return cleaned.length > 18 ? `${cleaned.slice(0, 17).trimEnd()}…` : cleaned;
+}
+
+function detectPressTag(title: string): { label: string; cls: string } {
+  const lower = title.toLowerCase();
+  if (lower.includes("팀리그") || lower.includes("team")) return { label: "Team", cls: "t-team" };
+  if (lower.includes("lpba")) return { label: "LPBA", cls: "t-lpba" };
+  if (lower.includes("드림") || lower.includes("dream")) return { label: "Dream", cls: "t-dream" };
+  return { label: "PBA", cls: "t-pba" };
+}
 
 export default async function HomePage({ searchParams }: HomePageProps) {
   const params = searchParams ? await searchParams : {};
   const today = kstDay();
   const focusDay = params.day && /^\d{4}-\d{2}-\d{2}$/.test(params.day) ? params.day : today;
-  const circuit = VALID_CIRCUITS.includes(params.circuit as (typeof VALID_CIRCUITS)[number])
-    ? (params.circuit as (typeof VALID_CIRCUITS)[number])
-    : "PBA1";
-  const moneyLeague = VALID_MONEY.includes(params.money as (typeof VALID_MONEY)[number])
-    ? (params.money as (typeof VALID_MONEY)[number])
-    : "PBA1";
+
+  const rtab: RTab = VALID_RTAB.includes(params.rtab as RTab) ? (params.rtab as RTab) : "pba";
 
   const season = await getCurrentSeason();
   const seasonCode = season.SeasonCode;
-
-  const [feed, dayBoard, press, moneyRank, teamSeason, leaders] = await Promise.all([
-    getLiveFeed(),
-    getDayBoard(focusDay),
-    getPressList(1, 6),
-    getRankingBoard({ kind: "prize", leagueCode: moneyLeague, season: seasonCode }),
-    getActiveTeamSeason(),
-    getLeaders(seasonCode, circuit),
-  ]);
-
-  const standings = teamSeason
-    ? (
-        await getTeamStandings({
-          seasonCode: teamSeason.season.시즌코드,
-          leagueCode: String(teamSeason.season.리그코드),
-          roundCode: teamSeason.liveRound ? String(teamSeason.liveRound.라운드코드) : "0",
-        })
-      ).map(normalizeTeam)
-    : [];
-
-  const articles = press.list.map(normalizeArticle);
-  const nameIndex = getPlayerNameIndex();
 
   const events = calendarEvents();
   const liveEvents = events.filter((event) => event.status === "live");
@@ -108,13 +123,76 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     focusDay === today && liveEvents.length ? events.filter((e) => e.status !== "live") : events,
   );
   const lastDay = previousActiveDay(focusDay, events);
-  const featured =
-    dayBoard.events[0] ??
-    liveEvents[0] ??
-    eventsOnDay(today, events)[0] ??
-    upcomingEvents[0] ??
-    completedEvents[0] ??
-    null;
+
+  const [feed, dayBoard, recentDayBoard, press, pbaPointsRank, lpbaPointsRank, activeRank, teamSeason, leaders] =
+    await Promise.all([
+      getLiveFeed(),
+      getDayBoard(focusDay),
+      lastDay ? getDayBoard(lastDay) : Promise.resolve(null),
+      getPressList(1, 9),
+      getRankingBoard({ kind: "point", leagueCode: "PBA1", season: seasonCode }),
+      getRankingBoard({ kind: "point", leagueCode: "LPBA1", season: seasonCode }),
+      getRankingBoard({
+        kind: rtab === "money" ? "prize" : "point",
+        leagueCode: rtab === "lpba" ? "LPBA1" : "PBA1",
+        season: seasonCode,
+      }),
+      getActiveTeamSeason(),
+      getLeaders(seasonCode, "PBA1"),
+    ]);
+
+  const liveRound = teamSeason?.liveRound ?? null;
+  const [standings, roundFixtures] = teamSeason
+    ? await Promise.all([
+        getTeamStandings({
+          seasonCode: teamSeason.season.시즌코드,
+          leagueCode: String(teamSeason.season.리그코드),
+          roundCode: liveRound ? String(liveRound.라운드코드) : "0",
+        }).then((rows) => rows.map(normalizeTeam)),
+        liveRound
+          ? getRoundFixtures(
+              String(liveRound.라운드코드),
+              liveRound.라운드,
+              liveRound.진행상황 === "진행중" ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
+            )
+          : Promise.resolve([] as TeamFixture[]),
+      ])
+    : [[], [] as TeamFixture[]];
+
+  const defaultMTab: MTab = feed.matches.length > 0 ? "live" : dayBoard.matches.length > 0 ? "today" : "upcoming";
+  const mtab: MTab = VALID_MTAB.includes(params.mtab as MTab) ? (params.mtab as MTab) : defaultMTab;
+
+  // Lookup map of nation codes and player codes from rankings
+  const playerNationByName = new Map<string, string>();
+  const playerCodeByName = new Map<string, string>();
+  for (const row of [...pbaPointsRank, ...lpbaPointsRank]) {
+    const cleanEn = cleanPlayerName(row.PlayerNameEN);
+    const cleanShort = cleanPlayerName(row.PlayerNameENShort);
+    if (row.NationCode) {
+      if (cleanEn) playerNationByName.set(cleanEn.toLowerCase(), row.NationCode);
+      if (cleanShort) playerNationByName.set(cleanShort.toLowerCase(), row.NationCode);
+      if (row.MemCode) playerNationByName.set(row.MemCode, row.NationCode);
+    }
+    if (row.MemCode && cleanEn) {
+      playerCodeByName.set(cleanEn.toLowerCase(), row.MemCode);
+    }
+  }
+
+  const spotlightRow = pbaPointsRank[0] ?? lpbaPointsRank[0] ?? null;
+  const spotlightRaw = spotlightRow ? await getPlayerCached(spotlightRow.MemCode).catch(() => null) : null;
+  const spotlightPlayer = spotlightRaw ? normalizePlayer(spotlightRaw) : null;
+
+  // Determine featured Team League fixture bouts if we don't have a live feed match with bouts
+  const liveLead = feed.matches[0] ?? null;
+  const playedFixtures = [...roundFixtures].filter((f) => f.played).reverse();
+  const upcomingFixtures = roundFixtures.filter((f) => !f.played);
+  const featuredTeamFixture = !liveLead && playedFixtures[0]?.gameNo && liveRound ? playedFixtures[0] : null;
+  const featuredBouts = featuredTeamFixture?.gameNo && liveRound
+    ? await getFixtureBouts(String(liveRound.라운드코드), liveRound.라운드, featuredTeamFixture.gameNo).catch(() => null)
+    : null;
+
+  const articles = press.list.map(normalizeArticle);
+  const nameIndex = getPlayerNameIndex();
 
   const resolveLeaderName = (row: RawTop5Row) => {
     const raw = cleanPlayerName(row.MemNameEn || row.MemName);
@@ -122,1044 +200,1317 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   };
 
   const leaderPicks = LEADER_CATEGORIES.filter((category) =>
-    ["에버리지", "하이런", "최다승", "공격성공률"].includes(category.key),
+    ["에버리지", "하이런", "최다승", "공격성공률", "뱅크샷성공률"].includes(category.key),
   )
-    .map((category) => ({
-      category,
-      rows: leaders
+    .map((category) => {
+      const top = leaders
         .filter((row) => row.Category === category.key && Number(row.Value) > 0)
-        .sort((a, b) => a.Rank - b.Rank)
-        .slice(0, 3),
-    }))
-    .filter((group) => group.rows.length > 0);
+        .sort((a, b) => a.Rank - b.Rank)[0];
+      return top ? { category, row: top } : null;
+    })
+    .filter((item): item is { category: (typeof LEADER_CATEGORIES)[number]; row: RawTop5Row } => item !== null);
 
-  const moneyRows = moneyRank.slice(0, 6);
-  const maxPrize = moneyRows[0]?.Prize || 1;
-  const calendarStrip = upcomingEvents.slice(0, 6);
+  // Ticker strip events (live first, 1 latest completed, upcoming fill up to 6)
+  const tickerEvents: CalendarEvent[] = [];
+  const seenIds = new Set<string>();
+  for (const ev of [...liveEvents, ...completedEvents.slice(0, 1), ...upcomingEvents]) {
+    if (seenIds.has(ev.id)) continue;
+    seenIds.add(ev.id);
+    tickerEvents.push(ev);
+    if (tickerEvents.length >= 6) break;
+  }
 
-  const liveLead = feed.matches[0] ?? null;
-  const dayLead = dayBoard.matches[0] ?? null;
+  const featuredEvent =
+    dayBoard.events[0] ??
+    liveEvents[0] ??
+    eventsOnDay(today, events)[0] ??
+    upcomingEvents[0] ??
+    completedEvents[0] ??
+    null;
 
-  const buildHomeHref = (next: { day?: string; circuit?: string; money?: string }) => {
+  const standingMap = new Map(standings.map((s) => [s.code, s]));
+
+  const buildHomeHref = (next: { day?: string; mtab?: string; rtab?: string }) => {
     const qs = new URLSearchParams();
     const d = next.day ?? (focusDay !== today ? focusDay : "");
-    const c = next.circuit ?? (circuit !== "PBA1" ? circuit : "");
-    const m = next.money ?? (moneyLeague !== "PBA1" ? moneyLeague : "");
+    const m = next.mtab ?? (mtab !== defaultMTab ? mtab : "");
+    const r = next.rtab ?? (rtab !== "pba" ? rtab : "");
     if (d) qs.set("day", d);
-    if (c) qs.set("circuit", c);
-    if (m) qs.set("money", m);
+    if (m) qs.set("mtab", m);
+    if (r) qs.set("rtab", r);
     const s = qs.toString();
     return s ? `/?${s}` : "/";
   };
 
-  const roundLabel = teamSeason?.liveRound ? `Round ${teamSeason.liveRound.라운드}` : "Season";
+  // Matches & Results helpers
+  const tourResults = (dayBoard.matches.some((m) => m.state === "final")
+    ? dayBoard.matches.filter((m) => m.state === "final")
+    : recentDayBoard?.matches.filter((m) => m.state === "final") ?? []
+  ).slice(0, 4);
+
+  const recentTeamResults = playedFixtures.slice(0, 3);
+  const todayScheduled = dayBoard.matches.filter((m) => m.state === "next").slice(0, 6);
+
+  const rankDisplayRows = activeRank.slice(0, 10);
+  const clubTableRows = standings.slice(0, 8);
+  const upcomingStrip = upcomingEvents.slice(0, 5);
+
+  const nationFor = (memCode: string | null | undefined, name: string | null | undefined) => {
+    if (memCode && playerNationByName.has(memCode)) return playerNationByName.get(memCode) ?? null;
+    if (name) return playerNationByName.get(name.toLowerCase()) ?? null;
+    return null;
+  };
 
   return (
     <>
-      {/* ============================================================ SCORE RIBBON */}
-      <div className="border-b border-[var(--ink)] bg-[var(--paper)]">
-        <div className="wrap no-scrollbar mask-fade-r flex items-stretch overflow-x-auto lg:[mask-image:none]">
-          <div className="flex min-w-[132px] shrink-0 flex-col justify-center border-r border-[var(--hair)] py-2.5 pr-4">
-            <strong className="x text-[22px] text-[var(--ink)]">
-              {focusDay === today ? "Today" : relativeDay(focusDay)}
-            </strong>
-            <small className="mt-0.5 truncate text-[12px] text-[var(--ink-3)]">
-              {dayBoard.matches.length > 0
-                ? `${dayBoard.matches.length} match${dayBoard.matches.length === 1 ? "" : "es"}`
-                : featured
-                  ? leagueShort(featured.league)
-                  : seasonLabel(season)}
-            </small>
-          </div>
-
-          {feed.matches.length > 0 || dayBoard.matches.length > 0 ? (
-            <>
-              {feed.matches.slice(0, 3).map((match) => (
-                <Link
-                  key={`rb-live-${match.key}`}
-                  href={match.pstCode ? `/matches/${match.pstCode}?live=1` : "/live"}
-                  className="grid min-w-[208px] shrink-0 grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 border-r border-[var(--hair)] px-4 py-2.5 text-[14px] hover:bg-[var(--paper-2)] hover:no-underline"
-                >
-                  <span className="col-span-full text-[11.5px] font-bold uppercase tracking-[0.04em] text-[var(--red)]">
-                    ● Live · Set {match.latestSet.setNo || 1}
-                  </span>
-                  {match.sides.slice(0, 2).map((side, idx) => (
-                    <span key={idx} className="contents">
-                      <span className="flex items-center gap-1.5 whitespace-nowrap font-bold text-[var(--ink)]">
-                        <i className={idx === 0 ? "ball w" : "ball y"} />
-                        <span className="max-w-[140px] truncate">{side.name}</span>
-                      </span>
-                      <span className="num text-right font-extrabold text-[var(--ink)]">
-                        {match.fixtureScore ? match.fixtureScore[idx] : side.points ?? side.setsWon}
-                      </span>
-                    </span>
-                  ))}
-                </Link>
-              ))}
-              {dayBoard.matches
-                .filter((m) => m.state !== "live")
-                .slice(0, Math.max(0, 4 - feed.matches.length))
-                .map((match) => (
-                  <Link
-                    key={`rb-day-${match.key}`}
-                    href={match.href ?? "/schedule"}
-                    className="grid min-w-[208px] shrink-0 grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 border-r border-[var(--hair)] px-4 py-2.5 text-[14px] hover:bg-[var(--paper-2)] hover:no-underline"
-                  >
-                    <span className="col-span-full text-[11.5px] font-bold uppercase tracking-[0.04em] text-[var(--ink-3)]">
-                      {match.state === "final" ? `Final · ${match.round}` : `${match.clock ?? "Scheduled"} · ${match.round}`}
-                    </span>
-                    <span
-                      className={cn(
-                        "flex items-center gap-1.5 whitespace-nowrap",
-                        match.state === "final" && !match.homeWon ? "text-[var(--ink-3)]" : "font-bold text-[var(--ink)]",
-                      )}
-                    >
-                      <i className="ball w" />
-                      <span className="max-w-[140px] truncate">{match.home}</span>
-                    </span>
-                    <span
-                      className={cn(
-                        "num text-right font-extrabold",
-                        match.state === "final" && !match.homeWon && "text-[var(--ink-3)]",
-                      )}
-                    >
-                      {match.homeSets ?? "–"}
-                    </span>
-                    <span
-                      className={cn(
-                        "flex items-center gap-1.5 whitespace-nowrap",
-                        match.state === "final" && !match.awayWon ? "text-[var(--ink-3)]" : "font-bold text-[var(--ink)]",
-                      )}
-                    >
-                      <i className="ball y" />
-                      <span className="max-w-[140px] truncate">{match.away}</span>
-                    </span>
-                    <span
-                      className={cn(
-                        "num text-right font-extrabold",
-                        match.state === "final" && !match.awayWon && "text-[var(--ink-3)]",
-                      )}
-                    >
-                      {match.awaySets ?? "–"}
-                    </span>
-                  </Link>
-                ))}
-            </>
-          ) : (
-            [...liveEvents, ...upcomingEvents, ...completedEvents].slice(0, 4).map((ev) => (
-              <Link
-                key={`rb-ev-${ev.id}`}
-                href={`/schedule/${ev.id}`}
-                className="grid min-w-[218px] shrink-0 grid-cols-1 gap-0.5 border-r border-[var(--hair)] px-4 py-2.5 text-[14px] hover:bg-[var(--paper-2)] hover:no-underline"
-              >
-                <span
-                  className={cn(
-                    "text-[11.5px] font-bold uppercase tracking-[0.04em]",
-                    ev.status === "live" ? "text-[var(--red)]" : "text-[var(--ink-3)]",
+      {/* ============================================================ EVENT STRIP */}
+      <div className="events">
+        <div className="wrap">
+          {tickerEvents.map((ev) => (
+            <Link key={ev.id} href={`/schedule/${ev.id}`} className="ev">
+              <span className={cn("tag", leagueTagClass(ev.league))}>{leagueShort(ev.league)}</span>
+              <div>
+                <div className="t">{ev.title}</div>
+                <div className="s">
+                  {ev.status === "live" ? (
+                    <>
+                      <span className="lv">● LIVE</span> · {fmtRange(ev.start, ev.end)}
+                      {ev.venue && ev.venue !== "Venue to be announced" ? ` · ${ev.venue}` : ""}
+                    </>
+                  ) : ev.status === "completed" ? (
+                    <>
+                      Finished
+                      {ev.defendingChampion && ev.defendingChampion !== "—" ? ` · Champion: ${ev.defendingChampion}` : ""}
+                    </>
+                  ) : (
+                    <>
+                      Starts {shortDayLabel(isoDay(ev.start))}
+                      {ev.championPrize && ev.championPrize !== "—"
+                        ? ` · ${ev.championPrize} to winner`
+                        : ev.entrants.players
+                          ? ` · ${ev.entrants.players} players`
+                          : ""}
+                    </>
                   )}
-                >
-                  {ev.status === "live" ? "● Live" : fmtRange(ev.start, ev.end)} · {leagueShort(ev.league)}
-                </span>
-                <span className="truncate font-bold text-[var(--ink)]">{ev.title}</span>
-                <span className="truncate text-[12.5px] text-[var(--ink-3)]">
-                  {ev.defendingChampion !== "—" ? `Champion: ${ev.defendingChampion}` : ev.venue}
-                </span>
-              </Link>
-            ))
-          )}
-
-          <Link
-            href="/schedule"
-            className="flex shrink-0 items-center pl-4 text-[14px] font-bold whitespace-nowrap text-[var(--ink)] hover:text-[var(--red)]"
-          >
-            Full schedule →
-          </Link>
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
 
-      <main className="wrap">
-        {/* ============================================================ LEAD SPLIT */}
-        <section className="grid grid-cols-1 border-b border-[var(--ink)] lg:grid-cols-[minmax(0,1fr)_360px]">
-          {/* Lead Main Column */}
-          <div className="border-b border-[var(--ink)] pb-8 pt-7 lg:border-b-0 lg:border-r lg:border-[var(--ink)] lg:pr-9">
-            {liveLead ? (
-              <LiveLeadBlock match={liveLead} />
-            ) : dayLead ? (
-              <DayMatchLeadBlock match={dayLead} />
-            ) : (
-              <TournamentLeadBlock
-                featured={featured}
-                moneyTopTwo={moneyRows.slice(0, 2)}
-                seasonTitle={seasonLabel(season)}
-              />
-            )}
-          </div>
+      {/* ============================================================ 3-COL GRID */}
+      <div className="wrap info-grid">
+        {/* -------------------------------------------------------- LEFT COL */}
+        <aside className="col left">
+          <section className="p" aria-label="Matches">
+            <div className="ph">
+              <h2>Matches</h2>
+              <Link className="more" href="/schedule">
+                All matches
+              </Link>
+            </div>
+            <div className="tabs" role="tablist" aria-label="Match filter">
+              <Link
+                href={buildHomeHref({ mtab: "live" })}
+                className={mtab === "live" ? "on" : undefined}
+              >
+                Live{feed.matches.length > 0 && <span className="c">{feed.matches.length}</span>}
+              </Link>
+              <Link
+                href={buildHomeHref({ mtab: "today" })}
+                className={mtab === "today" ? "on" : undefined}
+              >
+                Today
+              </Link>
+              <Link
+                href={buildHomeHref({ mtab: "upcoming" })}
+                className={mtab === "upcoming" ? "on" : undefined}
+              >
+                Upcoming
+              </Link>
+            </div>
 
-          {/* Right Sidebar: Order of Play & This Event */}
-          <aside className="pb-8 pt-7 lg:pl-7">
-            <div className="mb-1 flex items-baseline justify-between border-b-2 border-[var(--ink)] pb-1.5">
-              <h2 className="x text-[28px] text-[var(--ink)]">Order of play</h2>
-              <div className="flex items-center gap-2 text-[13px] font-bold">
-                {lastDay && (
-                  <Link href={buildHomeHref({ day: lastDay })} className="text-[var(--ink-3)] hover:text-[var(--ink)]">
-                    ‹ Prev
-                  </Link>
-                )}
-                <Link href="/schedule" className="text-[var(--ink)]">
-                  {relativeDay(focusDay)}
+            {mtab === "live" ? (
+              feed.matches.length > 0 ? (
+                <>
+                  <div className="sub">
+                    <span className="tag t-team">{feed.matches[0]?.competition ? "Team" : "Tour"}</span>
+                    In play now
+                    {feed.matches[0]?.venue && <span className="r">{feed.matches[0].venue}</span>}
+                  </div>
+                  {feed.matches.map((match) => (
+                    <LiveSidebarRow key={match.key} match={match} nationFor={nationFor} />
+                  ))}
+                  {upcomingFixtures.length > 0 && (
+                    <>
+                      <div className="sub">Later today · Round {liveRound?.라운드}</div>
+                      {upcomingFixtures.slice(0, 4).map((fix) => (
+                        <TeamSidebarRow key={`${fix.home.name}-${fix.away.name}-${fix.playedAt}`} fixture={fix} round={liveRound?.라운드} seasonCode={teamSeason?.season.시즌코드} roundCode={liveRound ? String(liveRound.라운드코드) : undefined} />
+                      ))}
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="px-2.5 py-4 text-[12px] text-[var(--muted)]">
+                  No matches live on the scoring wire right now.
+                </div>
+              )
+            ) : mtab === "today" ? (
+              dayBoard.matches.length > 0 ? (
+                <>
+                  <div className="sub">
+                    {relativeDay(focusDay)}
+                    <span className="r">{dayBoard.matches.length} matches</span>
+                  </div>
+                  {dayBoard.matches.slice(0, 7).map((match) => (
+                    <DaySidebarRow key={match.key} match={match} nationFor={nationFor} />
+                  ))}
+                </>
+              ) : upcomingFixtures.length > 0 ? (
+                <>
+                  <div className="sub">
+                    <span className="tag t-team">Team</span>Round {liveRound?.라운드}
+                  </div>
+                  {upcomingFixtures.slice(0, 5).map((fix) => (
+                    <TeamSidebarRow key={`${fix.home.name}-${fix.away.name}-${fix.playedAt}`} fixture={fix} round={liveRound?.라운드} seasonCode={teamSeason?.season.시즌코드} roundCode={liveRound ? String(liveRound.라운드코드) : undefined} />
+                  ))}
+                </>
+              ) : (
+                <div className="px-2.5 py-4 text-[12px] text-[var(--muted)]">
+                  No matches scheduled for {relativeDay(focusDay).toLowerCase()}.
+                </div>
+              )
+            ) : upcomingFixtures.length > 0 ? (
+              <>
+                <div className="sub">
+                  <span className="tag t-team">Team</span>Next fixtures · Round {liveRound?.라운드}
+                </div>
+                {upcomingFixtures.slice(0, 5).map((fix) => (
+                  <TeamSidebarRow key={`${fix.home.name}-${fix.away.name}-${fix.playedAt}`} fixture={fix} round={liveRound?.라운드} seasonCode={teamSeason?.season.시즌코드} roundCode={liveRound ? String(liveRound.라운드코드) : undefined} />
+                ))}
+              </>
+            ) : upcomingEvents.length > 0 ? (
+              upcomingEvents.slice(0, 5).map((ev) => (
+                <Link key={ev.id} href={`/schedule/${ev.id}`} className="m">
+                  <span className="tm">
+                    <b>{shortDayLabel(isoDay(ev.start))}</b>
+                    {leagueShort(ev.league)}
+                  </span>
+                  <span className="pl">
+                    <span className="font-semibold text-[var(--text)]">{ev.title}</span>
+                    <span className="text-[11.5px] text-[var(--muted)]">{ev.venue}</span>
+                  </span>
+                  <span className="sc muted">→</span>
                 </Link>
-                {nextDay && (
-                  <Link href={buildHomeHref({ day: nextDay })} className="text-[var(--ink-3)] hover:text-[var(--ink)]">
-                    Next ›
-                  </Link>
-                )}
+              ))
+            ) : (
+              <div className="px-2.5 py-4 text-[12px] text-[var(--muted)]">
+                No upcoming fixtures posted yet.
               </div>
+            )}
+
+            <Link className="foot" href="/schedule">
+              Full schedule →
+            </Link>
+          </section>
+
+          <section className="p" aria-label="Results">
+            <div className="ph">
+              <h2>Results</h2>
+              <Link className="more" href="/teams/matches">
+                More
+              </Link>
+            </div>
+
+            {tourResults.length > 0 && (
+              <>
+                <div className="sub">
+                  <span className={cn("tag", leagueTagClass(tourResults[0].event?.league))}>
+                    {leagueShort(tourResults[0].event?.league ?? "") || "Tour"}
+                  </span>
+                  {tourResults[0].event?.title ? shortClubName(tourResults[0].event.title) : "Recent finals"}
+                  {tourResults[0].at && <span className="r">{shortDayLabel(isoDay(tourResults[0].at))}</span>}
+                </div>
+                {tourResults.map((match) => (
+                  <DaySidebarRow key={match.key} match={match} nationFor={nationFor} />
+                ))}
+              </>
+            )}
+
+            {recentTeamResults.length > 0 && (
+              <>
+                <div className="sub">
+                  <span className="tag t-team">Team</span>Round {liveRound?.라운드 ?? ""}
+                  {recentTeamResults[0]?.playedAt && (
+                    <span className="r">{shortDayLabel(recentTeamResults[0].playedAt.slice(0, 10))}</span>
+                  )}
+                </div>
+                {recentTeamResults.map((fix) => (
+                  <TeamSidebarRow
+                    key={`${fix.gameNo ?? fix.home.name}-${fix.away.name}`}
+                    fixture={fix}
+                    round={liveRound?.라운드}
+                    seasonCode={teamSeason?.season.시즌코드}
+                    roundCode={liveRound ? String(liveRound.라운드코드) : undefined}
+                  />
+                ))}
+              </>
+            )}
+
+            {tourResults.length === 0 && recentTeamResults.length === 0 && (
+              <div className="px-2.5 py-4 text-[12px] text-[var(--muted)]">
+                Recent results appear here after each tour or Team League session.
+              </div>
+            )}
+
+            <Link className="foot" href="/teams/matches">
+              All results →
+            </Link>
+          </section>
+        </aside>
+
+        {/* -------------------------------------------------------- CENTER COL */}
+        <div className="col center">
+          <FeaturedMatchPanel
+            liveMatch={liveLead}
+            teamFixture={featuredTeamFixture}
+            bouts={featuredBouts}
+            round={liveRound?.라운드}
+            roundCode={liveRound ? String(liveRound.라운드코드) : undefined}
+            seasonCode={teamSeason?.season.시즌코드}
+            standingsMap={standingMap}
+            dayMatch={dayBoard.matches[0] ?? recentDayBoard?.matches[0] ?? null}
+            featuredEvent={featuredEvent}
+            nationFor={nationFor}
+          />
+
+          <section className="p" aria-label="Fixtures">
+            <div className="ph">
+              <h2>
+                {relativeDay(focusDay)} · {shortDayLabel(focusDay)}
+              </h2>
+              <span className="more flex items-center gap-2">
+                {lastDay && <Link href={buildHomeHref({ day: lastDay })}>‹ Prev</Link>}
+                {nextDay && <Link href={buildHomeHref({ day: nextDay })}>Next ›</Link>}
+              </span>
             </div>
 
             {dayBoard.matches.length > 0 ? (
-              <ol className="divide-y divide-[var(--hair)]">
-                {dayBoard.matches.slice(0, 5).map((match) => (
-                  <li
-                    key={match.key}
-                    className={cn(
-                      "grid grid-cols-[54px_1fr_auto] gap-x-3 gap-y-1 py-3 text-[14.5px]",
-                      match.state === "next" && "bg-gradient-to-r from-[var(--paper-2)] to-transparent px-1 -mx-1",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "num text-[16px] font-extrabold",
-                        match.state === "live" ? "text-[var(--red)]" : "text-[var(--ink)]",
-                      )}
-                    >
-                      {match.state === "live" ? "LIVE" : match.clock ?? (match.state === "final" ? "FT" : "TBA")}
-                      <small className="block text-[11px] font-bold tracking-[0.03em] text-[var(--ink-3)]">
-                        {leagueShort(match.event?.league ?? "")}
-                      </small>
-                    </span>
-                    <span className="flex flex-col gap-0.5 min-w-0">
-                      <span
-                        className={cn(
-                          "flex items-center gap-1.5 truncate",
-                          match.state === "final" && !match.homeWon && "text-[var(--ink-3)]",
-                        )}
-                      >
-                        <i className="ball w" />
-                        <span className={cn("truncate", (match.homeWon || match.state !== "final") && "font-bold")}>
-                          {match.home}
-                        </span>
-                      </span>
-                      <span
-                        className={cn(
-                          "flex items-center gap-1.5 truncate",
-                          match.state === "final" && !match.awayWon && "text-[var(--ink-3)]",
-                        )}
-                      >
-                        <i className="ball y" />
-                        <span className={cn("truncate", match.awayWon && "font-bold")}>{match.away}</span>
-                      </span>
-                    </span>
-                    <span className="num flex flex-col gap-0.5 text-right font-extrabold">
-                      <span className={match.state === "final" && !match.homeWon ? "font-medium text-[var(--ink-3)]" : ""}>
-                        {match.homeSets ?? "–"}
-                      </span>
-                      <span className={match.state === "final" && !match.awayWon ? "font-medium text-[var(--ink-3)]" : ""}>
-                        {match.awaySets ?? "–"}
-                      </span>
-                    </span>
-                    <span className="col-start-2 -col-end-1 text-[12px] font-semibold text-[var(--ink-3)]">
-                      {match.href ? (
-                        <Link href={match.href} className="hover:text-[var(--red)]">
-                          {match.round}
-                          {match.homeAverage ? ` · avg ${match.homeAverage.toFixed(3)}` : ""}
-                        </Link>
-                      ) : (
-                        match.round
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            ) : dayBoard.partial ? (
-              <div className="border-b border-[var(--hair)] py-4">
-                <p className="font-serif-ed text-[14.5px] text-[var(--ink-2)]">
-                  Schedule data could not be loaded for {relativeDay(focusDay).toLowerCase()}.
-                </p>
-              </div>
-            ) : (
-              <div className="border-b border-[var(--hair)] py-4">
-                <p className="font-serif-ed text-[14.5px] text-[var(--ink-2)]">
-                  No tour or team matches scheduled for {relativeDay(focusDay).toLowerCase()}.
-                </p>
-                <div className="mt-2.5 flex flex-wrap gap-3 text-[13px] font-bold">
-                  {lastDay && (
-                    <Link href={buildHomeHref({ day: lastDay })} className="border-b border-[var(--ink)] hover:text-[var(--red)] hover:no-underline">
-                      Last match day →
-                    </Link>
-                  )}
-                  {nextDay && (
-                    <Link href={buildHomeHref({ day: nextDay })} className="border-b border-[var(--ink)] hover:text-[var(--red)] hover:no-underline">
-                      Next tournament day →
-                    </Link>
-                  )}
+              <>
+                <div className="sub">
+                  <span className={cn("tag", leagueTagClass(dayBoard.matches[0].event?.league))}>
+                    {leagueShort(dayBoard.matches[0].event?.league ?? "") || "Tour"}
+                  </span>
+                  {dayBoard.matches[0].event?.title ?? "Scheduled matches"}
+                  <span className="r">{dayBoard.matches.length} matches</span>
                 </div>
+                <div>
+                  {dayBoard.matches.slice(0, 8).map((match) => (
+                    <CenterFixtureRow key={match.key} match={match} nationFor={nationFor} />
+                  ))}
+                </div>
+              </>
+            ) : dayBoard.partial ? (
+              <div className="px-3 py-4 text-[12.5px] text-[var(--muted)]">
+                Schedule data could not be loaded for {relativeDay(focusDay).toLowerCase()}.
+              </div>
+            ) : null}
+
+            {(dayBoard.matches.length === 0 || todayScheduled.length === 0) && recentTeamResults.length > 0 && (
+              <>
+                <div className="sub">
+                  <span className="tag t-team">Team</span>
+                  {teamSeason ? `PBA Team League ${teamSeason.season.시즌명}` : "Team League"} · Round{" "}
+                  {liveRound?.라운드}
+                  <span className="r">{roundFixtures.length} fixtures</span>
+                </div>
+                <div>
+                  {[...upcomingFixtures.slice(0, 2), ...recentTeamResults].slice(0, 5).map((fix) => (
+                    <CenterTeamRow
+                      key={`${fix.gameNo ?? fix.home.name}-${fix.away.name}`}
+                      fixture={fix}
+                      roundCode={liveRound ? String(liveRound.라운드코드) : undefined}
+                      seasonCode={teamSeason?.season.시즌코드}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {dayBoard.matches.length === 0 && (recentDayBoard?.matches.length ?? 0) > 0 && (
+              <>
+                <div className="sub">
+                  <span className={cn("tag", leagueTagClass(recentDayBoard!.matches[0].event?.league))}>
+                    {leagueShort(recentDayBoard!.matches[0].event?.league ?? "") || "Tour"}
+                  </span>
+                  {recentDayBoard!.matches[0].event?.title ?? "Latest session"}
+                  <span className="r">
+                    {lastDay ? `${relativeDay(lastDay)} · finished` : "Finished"}
+                  </span>
+                </div>
+                <div>
+                  {recentDayBoard!.matches.slice(0, 5).map((match) => (
+                    <CenterFixtureRow key={match.key} match={match} nationFor={nationFor} />
+                  ))}
+                </div>
+              </>
+            )}
+
+            <Link className="foot" href={`/schedule?day=${focusDay}`}>
+              Open full match list →
+            </Link>
+          </section>
+
+          <section className="p" aria-label="News">
+            <div className="ph">
+              <h2>News</h2>
+              <Link className="more" href="/news">
+                News archive
+              </Link>
+            </div>
+
+            {articles.length >= 2 && (
+              <div className="newsfeat">
+                {articles.slice(0, 2).map((article, index) => {
+                  const tag = detectPressTag(article.title);
+                  return (
+                    <Link key={article.seq} href={`/news/${article.seq}`} className="nf">
+                      <div className={cn("img", index === 1 && "b", !article.image && "ph-ball")}>
+                        {article.image && (
+                          <SafeImage
+                            src={article.image}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            fallback={<span className="block h-full w-full" />}
+                          />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <span className={cn("tag", tag.cls)}>{tag.label}</span>
+                        <h3 className="line-clamp-2">{article.title}</h3>
+                        <p>
+                          {fmtDate(article.date)}
+                          {article.views > 0 ? ` · ${grouped(article.views)} views` : ""}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
             )}
 
-            {featured && (
-              <div className="mt-5 border-t border-[var(--ink)] pt-4">
-                <p className="eyebrow mb-1.5">This event</p>
-                <h3 className="x text-[24px] text-[var(--ink)]">
-                  <Link href={`/schedule/${featured.id}`} className="hover:text-[var(--red)] hover:no-underline">
-                    {featured.title}
-                  </Link>
-                </h3>
-                <dl className="mt-2.5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[13.5px]">
-                  <dt className="text-[var(--ink-3)]">Dates</dt>
-                  <dd className="num font-semibold text-[var(--ink)]">{fmtRange(featured.start, featured.end)}</dd>
-                  <dt className="text-[var(--ink-3)]">Venue</dt>
-                  <dd className="truncate font-semibold text-[var(--ink)]">{featured.venue}</dd>
-                  <dt className="text-[var(--ink-3)]">Prize pool</dt>
-                  <dd className="num font-semibold text-[var(--ink)]">{compactPrize(featured.prizePool)}</dd>
-                  {featured.defendingChampion !== "—" && (
-                    <>
-                      <dt className="text-[var(--ink-3)]">Champion</dt>
-                      <dd className="font-semibold text-[var(--ink)]">{featured.defendingChampion}</dd>
-                    </>
-                  )}
-                </dl>
-                <div
-                  className="mt-3 grid grid-cols-7 gap-[3px]"
-                  aria-label={featured.status === "completed" ? "Tournament complete" : "Tournament status"}
-                >
-                  {Array.from({ length: 7 }, (_, i) => {
-                    const filled =
-                      featured.status === "completed" ? 7 : featured.status === "live" ? 5 : 1;
+            {articles.length > 2 && (
+              <>
+                <div className="sub">Latest press</div>
+                <div>
+                  {articles.slice(2, 9).map((article) => {
+                    const tag = detectPressTag(article.title);
                     return (
-                      <i
-                        key={i}
-                        className={cn("h-1.5", i < filled ? "bg-[var(--ink)]" : "bg-[var(--paper-3)]")}
-                      />
+                      <Link key={article.seq} href={`/news/${article.seq}`} className="nw">
+                        <span className="ic">
+                          <span className={cn("tag", tag.cls)}>{tag.label}</span>
+                        </span>
+                        <span className="tt">{article.title}</span>
+                        <span className="ago">{shortDayLabel(isoDay(article.date))}</span>
+                        <span className="cm n">
+                          {article.views > 0 ? grouped(article.views) : "—"}
+                        </span>
+                      </Link>
                     );
                   })}
                 </div>
-                <div className="mt-1 flex justify-between text-[11.5px] text-[var(--ink-3)]">
-                  <span>R128</span>
-                  <span>Semi-finals</span>
-                  <span>Final</span>
-                </div>
-              </div>
+              </>
             )}
-          </aside>
-        </section>
 
-        {/* ============================================================ SEASON LEADERS */}
-        <div className="flex flex-col items-start justify-between gap-2 pb-3 pt-7 sm:flex-row sm:items-baseline">
-          <h2 className="x text-[36px] sm:text-[44px]">Season leaders</h2>
-          <div className="flex flex-wrap items-center gap-4.5 text-[14px] font-bold text-[var(--ink-3)]">
-            {([
-              ["PBA1", "PBA"],
-              ["LPBA1", "LPBA"],
-              ["PBA2", "Dream"],
-            ] as const).map(([code, label]) => (
-              <Link
-                key={code}
-                href={buildHomeHref({ circuit: code })}
-                className={cn(
-                  "pb-0.5 hover:text-[var(--ink)] hover:no-underline",
-                  circuit === code && "text-[var(--ink)] shadow-[inset_0_-2px_0_var(--ink)]",
-                )}
-              >
-                {label}
-              </Link>
-            ))}
-            <Link href={`/records?circuit=${circuit}`} className="text-[var(--ink)]">
-              All records →
+            <Link className="foot" href="/news">
+              More news →
             </Link>
-          </div>
+          </section>
         </div>
 
-        <section className="grid grid-cols-1 border-b border-[var(--ink)] border-t-2 border-t-[var(--ink)] sm:grid-cols-2 lg:grid-cols-4">
-          {leaderPicks.map(({ category, rows }, idx) => {
-            const top = rows[0];
-            if (!top) return null;
-            return (
-              <div
-                key={category.key}
-                className={cn(
-                  "border-[var(--hair)] py-5 sm:px-5",
-                  idx % 2 === 0 ? "sm:pl-0" : "sm:border-l",
-                  idx >= 2 && "border-t sm:border-t lg:border-t-0",
-                  idx === 1 && "border-t sm:border-t-0",
-                  idx > 0 && "lg:border-l lg:px-5",
-                  idx === 0 && "lg:pl-0",
-                  idx === leaderPicks.length - 1 && "lg:pr-0",
-                )}
-              >
-                <p className="text-[13px] font-bold text-[var(--ink-2)]">{category.label}</p>
-                <p className="x num my-1.5 text-[72px] font-black leading-[0.9] tracking-[-0.02em] text-[var(--ink)] xl:text-[84px]">
-                  {formatLeaderBig(category.unit, top.Value)}
-                  {category.unit === "pct" && <small className="text-[38px]">%</small>}
-                </p>
-                <p className="text-[17px] font-bold text-[var(--ink)]">
-                  <Link href={`/players/${top.MemCode}`} className="hover:text-[var(--red)]">
-                    {resolveLeaderName(top)}
-                  </Link>{" "}
-                  {top.NationCode && (
-                    <span className="text-[13px] font-medium text-[var(--ink-3)]">{top.NationCode}</span>
-                  )}
-                </p>
-                <ol className="mt-3 border-t border-[var(--hair)]">
-                  {rows.slice(1, 3).map((row) => (
-                    <li
-                      key={`${category.key}-${row.MemCode}-${row.Rank}`}
-                      className="num flex items-baseline justify-between border-b border-dotted border-[var(--hair)] py-1.5 text-[13.5px]"
-                    >
-                      <Link
-                        href={`/players/${row.MemCode}`}
-                        className="min-w-0 truncate hover:text-[var(--red)]"
-                      >
-                        <span className="inline-block w-4 text-[var(--ink-3)]">{row.Rank}</span>
-                        {resolveLeaderName(row)}
-                      </Link>
-                      <b className="ml-2 shrink-0 font-bold text-[var(--ink)]">
-                        {formatLeaderValue(category.unit, row.Value)}
-                      </b>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            );
-          })}
-        </section>
-
-        {/* ============================================================ TABLES BAND */}
-        <div className="mt-2 grid grid-cols-1 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-          {/* Left: Team League Standings */}
-          <section className="pb-4 lg:pr-8">
-            <div className="flex items-baseline justify-between pb-2.5 pt-7">
-              <h2 className="x text-[32px] sm:text-[34px]">
-                Team League <em className="not-italic text-[var(--cloth)]">{roundLabel}</em>
-              </h2>
-              <Link href="/teams" className="text-[13px] font-bold whitespace-nowrap">
-                Full table →
+        {/* -------------------------------------------------------- RIGHT COL */}
+        <aside className="col right">
+          <section className="p" aria-label="Rankings">
+            <div className="ph">
+              <h2>Ranking · {rtab === "lpba" ? "LPBA" : rtab === "money" ? "Money" : "PBA"}</h2>
+              <Link className="more" href="/rankings">
+                Full ranking
               </Link>
             </div>
-            <table className="stat-table num">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Club</th>
-                  <th>W–L</th>
-                  <th className="hidden sm:table-cell">Set ratio</th>
-                  <th className="hidden sm:table-cell">Avg</th>
-                  <th>Pts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {standings.slice(0, 10).map((team, index) => (
-                  <tr
-                    key={team.code}
-                    className={index === 3 ? "[&>td]:border-b-2 [&>td]:border-b-[var(--cloth)]" : undefined}
-                  >
-                    <td className="font-bold text-[var(--ink-3)]">{index + 1}</td>
-                    <td className="font-semibold whitespace-nowrap">
-                      <Link
-                        href={`/teams/${encodeURIComponent(team.code)}`}
-                        className="inline-flex items-center hover:text-[var(--red)]"
-                      >
-                        <span className="mr-2.5 inline-grid h-[22px] w-[22px] shrink-0 place-items-center bg-[var(--ink)] text-[10px] font-extrabold text-[var(--paper)]">
-                          {clubMonogram(team.name)}
-                        </span>
-                        <span className="max-w-[200px] truncate sm:max-w-none">{team.name}</span>
-                      </Link>
-                    </td>
-                    <td>
-                      {team.wins}–{team.losses}
-                    </td>
-                    <td className="hidden sm:table-cell">
-                      {team.setRatio ? team.setRatio.toFixed(2) : "—"}
-                    </td>
-                    <td className="hidden sm:table-cell">
-                      {team.average ? team.average.toFixed(3) : "—"}
-                    </td>
-                    <td className="text-[16px] font-black">{team.points}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-3)]">
-              <i className="inline-block w-[18px] border-t-2 border-[var(--cloth)]" />
-              <span>Playoff qualification line · Points: win 3 (2 in 7 sets), loss in 7 sets 1</span>
-            </p>
-          </section>
-
-          {/* Right: Money List */}
-          <section className="pb-4 lg:border-l lg:border-[var(--ink)] lg:pl-8">
-            <div className="flex items-baseline justify-between pb-2.5 pt-7">
-              <h2 className="x text-[32px] sm:text-[34px]">Money list</h2>
-              <div className="flex items-center gap-4 text-[14px] font-bold text-[var(--ink-3)]">
-                <Link
-                  href={buildHomeHref({ money: "PBA1" })}
-                  className={cn(
-                    "pb-0.5 hover:text-[var(--ink)] hover:no-underline",
-                    moneyLeague === "PBA1" && "text-[var(--ink)] shadow-[inset_0_-2px_0_var(--ink)]",
-                  )}
-                >
-                  PBA
-                </Link>
-                <Link
-                  href={buildHomeHref({ money: "LPBA1" })}
-                  className={cn(
-                    "pb-0.5 hover:text-[var(--ink)] hover:no-underline",
-                    moneyLeague === "LPBA1" && "text-[var(--ink)] shadow-[inset_0_-2px_0_var(--ink)]",
-                  )}
-                >
-                  LPBA
-                </Link>
-                <Link href={`/rankings?league=${moneyLeague}`} className="text-[var(--ink)]">
-                  Full list →
-                </Link>
-              </div>
+            <div className="tabs" role="tablist" aria-label="Ranking circuit">
+              <Link href={buildHomeHref({ rtab: "pba" })} className={rtab === "pba" ? "on" : undefined}>
+                PBA
+              </Link>
+              <Link href={buildHomeHref({ rtab: "lpba" })} className={rtab === "lpba" ? "on" : undefined}>
+                LPBA
+              </Link>
+              <Link href={buildHomeHref({ rtab: "money" })} className={rtab === "money" ? "on" : undefined}>
+                Money
+              </Link>
             </div>
-            <table className="stat-table num">
+
+            <table className="rk n">
               <thead>
                 <tr>
                   <th>#</th>
                   <th>Player</th>
-                  <th className="hidden sm:table-cell">Pts</th>
-                  <th>Prize</th>
+                  <th>{rtab === "money" ? "Prize" : "Pts"}</th>
                 </tr>
               </thead>
               <tbody>
-                {moneyRows.map((row, idx) => {
-                  const pct = Math.max(8, Math.round(((row.Prize || 0) / maxPrize) * 100));
-                  const name = cleanPlayerName(pick(row.PlayerNameEN, row.PlayerNameKO));
+                {rankDisplayRows.map((row, index) => {
+                  const displayName = cleanPlayerName(row.PlayerNameEN) || resolveKoreanName(row.PlayerNameKO, nameIndex);
+                  const rank = row.Rank || index + 1;
+                  const val = rtab === "money" ? wonCompact(row.Prize) : grouped(row.RankingPoint);
                   return (
-                    <tr key={`${row.MemCode}-${idx}`}>
-                      <td className="font-bold text-[var(--ink-3)]">{row.Rank || idx + 1}</td>
-                      <td className="font-semibold">
-                        <Link href={`/players/${row.MemCode}`} className="hover:text-[var(--red)]">
-                          {name}
-                        </Link>
-                        {row.NationCode && (
-                          <span className="ml-1.5 text-[11px] font-bold uppercase tracking-[0.04em] text-[var(--ink-3)]">
-                            {row.NationCode}
+                    <tr key={`${row.MemCode}-${index}`}>
+                      <td className="pos">{rank}</td>
+                      <td className="nm">
+                        <Link href={`/players/${row.MemCode}`}>
+                          <span>
+                            <i className={flagClass(row.NationCode)} aria-hidden="true" />
+                            <span className="min-w-0 truncate">{displayName}</span>
                           </span>
-                        )}
+                        </Link>
                       </td>
-                      <td className="hidden text-[var(--ink-3)] sm:table-cell">{grouped(row.RankingPoint)}</td>
-                      <td className="font-extrabold">
-                        <span>{compactPrize(String(row.Prize))}</span>
-                        <span
-                          className="ml-auto mt-1 block h-[3px] bg-[var(--red)]"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </td>
+                      <td className="v">{val}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-            <p className="mt-2 text-[12px] text-[var(--ink-3)]">
-              Season {seasonLabel(season)} cumulative earnings · {leagueByCode(moneyLeague).name}
-            </p>
-          </section>
-        </div>
 
-        {/* ============================================================ FROM THE TOUR (NEWS) */}
-        {articles.length > 0 && (
-          <>
-            <div className="flex items-baseline justify-between gap-4 pb-3 pt-8">
-              <h2 className="x text-[36px] sm:text-[44px]">From the tour</h2>
-              <div className="flex items-center gap-4.5 text-[14px] font-bold text-[var(--ink-3)]">
-                <Link href="/news" className="text-[var(--ink)] shadow-[inset_0_-2px_0_var(--ink)]">
-                  Stories
-                </Link>
-                <Link href="/news?tab=videos" className="hover:text-[var(--ink)]">
-                  Video
-                </Link>
-                <Link href="/news?tab=gallery" className="hover:text-[var(--ink)]">
-                  Galleries
+            <Link className="foot" href="/rankings">
+              {seasonLabel(season)} ranking · full list →
+            </Link>
+          </section>
+
+          {clubTableRows.length > 0 && (
+            <section className="p" aria-label="Team League standings">
+              <div className="ph">
+                <h2>Team League</h2>
+                <Link className="more" href="/teams">
+                  Table
                 </Link>
               </div>
+              <table className="rk has-wl n">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Club</th>
+                    <th>W–L</th>
+                    <th>Pts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clubTableRows.map((team, index) => {
+                    const badge = clubBadge(team.name, index);
+                    return (
+                      <tr key={team.code}>
+                        <td className="pos">{team.rank || index + 1}</td>
+                        <td className="nm">
+                          <Link href={`/teams/${encodeURIComponent(team.code)}`}>
+                            <span>
+                              <i className={cn("cr", badge.cls)} aria-hidden="true">
+                                {badge.code}
+                              </i>
+                              <span className="min-w-0 truncate">{shortClubName(team.name)}</span>
+                            </span>
+                          </Link>
+                        </td>
+                        <td className="wl text-[var(--text-2)]">
+                          {team.wins}–{team.losses}
+                        </td>
+                        <td className="v">{team.points}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </section>
+          )}
+
+          {spotlightPlayer && (
+            <section className="p" aria-label="Player spotlight">
+              <div className="ph">
+                <h2>Player spotlight</h2>
+                <Link className="more" href={`/players/${spotlightPlayer.code}`}>
+                  Profile
+                </Link>
+              </div>
+              <Link href={`/players/${spotlightPlayer.code}`} className="spot hover:bg-[var(--hover)]">
+                <div className="ph2">
+                  {spotlightPlayer.photoPath || spotlightPlayer.photoLarge || spotlightPlayer.photo ? (
+                    <SafeImage
+                      src={photoUrl(spotlightPlayer.photoPath, 160) ?? spotlightPlayer.photoLarge ?? spotlightPlayer.photo}
+                      alt={spotlightPlayer.name}
+                      loading="eager"
+                      className="h-full w-full object-cover object-top"
+                      fallback={<i aria-hidden="true" />}
+                    />
+                  ) : (
+                    <i aria-hidden="true" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="truncate">{spotlightPlayer.name}</h3>
+                  <div className="m2">
+                    <i className={flagClass(spotlightPlayer.nation)} aria-hidden="true" />
+                    <span>
+                      {spotlightPlayer.nation} · {leagueByCode(spotlightPlayer.league).name}
+                    </span>
+                  </div>
+                  <div className="m2 mt-1.5">
+                    {spotlightPlayer.wins} wins, {spotlightPlayer.losses} losses · Rank #
+                    {spotlightPlayer.pointsRank || spotlightPlayer.prizeRank || 1}
+                  </div>
+                </div>
+              </Link>
+              <dl className="kv n">
+                <div>
+                  <dt>Avg</dt>
+                  <dd className="hi">{spotlightPlayer.average ? spotlightPlayer.average.toFixed(3) : "—"}</dd>
+                </div>
+                <div>
+                  <dt>HR</dt>
+                  <dd>{spotlightPlayer.highRun || "—"}</dd>
+                </div>
+                <div>
+                  <dt>Win %</dt>
+                  <dd>{percent(winRate(spotlightPlayer))}</dd>
+                </div>
+                <div>
+                  <dt>Bank %</dt>
+                  <dd>{percent(spotlightPlayer.bankShotRate)}</dd>
+                </div>
+              </dl>
+            </section>
+          )}
+
+          {upcomingStrip.length > 0 && (
+            <section className="p" aria-label="Upcoming events">
+              <div className="ph">
+                <h2>Upcoming events</h2>
+                <Link className="more" href="/schedule">
+                  Calendar
+                </Link>
+              </div>
+              {upcomingStrip.map((ev) => {
+                const dp = dateParts(ev.start);
+                return (
+                  <Link key={ev.id} href={`/schedule/${ev.id}`} className="el">
+                    <span className="d n">
+                      {dp.day}
+                      <small>{dp.month}</small>
+                    </span>
+                    <span className="t">
+                      <span className={cn("tag", leagueTagClass(ev.league))}>{leagueShort(ev.league)}</span>{" "}
+                      {ev.title}
+                    </span>
+                    <span className="pz">
+                      <b>{ev.championPrize !== "—" ? ev.championPrize : ev.prizePool}</b>
+                      {ev.championPrize !== "—" ? "winner" : "purse"}
+                    </span>
+                    <span className="s">
+                      {ev.venue}
+                      {ev.entrants.players ? ` · ${ev.entrants.players} players` : ""}
+                    </span>
+                  </Link>
+                );
+              })}
+            </section>
+          )}
+
+          {leaderPicks.length > 0 && (
+            <section className="p" aria-label="Season leaders">
+              <div className="ph">
+                <h2>Season leaders</h2>
+                <Link className="more" href="/records">
+                  Stats
+                </Link>
+              </div>
+              <table className="rk n">
+                <tbody>
+                  {leaderPicks.map(({ category, row }) => {
+                    const name = resolveLeaderName(row);
+                    const href = row.MemCode
+                      ? `/players/${row.MemCode}`
+                      : playerCodeByName.get(name.toLowerCase())
+                        ? `/players/${playerCodeByName.get(name.toLowerCase())}`
+                        : null;
+                    const nation = nationFor(row.MemCode, name);
+                    const val = category.unit === "avg"
+                      ? Number(row.Value).toFixed(3)
+                      : category.unit === "pct"
+                        ? `${Number(row.Value).toFixed(1)}%`
+                        : grouped(Number(row.Value));
+                    return (
+                      <tr key={category.key}>
+                        <td className="nm muted">{category.label}</td>
+                        <td className="nm">
+                          {href ? (
+                            <Link href={href}>
+                              <span>
+                                <i className={flagClass(nation)} aria-hidden="true" />
+                                {name}
+                              </span>
+                            </Link>
+                          ) : (
+                            <span>
+                              <i className={flagClass(nation)} aria-hidden="true" />
+                              {name}
+                            </span>
+                          )}
+                        </td>
+                        <td className="v">{val}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </section>
+          )}
+        </aside>
+      </div>
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------- helpers */
+
+function LiveSidebarRow({
+  match,
+  nationFor,
+}: {
+  match: LiveMatch;
+  nationFor: (code?: string | null, name?: string | null) => string | null;
+}) {
+  const [a, b] = match.sides;
+  const sa = match.fixtureScore ? match.fixtureScore[0] : a?.setsWon ?? 0;
+  const sb = match.fixtureScore ? match.fixtureScore[1] : b?.setsWon ?? 0;
+  const href = match.pstCode ? `/matches/${match.pstCode}?live=1` : "/live";
+
+  return (
+    <Link href={href} className="m">
+      <span className="tm lv">
+        <b>LIVE</b>
+        {match.latestSet.setNo > 0 ? `Set ${match.latestSet.setNo}` : "Now"}
+      </span>
+      <span className="pl">
+        <span>
+          {match.competition ? (
+            <i className={cn("cr", clubBadge(a?.name ?? "", 0).cls)}>{clubBadge(a?.name ?? "", 0).code}</i>
+          ) : (
+            <i className={flagClass(nationFor(null, a?.name))} />
+          )}
+          <b className={sa > sb ? "font-semibold" : "font-normal"}>{shortClubName(a?.name ?? "Side 1")}</b>
+        </span>
+        <span>
+          {match.competition ? (
+            <i className={cn("cr", clubBadge(b?.name ?? "", 1).cls)}>{clubBadge(b?.name ?? "", 1).code}</i>
+          ) : (
+            <i className={flagClass(nationFor(null, b?.name))} />
+          )}
+          <b className={sb > sa ? "font-semibold" : "font-normal"}>{shortClubName(b?.name ?? "Side 2")}</b>
+        </span>
+      </span>
+      <span className="sc n">
+        <span className="lv">{sa}</span>
+        <span className="lv">{sb}</span>
+      </span>
+    </Link>
+  );
+}
+
+function DaySidebarRow({
+  match,
+  nationFor,
+}: {
+  match: DayMatch;
+  nationFor: (code?: string | null, name?: string | null) => string | null;
+}) {
+  const href = match.href ?? "/schedule";
+  const isFinal = match.state === "final";
+  const isLive = match.state === "live";
+
+  return (
+    <Link href={href} className="m">
+      <span className={cn("tm", isLive && "lv")}>
+        <b>{isLive ? "LIVE" : isFinal ? "FT" : match.clock || "TBA"}</b>
+        {match.matchNo ? `M${match.matchNo}` : ""}
+      </span>
+      <span className="pl">
+        <span className={isFinal ? (match.homeWon ? "won" : "lost") : undefined}>
+          <i className={flagClass(nationFor(match.homeMemCode, match.home))} aria-hidden="true" />
+          {match.home}
+        </span>
+        <span className={isFinal ? (match.awayWon ? "won" : "lost") : undefined}>
+          <i className={flagClass(nationFor(match.awayMemCode, match.away))} aria-hidden="true" />
+          {match.away}
+        </span>
+      </span>
+      <span className="sc n">
+        {isFinal || isLive ? (
+          <>
+            <span className={isLive ? "lv" : !match.homeWon ? "lost" : undefined}>{match.homeSets ?? "–"}</span>
+            <span className={isLive ? "lv" : !match.awayWon ? "lost" : undefined}>{match.awaySets ?? "–"}</span>
+          </>
+        ) : (
+          <span className="muted">–</span>
+        )}
+      </span>
+    </Link>
+  );
+}
+
+function TeamSidebarRow({
+  fixture,
+  round,
+  seasonCode,
+  roundCode,
+}: {
+  fixture: TeamFixture;
+  round?: number;
+  seasonCode?: string;
+  roundCode?: string;
+}) {
+  const b1 = clubBadge(fixture.home.name, 0);
+  const b2 = clubBadge(fixture.away.name, 1);
+  const href =
+    fixture.gameNo && roundCode && seasonCode
+      ? `/teams/matches/${fixture.gameNo}?season=${seasonCode}&round=${roundCode}`
+      : "/teams/matches";
+
+  return (
+    <Link href={href} className="m">
+      <span className="tm">
+        <b>{fixture.played ? "FT" : shortClock(fixture.playedAt)}</b>
+        {round ? `R${round}` : ""}
+      </span>
+      <span className="pl">
+        <span className={fixture.played ? (fixture.home.won ? "won" : "lost") : undefined}>
+          <i className={cn("cr", b1.cls)} aria-hidden="true">
+            {b1.code}
+          </i>
+          {shortClubName(fixture.home.name)}
+        </span>
+        <span className={fixture.played ? (fixture.away.won ? "won" : "lost") : undefined}>
+          <i className={cn("cr", b2.cls)} aria-hidden="true">
+            {b2.code}
+          </i>
+          {shortClubName(fixture.away.name)}
+        </span>
+      </span>
+      <span className="sc n">
+        {fixture.played ? (
+          <>
+            <span className={!fixture.home.won ? "lost" : undefined}>{fixture.home.sets ?? "–"}</span>
+            <span className={!fixture.away.won ? "lost" : undefined}>{fixture.away.sets ?? "–"}</span>
+          </>
+        ) : (
+          <>
+            <span className="muted">–</span>
+            <span className="muted">–</span>
+          </>
+        )}
+      </span>
+    </Link>
+  );
+}
+
+function CenterFixtureRow({
+  match,
+  nationFor,
+}: {
+  match: DayMatch;
+  nationFor: (code?: string | null, name?: string | null) => string | null;
+}) {
+  const href = match.href ?? "/schedule";
+  const isFinal = match.state === "final";
+  const isLive = match.state === "live";
+
+  return (
+    <Link href={href} className="fx">
+      <span className={cn("tm", isLive ? "lv" : isFinal && "ft")}>
+        {isLive ? "LIVE" : isFinal ? match.round || "Final" : match.clock || "TBA"}
+      </span>
+      <span className={cn("a", isFinal && !match.homeWon && "lost")}>
+        <span className={match.homeWon ? "font-bold" : undefined}>{match.home}</span>
+        <i className={flagClass(nationFor(match.homeMemCode, match.home))} aria-hidden="true" />
+      </span>
+      <span className={cn("sc n", isLive ? "lv" : !isFinal && "up")}>
+        {isFinal || isLive ? `${match.homeSets ?? 0} – ${match.awaySets ?? 0}` : "vs"}
+      </span>
+      <span className={cn("b", isFinal && !match.awayWon && "lost")}>
+        <i className={flagClass(nationFor(match.awayMemCode, match.away))} aria-hidden="true" />
+        <span className={match.awayWon ? "font-bold" : undefined}>{match.away}</span>
+      </span>
+      <span className="sets n">
+        {match.homeAverage
+          ? `avg ${match.homeAverage.toFixed(3)}${match.homeHighRun ? ` · HR ${match.homeHighRun}` : ""}`
+          : match.round}
+      </span>
+      <span className="tv">{match.matchNo ? `M${match.matchNo}` : ""}</span>
+    </Link>
+  );
+}
+
+function CenterTeamRow({
+  fixture,
+  roundCode,
+  seasonCode,
+}: {
+  fixture: TeamFixture;
+  roundCode?: string;
+  seasonCode?: string;
+}) {
+  const b1 = clubBadge(fixture.home.name, 0);
+  const b2 = clubBadge(fixture.away.name, 1);
+  const href =
+    fixture.gameNo && roundCode && seasonCode
+      ? `/teams/matches/${fixture.gameNo}?season=${seasonCode}&round=${roundCode}`
+      : "/teams/matches";
+
+  return (
+    <Link href={href} className="fx">
+      <span className={cn("tm", fixture.played && "ft")}>
+        {fixture.played ? "FT" : shortClock(fixture.playedAt)}
+      </span>
+      <span className={cn("a", fixture.played && !fixture.home.won && "lost")}>
+        <span className={fixture.home.won ? "font-bold" : undefined}>{shortClubName(fixture.home.name)}</span>
+        <i className={cn("cr", b1.cls)} aria-hidden="true">
+          {b1.code}
+        </i>
+      </span>
+      <span className={cn("sc n", !fixture.played && "up")}>
+        {fixture.played ? `${fixture.home.sets ?? 0} – ${fixture.away.sets ?? 0}` : "vs"}
+      </span>
+      <span className={cn("b", fixture.played && !fixture.away.won && "lost")}>
+        <i className={cn("cr", b2.cls)} aria-hidden="true">
+          {b2.code}
+        </i>
+        <span className={fixture.away.won ? "font-bold" : undefined}>{shortClubName(fixture.away.name)}</span>
+      </span>
+      <span className="sets n">
+        {fixture.home.average ? `avg ${fixture.home.average.toFixed(3)}` : fixture.playedAt?.slice(0, 10) ?? ""}
+      </span>
+      <span className="tv">{fixture.gameNo ? `#${fixture.gameNo}` : ""}</span>
+    </Link>
+  );
+}
+
+function FeaturedMatchPanel({
+  liveMatch,
+  teamFixture,
+  bouts,
+  round,
+  roundCode,
+  seasonCode,
+  standingsMap,
+  dayMatch,
+  featuredEvent,
+  nationFor,
+}: {
+  liveMatch: LiveMatch | null;
+  teamFixture: TeamFixture | null;
+  bouts: FixtureBouts | null;
+  round?: number;
+  roundCode?: string;
+  seasonCode?: string;
+  standingsMap: Map<string, ReturnType<typeof normalizeTeam>>;
+  dayMatch: DayMatch | null;
+  featuredEvent: CalendarEvent | null;
+  nationFor: (code?: string | null, name?: string | null) => string | null;
+}) {
+  if (liveMatch) {
+    const [a, b] = liveMatch.sides;
+    const scoreA = liveMatch.fixtureScore ? liveMatch.fixtureScore[0] : a?.setsWon ?? 0;
+    const scoreB = liveMatch.fixtureScore ? liveMatch.fixtureScore[1] : b?.setsWon ?? 0;
+    const isTeam = Boolean(liveMatch.competition);
+    const badgeA = clubBadge(a?.name ?? "Home", 0);
+    const badgeB = clubBadge(b?.name ?? "Away", 1);
+
+    return (
+      <section className="p" aria-label="Featured live match">
+        <div className="feat-h">
+          <span className="lvp">
+            <i aria-hidden="true" />
+            LIVE
+          </span>
+          <span className={cn("tag", isTeam ? "t-team" : "t-pba")}>{isTeam ? "Team" : "Tour"}</span>
+          <b>{liveMatch.competition ?? "Live Match"}</b>
+          <span className="r muted">
+            {liveMatch.latestSet.setNo > 0 ? `Set ${liveMatch.latestSet.setNo}` : "In play"}
+            {liveMatch.venue ? ` · ${liveMatch.venue}` : ""}
+          </span>
+        </div>
+
+        <div className="feat">
+          <div className="side a">
+            {isTeam ? (
+              <i className={cn("cr lg", badgeA.cls)}>{badgeA.code}</i>
+            ) : (
+              <i className={flagClass(nationFor(null, a?.name))} />
+            )}
+            <div className="min-w-0">
+              <div className="nm truncate">{a?.name ?? "Side 1"}</div>
+              {liveMatch.players?.[0] && <div className="sm truncate">{liveMatch.players[0]}</div>}
+            </div>
+          </div>
+          <div className="big n">
+            <span className={scoreA < scoreB ? "lose" : undefined}>{scoreA}</span>
+            <span className="dash">:</span>
+            <span className={scoreB < scoreA ? "lose" : undefined}>{scoreB}</span>
+          </div>
+          <div className="side b">
+            {isTeam ? (
+              <i className={cn("cr lg", badgeB.cls)}>{badgeB.code}</i>
+            ) : (
+              <i className={flagClass(nationFor(null, b?.name))} />
+            )}
+            <div className="min-w-0">
+              <div className="nm truncate">{b?.name ?? "Side 2"}</div>
+              {liveMatch.players?.[1] && <div className="sm truncate">{liveMatch.players[1]}</div>}
+            </div>
+          </div>
+        </div>
+
+        {liveMatch.completedSets.length > 0 && (
+          <div className="setstrip n">
+            {liveMatch.completedSets.map((pair, idx) => (
+              <div key={idx}>
+                <small>S{idx + 1}</small>
+                <b className={pair[0] > pair[1] ? undefined : "l"}>{pair[0]}</b>:
+                <b className={pair[1] > pair[0] ? undefined : "l"}>{pair[1]}</b>
+              </div>
+            ))}
+            {liveMatch.latestSet.setNo > liveMatch.completedSets.length && (
+              <div className="cur">
+                <small>S{liveMatch.latestSet.setNo}</small>
+                <b>{a?.points ?? 0}</b>:{b?.points ?? 0}
+              </div>
+            )}
+          </div>
+        )}
+
+        <dl className="statsrow n">
+          <div>
+            <dt>Set avg</dt>
+            <dd>
+              {a?.average?.toFixed(3) ?? "—"} <i>/ {b?.average?.toFixed(3) ?? "—"}</i>
+            </dd>
+          </div>
+          <div>
+            <dt>Points</dt>
+            <dd>
+              {a?.points ?? 0} <i>/ {b?.points ?? 0}</i>
+            </dd>
+          </div>
+          <div>
+            <dt>Innings</dt>
+            <dd>{a?.innings ?? b?.innings ?? "—"}</dd>
+          </div>
+          <div>
+            <dt>Set</dt>
+            <dd>{liveMatch.latestSet.setNo || 1}</dd>
+          </div>
+          <div>
+            <dt>Watch</dt>
+            <dd>
+              <Link href={liveMatch.pstCode ? `/matches/${liveMatch.pstCode}?live=1` : "/live"} className="text-[var(--link)]">
+                Match centre →
+              </Link>
+            </dd>
+          </div>
+        </dl>
+      </section>
+    );
+  }
+
+  if (teamFixture && bouts) {
+    const hStand = teamFixture.home.clubCode ? standingsMap.get(teamFixture.home.clubCode) : undefined;
+    const aStand = teamFixture.away.clubCode ? standingsMap.get(teamFixture.away.clubCode) : undefined;
+    const b1 = clubBadge(teamFixture.home.name, 0);
+    const b2 = clubBadge(teamFixture.away.name, 1);
+    const detailHref =
+      teamFixture.gameNo && seasonCode && roundCode
+        ? `/teams/matches/${teamFixture.gameNo}?season=${seasonCode}&round=${roundCode}`
+        : "/teams/matches";
+
+    const boutRows = bouts.bouts.slice(0, 7);
+
+    return (
+      <section className="p" aria-label="Featured fixture">
+        <div className="feat-h">
+          <span className="tag t-team">Team</span>
+          <b>
+            <Link href={detailHref} className="hover:text-[var(--link)]">
+              Team League{round ? ` · Round ${round}` : ""}{teamFixture.gameNo ? ` · Match ${teamFixture.gameNo}` : ""}
+            </Link>
+          </b>
+          <span className="r muted">
+            {teamFixture.played ? "Full time · Best of 7" : shortClock(teamFixture.playedAt)}
+          </span>
+        </div>
+
+        <div className="feat">
+          <div className="side a">
+            <i className={cn("cr lg", b1.cls)}>{b1.code}</i>
+            <div className="min-w-0">
+              <div className="nm truncate">
+                <Link href={detailHref}>{teamFixture.home.name}</Link>
+              </div>
+              {hStand && (
+                <div className="sm">
+                  #{hStand.rank} · {hStand.wins}–{hStand.losses} · {hStand.points} pts
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="big n">
+            <span className={!teamFixture.home.won ? "lose" : undefined}>{teamFixture.home.sets ?? 0}</span>
+            <span className="dash">:</span>
+            <span className={!teamFixture.away.won ? "lose" : undefined}>{teamFixture.away.sets ?? 0}</span>
+          </div>
+          <div className="side b">
+            <i className={cn("cr lg", b2.cls)}>{b2.code}</i>
+            <div className="min-w-0">
+              <div className="nm truncate">
+                <Link href={detailHref}>{teamFixture.away.name}</Link>
+              </div>
+              {aStand && (
+                <div className="sm">
+                  #{aStand.rank} · {aStand.wins}–{aStand.losses} · {aStand.points} pts
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {boutRows.length > 0 && (
+          <>
+            <div className="setstrip n">
+              {boutRows.map((bout) => {
+                const s1 = bout.sides[0];
+                const s2 = bout.sides[1];
+                return (
+                  <div key={bout.setNo}>
+                    <small>
+                      S{bout.setNo}
+                      {bout.format ? <span className="ty"> · {bout.format}</span> : null}
+                    </small>
+                    <b className={s1?.won ? undefined : "l"}>{s1?.points ?? "–"}</b>:
+                    <b className={s2?.won ? undefined : "l"}>{s2?.points ?? "–"}</b>
+                  </div>
+                );
+              })}
             </div>
 
-            <section className="grid grid-cols-1 border-t-2 border-[var(--ink)] md:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
-              {/* Lead story */}
-              {articles[0] && (
-                <article className="py-5 lg:pr-6">
-                  <Link href={`/news/${articles[0].seq}`} className="block hover:no-underline">
-                    <div
-                      className="relative mb-3.5 aspect-[3/2] overflow-hidden border border-[var(--hair)]"
-                      style={{
-                        background:
-                          "radial-gradient(circle at 30% 60%, var(--white-ball) 0 5%, transparent 5.5%), radial-gradient(circle at 58% 42%, var(--yellow) 0 5%, transparent 5.5%), radial-gradient(circle at 72% 70%, var(--red) 0 5%, transparent 5.5%), linear-gradient(160deg,#235da6,#163f74)",
-                      }}
-                    >
-                      {articles[0].image && (
-                        <SafeImage
-                          src={articles[0].image}
-                          alt={articles[0].title}
-                          className="h-full w-full object-cover"
-                          fallback={<span />}
-                        />
-                      )}
-                    </div>
-                  </Link>
-                  <p className="eyebrow">Featured Release</p>
-                  <h3 className="font-serif-ed mt-1 text-[26px] font-semibold leading-[1.15] tracking-[-0.005em] sm:text-[31px]">
-                    <Link href={`/news/${articles[0].seq}`} className="hover:text-[var(--red)]">
-                      {articles[0].title}
-                    </Link>
-                  </h3>
-                  <p className="font-serif-ed mt-2 text-[15.5px] leading-[1.5] text-[var(--ink-2)]">
-                    {excerpt(articles[0].body, 150)}
-                  </p>
-                  <p className="mt-2.5 text-[12.5px] text-[var(--ink-3)]">{fmtDate(articles[0].date)}</p>
-                </article>
-              )}
-
-              {/* Second story */}
-              {articles[1] && (
-                <article className="border-t border-[var(--hair)] py-5 md:border-l md:border-t-0 md:pl-6 lg:px-6">
-                  <Link href={`/news/${articles[1].seq}`} className="block hover:no-underline">
-                    <div
-                      className="relative mb-3.5 aspect-[3/2] overflow-hidden border border-[var(--hair)]"
-                      style={{ background: "linear-gradient(160deg,#8a1d16,#4d0f0b)" }}
-                    >
-                      {articles[1].image && (
-                        <SafeImage
-                          src={articles[1].image}
-                          alt={articles[1].title}
-                          className="h-full w-full object-cover"
-                          fallback={<span />}
-                        />
-                      )}
-                    </div>
-                  </Link>
-                  <p className="eyebrow">Press Release</p>
-                  <h3 className="font-serif-ed mt-1 text-[21px] font-semibold leading-[1.22]">
-                    <Link href={`/news/${articles[1].seq}`} className="hover:text-[var(--red)]">
-                      {articles[1].title}
-                    </Link>
-                  </h3>
-                  <p className="mt-2.5 text-[12.5px] text-[var(--ink-3)]">{fmtDate(articles[1].date)}</p>
-                </article>
-              )}
-
-              {/* News brief stack */}
-              {articles.length > 2 && (
-                <article className="border-t border-[var(--hair)] py-5 md:col-span-2 lg:col-span-1 lg:border-l lg:border-t-0 lg:pl-6">
-                  <ul className="divide-y divide-[var(--hair)]">
-                    {articles.slice(2, 6).map((article) => (
-                      <li key={article.seq} className="py-3 first:pt-0">
-                        <span className="text-[12px] text-[var(--ink-3)]">{fmtDate(article.date)}</span>
-                        <h4 className="font-serif-ed mt-0.5 text-[17px] font-semibold leading-[1.28]">
-                          <Link href={`/news/${article.seq}`} className="hover:text-[var(--red)]">
-                            {article.title}
-                          </Link>
-                        </h4>
+            <div className="lineup">
+              <div>
+                <h4>{shortClubName(teamFixture.home.name)} · sets played</h4>
+                <ul>
+                  {boutRows.slice(0, 4).map((bout) => {
+                    const side = bout.sides[0];
+                    if (!side) return null;
+                    return (
+                      <li key={`h-${bout.setNo}`}>
+                        <span className="truncate">
+                          <span className={cn("res", side.won ? "W" : "L")}>{side.won ? "W" : "L"}</span>
+                          <span className="truncate">{side.names.join(" / ")}</span>
+                        </span>
+                        <span className="n muted shrink-0">
+                          {side.points ?? 0}:{bout.sides[1]?.points ?? 0}
+                          {side.average ? ` · ${side.average.toFixed(3)}` : ""}
+                        </span>
                       </li>
-                    ))}
-                  </ul>
-                </article>
-              )}
-            </section>
+                    );
+                  })}
+                </ul>
+              </div>
+              <div>
+                <h4>{shortClubName(teamFixture.away.name)} · sets played</h4>
+                <ul>
+                  {boutRows.slice(0, 4).map((bout) => {
+                    const side = bout.sides[1];
+                    if (!side) return null;
+                    return (
+                      <li key={`a-${bout.setNo}`}>
+                        <span className="truncate">
+                          <span className={cn("res", side.won ? "W" : "L")}>{side.won ? "W" : "L"}</span>
+                          <span className="truncate">{side.names.join(" / ")}</span>
+                        </span>
+                        <span className="n muted shrink-0">
+                          {side.points ?? 0}:{bout.sides[0]?.points ?? 0}
+                          {side.average ? ` · ${side.average.toFixed(3)}` : ""}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
           </>
         )}
 
-        {/* ============================================================ COMING UP (CALENDAR) */}
-        <div className="flex items-baseline justify-between gap-4 pb-3 pt-8">
-          <h2 className="x text-[36px] sm:text-[44px]">Coming up</h2>
-          <Link href="/schedule" className="text-[14px] font-bold">
-            Full calendar →
-          </Link>
-        </div>
-
-        <section className="grid grid-cols-2 border-b border-[var(--ink)] border-t-2 border-t-[var(--ink)] sm:grid-cols-3 lg:grid-cols-6">
-          {calendarStrip.map((event, idx) => {
-            const parts = dateParts(event.start);
-            return (
-              <Link
-                key={event.id}
-                href={`/schedule/${event.id}`}
-                className={cn(
-                  "block border-[var(--hair)] px-3.5 py-4 hover:bg-[var(--paper-2)] hover:no-underline",
-                  idx % 2 === 1 ? "border-l" : "",
-                  idx >= 2 && "border-t sm:border-t-0",
-                  idx % 3 !== 0 ? "sm:border-l" : "sm:border-l-0",
-                  idx >= 3 && "sm:border-t lg:border-t-0",
-                  idx > 0 ? "lg:border-l" : "lg:pl-0",
-                )}
-              >
-                <p className="x num text-[48px] font-black leading-[0.9] text-[var(--ink)]">{parts.day}</p>
-                <p className="mb-2.5 text-[13px] font-bold uppercase tracking-[0.04em] text-[var(--ink-3)]">
-                  {parts.month} · {parts.weekday}
-                </p>
-                <p className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.04em] text-[var(--ink)]">
-                  <i className={cn("inline-block h-2.5 w-2.5", circuitSwatch(event.league))} />
-                  {leagueShort(event.league)}
-                </p>
-                <h4 className="my-1 line-clamp-2 text-[16px] font-bold leading-[1.2] text-[var(--ink)]">
-                  {event.title}
-                </h4>
-                <small className="block truncate text-[12.5px] text-[var(--ink-3)]">{event.venue}</small>
-              </Link>
-            );
-          })}
-        </section>
-      </main>
-    </>
-  );
-}
-
-/* ------------------------------------------------------------------ lead views */
-
-function LiveLeadBlock({ match }: { match: LiveMatch }) {
-  const s0 = match.sides[0];
-  const s1 = match.sides[1];
-  const leader =
-    (s0?.setsWon ?? 0) > (s1?.setsWon ?? 0)
-      ? s0
-      : (s1?.setsWon ?? 0) > (s0?.setsWon ?? 0)
-        ? s1
-        : null;
-  const trailer = leader === s0 ? s1 : s0;
-
-  return (
-    <>
-      <div className="mb-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-[var(--ink-2)]">
-        <span className="tag-live">
-          <i />
-          Live
-        </span>
-        <span>
-          {match.competition ? `${match.competition}` : "PBA Tour"} ·{" "}
-          {match.latestSet.setNo > 0 ? `Set ${match.latestSet.setNo}` : "Match in progress"}
-        </span>
-      </div>
-      <h1 className="x mb-2 text-[44px] sm:text-[62px] xl:text-[76px]">
-        {leader
-          ? `${familyOf(leader.name)} leads ${familyOf(trailer?.name ?? "")} ${leader.setsWon}–${trailer?.setsWon ?? 0}`
-          : `${familyOf(s0?.name ?? "Match")} vs ${familyOf(s1?.name ?? "In Play")}`}
-      </h1>
-      <p className="font-serif-ed mb-6 max-w-[60ch] text-[18px] leading-[1.4] text-[var(--ink-2)] sm:text-[19px]">
-        Live frame from {match.venue || "the main arena"}.{" "}
-        {match.latestSet.target ? `Playing set ${match.latestSet.setNo} to ${match.latestSet.target} points.` : ""}
-      </p>
-
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] border-t-2 border-[var(--ink)]" role="table" aria-label="Live scoreboard">
-        <div className="contents">
-          <span className="py-2 text-[11.5px] font-bold uppercase tracking-[0.05em] text-[var(--ink-3)]">Player</span>
-          <span className="flex items-center py-2 text-[11.5px] font-bold uppercase tracking-[0.05em] text-[var(--ink-3)]">
-            <span className="w-[44px] text-center">Pts</span>
-            <span className="w-[44px] text-center">Inn</span>
-            <span className="w-[68px] pl-2 text-center">Sets</span>
-          </span>
-        </div>
-        {match.sides.slice(0, 2).map((side, idx) => (
-          <div key={idx} className="contents">
-            <div className="flex items-center gap-3.5 border-b border-[var(--hair)] py-4">
-              <i className={idx === 0 ? "ball w lg" : "ball y lg"} />
-              <div className="min-w-0">
-                <div className="truncate text-[22px] font-bold tracking-[-0.01em] sm:text-[28px]">
-                  {side.name}
-                </div>
-                <div className="mt-0.5 text-[13px] text-[var(--ink-3)]">
-                  {side.average ? `Avg ${side.average.toFixed(3)}` : "Live frame"}
-                  {side.highRun ? ` · HR ${side.highRun}` : ""}
-                </div>
-              </div>
-            </div>
-            <div className="num flex items-center border-b border-[var(--hair)]">
-              <span className="w-[44px] text-center text-[18px] font-extrabold text-[var(--red)] shadow-[inset_0_-3px_0_var(--red)]">
-                {side.points ?? 0}
-              </span>
-              <span className="w-[44px] text-center text-[16px] font-semibold text-[var(--ink-3)]">
-                {side.innings ?? "—"}
-              </span>
-              <span className="x num w-[68px] border-l border-[var(--hair)] pl-2 text-center text-[44px] font-black sm:text-[54px]">
-                {match.fixtureScore ? match.fixtureScore[idx] : side.setsWon}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-5 flex flex-wrap gap-5 text-[14.5px] font-bold">
-        {match.pstCode && (
-          <Link href={`/matches/${match.pstCode}?live=1`} className="border-b-2 border-[var(--ink)] pb-0.5 hover:border-[var(--red)] hover:text-[var(--red)] hover:no-underline">
-            Open match centre
-          </Link>
-        )}
-        <Link href="/live" className="border-b-2 border-[var(--ink)] pb-0.5 hover:border-[var(--red)] hover:text-[var(--red)] hover:no-underline">
-          All live tables
-        </Link>
-        <Link href="/schedule" className="border-b-2 border-[var(--ink)] pb-0.5 hover:border-[var(--red)] hover:text-[var(--red)] hover:no-underline">
-          Full schedule
-        </Link>
-      </div>
-    </>
-  );
-}
-
-function DayMatchLeadBlock({ match }: { match: Awaited<ReturnType<typeof getDayBoard>>["matches"][number] }) {
-  const headline =
-    match.state === "final"
-      ? `${familyOf(match.homeWon ? match.home : match.away)} takes ${match.round} ${Math.max(match.homeSets ?? 0, match.awaySets ?? 0)}–${Math.min(match.homeSets ?? 0, match.awaySets ?? 0)}`
-      : `${familyOf(match.home)} vs ${familyOf(match.away)}`;
-
-  return (
-    <>
-      <div className="mb-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-[var(--ink-2)]">
-        <span className="bg-[var(--ink)] px-2 py-0.5 text-[11.5px] font-extrabold uppercase tracking-[0.05em] text-[var(--paper)]">
-          {match.state === "final" ? "Final" : "Scheduled"}
-        </span>
-        <span>
-          {match.event?.title ?? "PBA Tour"} · {match.round}
-        </span>
-      </div>
-      <h1 className="x mb-2 text-[44px] sm:text-[62px] xl:text-[74px]">{headline}</h1>
-      <p className="font-serif-ed mb-6 max-w-[60ch] text-[18px] leading-[1.4] text-[var(--ink-2)]">
-        {match.event?.venue ? `${match.event.venue} · ` : ""}
-        {match.clock ? `Session ${match.clock} KST. ` : ""}
-        Official scorecard and inning breakdown.
-      </p>
-
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] border-t-2 border-[var(--ink)]" role="table" aria-label="Featured match">
-        <div className="contents">
-          <span className="py-2 text-[11.5px] font-bold uppercase tracking-[0.05em] text-[var(--ink-3)]">Player</span>
-          <span className="flex items-center py-2 text-[11.5px] font-bold uppercase tracking-[0.05em] text-[var(--ink-3)]">
-            <span className="hidden w-[56px] text-center sm:inline-block">Avg</span>
-            <span className="hidden w-[44px] text-center sm:inline-block">HR</span>
-            <span className="w-[68px] pl-2 text-center">Sets</span>
-          </span>
-        </div>
-        {[
-          {
-            name: match.home,
-            won: match.homeWon,
-            avg: match.homeAverage,
-            hr: match.homeHighRun,
-            sets: match.homeSets,
-            ball: "ball w lg",
-          },
-          {
-            name: match.away,
-            won: match.awayWon,
-            avg: match.awayAverage,
-            hr: match.awayHighRun,
-            sets: match.awaySets,
-            ball: "ball y lg",
-          },
-        ].map((side, idx) => (
-          <div key={idx} className="contents">
-            <div className="flex items-center gap-3.5 border-b border-[var(--hair)] py-4">
-              <i className={side.ball} />
-              <span className="truncate text-[22px] font-bold sm:text-[28px]">{side.name}</span>
-            </div>
-            <div className="num flex items-center border-b border-[var(--hair)]">
-              <span className="hidden w-[56px] text-center text-[15px] font-semibold text-[var(--ink-2)] sm:inline-block">
-                {side.avg !== null ? side.avg.toFixed(3) : "—"}
-              </span>
-              <span className="hidden w-[44px] text-center text-[15px] font-semibold text-[var(--ink-3)] sm:inline-block">
-                {side.hr ?? "—"}
-              </span>
-              <span
-                className={cn(
-                  "x num w-[68px] border-l border-[var(--hair)] pl-2 text-center text-[44px] font-black sm:text-[54px]",
-                  match.state === "final" && !side.won && "text-[var(--ink-3)]",
-                )}
-              >
-                {side.sets ?? "–"}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-5 flex flex-wrap gap-5 text-[14.5px] font-bold">
-        {match.href && (
-          <Link href={match.href} className="border-b-2 border-[var(--ink)] pb-0.5 hover:border-[var(--red)] hover:text-[var(--red)] hover:no-underline">
-            Open scorecard
-          </Link>
-        )}
-        <Link href="/schedule" className="border-b-2 border-[var(--ink)] pb-0.5 hover:border-[var(--red)] hover:text-[var(--red)] hover:no-underline">
-          Full schedule
-        </Link>
-      </div>
-    </>
-  );
-}
-
-function TournamentLeadBlock({
-  featured,
-  moneyTopTwo,
-  seasonTitle,
-}: {
-  featured: CalendarEvent | null;
-  moneyTopTwo: Awaited<ReturnType<typeof getRankingBoard>>;
-  seasonTitle: string;
-}) {
-  const p1 = moneyTopTwo[0];
-  const p2 = moneyTopTwo[1];
-
-  return (
-    <>
-      <div className="mb-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-[var(--ink-2)]">
-        <span className="bg-[var(--ink)] px-2 py-0.5 text-[11.5px] font-extrabold uppercase tracking-[0.05em] text-[var(--paper)]">
-          {featured ? (featured.status === "live" ? "In play" : featured.status === "upcoming" ? "Next up" : "Latest Tour") : seasonTitle}
-        </span>
-        <span>{featured ? `${leagueByCode(featured.league).name} · ${fmtRange(featured.start, featured.end)}` : "PBA & LPBA 3-Cushion Tour"}</span>
-      </div>
-
-      <h1 className="x mb-2 text-[44px] sm:text-[64px] xl:text-[78px]">
-        {featured ? featured.title : `${seasonTitle} PBA Season`}
-      </h1>
-      <p className="font-serif-ed mb-6 max-w-[60ch] text-[18px] leading-[1.4] text-[var(--ink-2)] sm:text-[19px]">
-        {featured
-          ? `${featured.venue}${featured.defendingChampion !== "—" ? ` — Defending champion ${featured.defendingChampion}.` : "."} Track tour draws, live tables, player averages, and club standings.`
-          : "Official scores, inning sheets, tour brackets, and Team League standings across the 3-cushion professional circuit."}
-      </p>
-
-      {p1 && p2 && (
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] border-t-2 border-[var(--ink)]" role="table" aria-label="Season prize leaders">
-          <div className="contents">
-            <span className="py-2 text-[11.5px] font-bold uppercase tracking-[0.05em] text-[var(--ink-3)]">
-              Season Race · Top Two
-            </span>
-            <span className="flex items-center py-2 text-[11.5px] font-bold uppercase tracking-[0.05em] text-[var(--ink-3)]">
-              <span className="hidden w-[84px] text-right sm:inline-block">Points</span>
-              <span className="min-w-[80px] pl-3 text-right sm:min-w-[96px]">Prize</span>
-            </span>
-          </div>
-          {[p1, p2].map((row, idx) => (
-            <div key={row.MemCode} className="contents">
-              <div className="flex items-center gap-3.5 border-b border-[var(--hair)] py-3.5">
-                <i className={idx === 0 ? "ball w lg" : "ball y lg"} />
-                <div className="min-w-0">
-                  <Link
-                    href={`/players/${row.MemCode}`}
-                    className="block truncate text-[20px] font-bold tracking-[-0.01em] hover:text-[var(--red)] sm:text-[26px]"
-                  >
-                    {cleanPlayerName(pick(row.PlayerNameEN, row.PlayerNameKO))}
-                  </Link>
-                  <div className="text-[12.5px] text-[var(--ink-3)]">
-                    Rank #{row.Rank || idx + 1} · {row.NationCode}
-                  </div>
-                </div>
-              </div>
-              <div className="num flex items-center border-b border-[var(--hair)]">
-                <span className="hidden w-[84px] text-right text-[15px] font-semibold text-[var(--ink-2)] sm:inline-block">
-                  {grouped(row.RankingPoint)}
-                </span>
-                <span className="x num min-w-[80px] whitespace-nowrap border-l border-[var(--hair)] pl-3 text-right text-[20px] font-black text-[var(--ink)] sm:min-w-[96px] sm:text-[28px]">
-                  {compactPrize(String(row.Prize))}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {featured && (
-        <dl className="mt-4 grid grid-cols-2 gap-y-3 border-t border-[var(--hair)] pt-4 sm:grid-cols-4">
-          <div className="sm:pr-4">
-            <dt className="text-[12px] text-[var(--ink-3)]">Dates</dt>
-            <dd className="num text-[17px] font-extrabold">{fmtRange(featured.start, featured.end)}</dd>
-          </div>
-          <div className="border-l border-[var(--hair)] pl-4 sm:pr-4">
-            <dt className="text-[12px] text-[var(--ink-3)]">Prize pool</dt>
-            <dd className="num text-[17px] font-extrabold">{compactPrize(featured.prizePool)}</dd>
-          </div>
-          <div className="sm:border-l sm:border-[var(--hair)] sm:px-4">
-            <dt className="text-[12px] text-[var(--ink-3)]">Champion</dt>
-            <dd className="truncate text-[17px] font-extrabold">
-              {featured.defendingChampion !== "—" ? featured.defendingChampion : "TBD"}
+        <dl className="statsrow n">
+          <div>
+            <dt>Team avg</dt>
+            <dd>
+              {teamFixture.home.average?.toFixed(3) ?? "—"} <i>/ {teamFixture.away.average?.toFixed(3) ?? "—"}</i>
             </dd>
           </div>
-          <div className="border-l border-[var(--hair)] pl-4">
-            <dt className="text-[12px] text-[var(--ink-3)]">Circuit</dt>
-            <dd className="text-[17px] font-extrabold">{leagueShort(featured.league)}</dd>
+          <div>
+            <dt>High run</dt>
+            <dd>
+              {teamFixture.home.highRun ?? "—"} <i>/ {teamFixture.away.highRun ?? "—"}</i>
+            </dd>
+          </div>
+          <div>
+            <dt>Bouts</dt>
+            <dd>{bouts.bouts.length}</dd>
+          </div>
+          <div>
+            <dt>Played</dt>
+            <dd>{teamFixture.playedAt?.slice(0, 10) ?? "—"}</dd>
+          </div>
+          <div>
+            <dt>Scorecard</dt>
+            <dd>
+              <Link href={detailHref} className="text-[var(--link)]">
+                Full bouts →
+              </Link>
+            </dd>
           </div>
         </dl>
-      )}
-
-      <div className="mt-6 flex flex-wrap gap-5 text-[14.5px] font-bold">
-        {featured && (
-          <Link
-            href={`/schedule/${featured.id}`}
-            className="border-b-2 border-[var(--ink)] pb-0.5 hover:border-[var(--red)] hover:text-[var(--red)] hover:no-underline"
-          >
-            Open tournament draw
-          </Link>
-        )}
-        <Link
-          href="/live"
-          className="border-b-2 border-[var(--ink)] pb-0.5 hover:border-[var(--red)] hover:text-[var(--red)] hover:no-underline"
-        >
-          Live match centre
-        </Link>
-        <Link
-          href="/compare"
-          className="border-b-2 border-[var(--ink)] pb-0.5 hover:border-[var(--red)] hover:text-[var(--red)] hover:no-underline"
-        >
-          Compare players
-        </Link>
-      </div>
-    </>
-  );
-}
-
-/* ------------------------------------------------------------------ utils */
-
-function familyOf(name: string): string {
-  const cleaned = cleanPlayerName(name);
-  const parts = cleaned.split(/\s+/).filter(Boolean);
-  return parts[parts.length - 1] || cleaned || "Match";
-}
-
-function clubMonogram(name: string): string {
-  const words = name.replace(/[^A-Za-z0-9\s]/g, "").split(/\s+/).filter(Boolean);
-  if (words.length >= 2) return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
-  return (words[0] ?? "TL").slice(0, 2).toUpperCase();
-}
-
-function circuitSwatch(league: string): string {
-  if (league === "LPBA1") return "bg-[var(--red)]";
-  if (league === "PBA2" || league === "PBA3") return "bg-[var(--yellow)]";
-  if (league === "TLG") return "bg-[var(--cloth)]";
-  return "bg-[var(--ink)]";
-}
-
-function compactPrize(value: string): string {
-  const text = value.trim();
-  if (!text || text === "—") return "—";
-  const numeric = Number(text.replace(/[^\d.]/g, ""));
-  if (/^\d+$/.test(text.replace(/\s/g, "")) && Number.isFinite(numeric) && numeric > 1000) {
-    if (numeric >= 1_000_000_000) return `₩${(numeric / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}B`;
-    if (numeric >= 1_000_000) return `₩${(numeric / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+      </section>
+    );
   }
-  const winner = text.match(/(?:winner|우승)[^\d]*([\d.,]+\s*(?:million|billion|억원?|만원?))/i);
-  if (winner) return winner[1].replace(/million/i, "M").replace(/billion/i, "B");
-  return text.length > 22 ? `${text.slice(0, 20)}…` : text;
-}
 
-function formatLeaderBig(unit: "avg" | "int" | "pct", value: number | string | null | undefined): string {
-  if (value === null || value === undefined || value === "") return "—";
-  const n = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(n)) return String(value);
-  if (unit === "avg") return n.toFixed(3);
-  if (unit === "pct") return n.toFixed(1);
-  return grouped(n);
-}
+  if (dayMatch) {
+    const setsText = parseSetsList(dayMatch.at);
+    void setsText;
+    return (
+      <section className="p" aria-label="Featured match">
+        <div className="feat-h">
+          <span className={cn("tag", leagueTagClass(dayMatch.event?.league))}>
+            {leagueShort(dayMatch.event?.league ?? "") || "Tour"}
+          </span>
+          <b>
+            <Link href={dayMatch.href ?? "/schedule"} className="hover:text-[var(--link)]">
+              {dayMatch.event?.title ?? "Tournament Match"} · {dayMatch.round}
+            </Link>
+          </b>
+          <span className="r muted">{dayMatch.at ?? "Result"}</span>
+        </div>
 
-function formatLeaderValue(unit: "avg" | "int" | "pct", value: number | string | null | undefined): string {
-  if (value === null || value === undefined || value === "") return "—";
-  const n = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(n)) return String(value);
-  if (unit === "avg") return n.toFixed(3);
-  if (unit === "pct") return percent(n);
-  return grouped(n);
+        <div className="feat">
+          <div className="side a">
+            <i className={flagClass(nationFor(dayMatch.homeMemCode, dayMatch.home))} aria-hidden="true" />
+            <div className="min-w-0">
+              <div className="nm truncate">
+                {dayMatch.homeMemCode ? <Link href={`/players/${dayMatch.homeMemCode}`}>{dayMatch.home}</Link> : dayMatch.home}
+              </div>
+              <div className="sm">{dayMatch.homeAverage ? `Avg ${dayMatch.homeAverage.toFixed(3)}` : dayMatch.round}</div>
+            </div>
+          </div>
+          <div className="big n">
+            <span className={!dayMatch.homeWon ? "lose" : undefined}>{dayMatch.homeSets ?? 0}</span>
+            <span className="dash">:</span>
+            <span className={!dayMatch.awayWon ? "lose" : undefined}>{dayMatch.awaySets ?? 0}</span>
+          </div>
+          <div className="side b">
+            <i className={flagClass(nationFor(dayMatch.awayMemCode, dayMatch.away))} aria-hidden="true" />
+            <div className="min-w-0">
+              <div className="nm truncate">
+                {dayMatch.awayMemCode ? <Link href={`/players/${dayMatch.awayMemCode}`}>{dayMatch.away}</Link> : dayMatch.away}
+              </div>
+              <div className="sm">{dayMatch.awayAverage ? `Avg ${dayMatch.awayAverage.toFixed(3)}` : dayMatch.round}</div>
+            </div>
+          </div>
+        </div>
+
+        <dl className="statsrow n">
+          <div>
+            <dt>Average</dt>
+            <dd>
+              {dayMatch.homeAverage?.toFixed(3) ?? "—"} <i>/ {dayMatch.awayAverage?.toFixed(3) ?? "—"}</i>
+            </dd>
+          </div>
+          <div>
+            <dt>High run</dt>
+            <dd>
+              {dayMatch.homeHighRun ?? "—"} <i>/ {dayMatch.awayHighRun ?? "—"}</i>
+            </dd>
+          </div>
+          <div>
+            <dt>Round</dt>
+            <dd>{dayMatch.round || "—"}</dd>
+          </div>
+          <div>
+            <dt>Match</dt>
+            <dd>{dayMatch.matchNo ? `#${dayMatch.matchNo}` : "—"}</dd>
+          </div>
+          <div>
+            <dt>Scorecard</dt>
+            <dd>
+              <Link href={dayMatch.href ?? "/schedule"} className="text-[var(--link)]">
+                Turn-by-turn →
+              </Link>
+            </dd>
+          </div>
+        </dl>
+      </section>
+    );
+  }
+
+  if (!featuredEvent) return null;
+
+  return (
+    <section className="p" aria-label="Featured tournament">
+      <div className="feat-h">
+        <span className={cn("tag", leagueTagClass(featuredEvent.league))}>{leagueShort(featuredEvent.league)}</span>
+        <b>{featuredEvent.status === "live" ? "Current tournament" : "Next featured tournament"}</b>
+        <span className="r muted">{fmtRange(featuredEvent.start, featuredEvent.end)}</span>
+      </div>
+      <div className="px-4 py-3.5">
+        <h3 className="font-display text-[22px] font-bold leading-tight text-[var(--text)]">
+          <Link href={`/schedule/${featuredEvent.id}`}>{featuredEvent.title}</Link>
+        </h3>
+        <p className="mt-1 text-[12.5px] text-[var(--muted)]">
+          {featuredEvent.venue}
+          {featuredEvent.defendingChampion && featuredEvent.defendingChampion !== "—"
+            ? ` · Champion: ${featuredEvent.defendingChampion}`
+            : ""}
+        </p>
+      </div>
+      <dl className="statsrow n">
+        <div>
+          <dt>Dates</dt>
+          <dd>{fmtRange(featuredEvent.start, featuredEvent.end)}</dd>
+        </div>
+        <div>
+          <dt>Prize pool</dt>
+          <dd>{featuredEvent.prizePool}</dd>
+        </div>
+        <div>
+          <dt>Winner</dt>
+          <dd>{featuredEvent.championPrize}</dd>
+        </div>
+        <div>
+          <dt>Champion</dt>
+          <dd>{featuredEvent.defendingChampion}</dd>
+        </div>
+        <div>
+          <dt>Event</dt>
+          <dd>
+            <Link href={`/schedule/${featuredEvent.id}`} className="text-[var(--link)]">
+              Open draw →
+            </Link>
+          </dd>
+        </div>
+      </dl>
+    </section>
+  );
 }

@@ -120,7 +120,7 @@ export default async function RecordsPage({ searchParams }: PageProps) {
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         <SectionHeading
           eyebrow="Category leaders"
           title="Season Statistical Leaders"

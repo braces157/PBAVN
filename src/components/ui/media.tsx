@@ -16,11 +16,84 @@ const PIXELS = { xs: 24, sm: 32, md: 44, lg: 56, xl: 80, "2xl": 96 } as const;
 
 export type AvatarSize = keyof typeof SIZES;
 
+const FLAG_MAP: Record<string, string> = {
+  KR: "f-kr", KOR: "f-kr",
+  ES: "f-es", ESP: "f-es",
+  VN: "f-vn", VIE: "f-vn", VNM: "f-vn",
+  TR: "f-tr", TUR: "f-tr",
+  BE: "f-be", BEL: "f-be",
+  GR: "f-gr", GRE: "f-gr", GRC: "f-gr",
+  CO: "f-co", COL: "f-co",
+  NL: "f-nl", NED: "f-nl", NLD: "f-nl",
+  JP: "f-jp", JPN: "f-jp",
+  AT: "f-at", AUT: "f-at",
+  FR: "f-fr", FRA: "f-fr",
+  DE: "f-de", GER: "f-de", DEU: "f-de",
+  US: "f-us", USA: "f-us",
+  DK: "f-dk", DEN: "f-dk", DNK: "f-dk",
+  EG: "f-eg", EGY: "f-eg",
+  IT: "f-it", ITA: "f-it",
+  PT: "f-pt", POR: "f-pt", PRT: "f-pt",
+  SE: "f-se", SWE: "f-se",
+  MX: "f-mx", MEX: "f-mx",
+  CN: "f-cn", CHN: "f-cn",
+};
+
+export function flagClass(nation: string | null | undefined): string {
+  const key = (nation ?? "").trim().toUpperCase();
+  const specific = FLAG_MAP[key];
+  return specific ? `f ${specific}` : "f";
+}
+
+const CLUB_CRESTS: Record<string, { code: string; cls: string }> = {
+  huons: { code: "HL", cls: "c1" },
+  crown: { code: "CH", cls: "c2" },
+  harim: { code: "HY", cls: "c3" },
+  hana: { code: "HC", cls: "c4" },
+  nh: { code: "NH", cls: "c5" },
+  nonghyup: { code: "NH", cls: "c5" },
+  woori: { code: "WF", cls: "c6" },
+  sy: { code: "SY", cls: "c7" },
+  welcome: { code: "WS", cls: "c8" },
+  high1: { code: "H1", cls: "c9" },
+  sk: { code: "SK", cls: "c10" },
+  breakers: { code: "BR", cls: "c10" },
+  blueone: { code: "BO", cls: "c9" },
+  ts: { code: "TS", cls: "c7" },
+};
+
+const CREST_CLASSES = ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "c10"];
+
+export function clubBadge(name: string, index = 0): { code: string; cls: string } {
+  const lower = name.toLowerCase();
+  for (const [needle, badge] of Object.entries(CLUB_CRESTS)) {
+    if (lower.includes(needle)) return badge;
+  }
+  const letters = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+  return {
+    code: letters || name.slice(0, 2).toUpperCase() || "TM",
+    cls: CREST_CLASSES[index % CREST_CLASSES.length],
+  };
+}
+
+export function leagueTagClass(league: string | null | undefined): string {
+  const l = (league ?? "").trim().toUpperCase();
+  if (l === "TLG" || l === "TEAM") return "t-team";
+  if (l === "LPBA1" || l === "LPBA") return "t-lpba";
+  if (l === "PBA2" || l === "DRM" || l === "DREAM") return "t-dream";
+  return "t-pba";
+}
+
 function Initials({ name, className }: { name: string; className?: string }) {
   return (
     <span
       className={cn(
-        "grid h-full w-full place-items-center bg-ink-850 font-display font-bold text-fog-300",
+        "grid h-full w-full place-items-center bg-[var(--bar-2)] font-display font-bold text-[var(--text-2)]",
         className,
       )}
       aria-hidden="true"
@@ -33,13 +106,10 @@ function Initials({ name, className }: { name: string; className?: string }) {
 export function InitialsPlate({ name, className }: { name: string; className?: string }) {
   return (
     <div
-      className={cn(
-        "grid h-full w-full place-items-center bg-ink-850",
-        className,
-      )}
+      className={cn("grid h-full w-full place-items-center bg-[var(--bar-2)]", className)}
       aria-hidden="true"
     >
-      <span className="font-display text-[clamp(16px,2.8vw,28px)] font-extrabold tracking-[0.04em] text-fog-300">
+      <span className="font-display text-[clamp(16px,2.8vw,28px)] font-bold tracking-[0.04em] text-[var(--text-2)]">
         {initials(name)}
       </span>
     </div>
@@ -64,9 +134,9 @@ export function PlayerAvatar({
   return (
     <span
       className={cn(
-        "relative inline-grid shrink-0 place-items-center overflow-hidden border border-[var(--hair)] bg-[var(--paper-2)] font-display font-bold text-[var(--ink)]",
+        "relative inline-grid shrink-0 place-items-center overflow-hidden rounded-[3px] border border-[var(--line)] bg-[var(--bar-2)] font-display font-bold text-[var(--text)]",
         SIZES[size],
-        ring && "ring-2 ring-[var(--ink)] ring-offset-1 ring-offset-[var(--paper)]",
+        ring && "ring-2 ring-[var(--yellow)] ring-offset-1 ring-offset-[var(--panel)]",
         className,
       )}
     >
@@ -93,10 +163,11 @@ export function TeamLogo({
   size?: AvatarSize;
   className?: string;
 }) {
+  const badge = clubBadge(name);
   return (
     <span
       className={cn(
-        "inline-grid shrink-0 place-items-center overflow-hidden border border-[var(--hair)] bg-[#fbfaf6] p-1",
+        "inline-grid shrink-0 place-items-center overflow-hidden rounded-[3px] border border-[var(--line)] bg-[#ffffff] p-1",
         SIZES[size],
         className,
       )}
@@ -106,8 +177,8 @@ export function TeamLogo({
         alt={name}
         className="h-full w-full object-contain"
         fallback={
-          <span className="font-display text-[10px] font-bold text-fog-400" aria-hidden="true">
-            {initials(name)}
+          <span className={cn("cr", badge.cls)} aria-hidden="true">
+            {badge.code}
           </span>
         }
       />
@@ -137,14 +208,6 @@ export function EventLogo({
   );
 }
 
-const CREST_ACCENT: Record<string, string> = {
-  lime: "bg-carom-400/12 text-carom-300 border-carom-400/35",
-  rose: "bg-rose-450/12 text-rose-450 border-rose-450/35",
-  cyan: "bg-cyan-450/12 text-cyan-450 border-cyan-450/35",
-  amber: "bg-amber-450/12 text-amber-450 border-amber-450/35",
-  violet: "bg-violet-450/12 text-violet-450 border-violet-450/35",
-};
-
 const CREST_SIZES = {
   sm: "h-9 w-9 text-[10px]",
   md: "h-11 w-11 text-xs",
@@ -169,14 +232,13 @@ export function EventCrest({
 }) {
   const entry = LEAGUES.find((item) => item.code === league);
   const tag = entry?.tag ?? (league || "PBA");
-  const accent = CREST_ACCENT[entry?.tone ?? "lime"] ?? CREST_ACCENT.lime;
   const label = alt ?? name ?? tag;
 
   const fallback = (
     <span
       className={cn(
-        "grid h-full w-full place-items-center rounded-[8px] border font-display font-extrabold tracking-[0.04em]",
-        accent,
+        "grid h-full w-full place-items-center rounded-[3px] font-display font-bold tracking-[0.04em] text-white",
+        leagueTagClass(league),
       )}
     >
       {tag}
@@ -194,7 +256,7 @@ export function EventCrest({
   return (
     <span
       className={cn(
-        "inline-grid shrink-0 place-items-center overflow-hidden rounded-[8px] border border-ink-700 bg-ink-850 p-1",
+        "inline-grid shrink-0 place-items-center overflow-hidden rounded-[3px] border border-[var(--line)] bg-[#ffffff] p-1",
         CREST_SIZES[size],
         className,
       )}
@@ -205,41 +267,48 @@ export function EventCrest({
 }
 
 const COUNTRIES: Record<string, string> = {
-  KOR: "Korea",
-  VNM: "Vietnam",
-  ESP: "Spain",
-  BEL: "Belgium",
-  TUR: "Turkey",
-  NLD: "Netherlands",
-  JPN: "Japan",
-  GRE: "Greece",
-  COL: "Colombia",
-  ITA: "Italy",
-  GER: "Germany",
-  FRA: "France",
-  USA: "United States",
-  MEX: "Mexico",
-  ECU: "Ecuador",
-  EGY: "Egypt",
-  AUT: "Austria",
-  DEN: "Denmark",
-  SWE: "Sweden",
-  POR: "Portugal",
+  KOR: "Korea", KR: "Korea",
+  VNM: "Vietnam", VN: "Vietnam", VIE: "Vietnam",
+  ESP: "Spain", ES: "Spain",
+  BEL: "Belgium", BE: "Belgium",
+  TUR: "Turkey", TR: "Turkey",
+  NLD: "Netherlands", NL: "Netherlands", NED: "Netherlands",
+  JPN: "Japan", JP: "Japan",
+  GRE: "Greece", GR: "Greece", GRC: "Greece",
+  COL: "Colombia", CO: "Colombia",
+  ITA: "Italy", IT: "Italy",
+  GER: "Germany", DE: "Germany", DEU: "Germany",
+  FRA: "France", FR: "France",
+  USA: "United States", US: "United States",
+  MEX: "Mexico", MX: "Mexico",
+  ECU: "Ecuador", EC: "Ecuador",
+  EGY: "Egypt", EG: "Egypt",
+  AUT: "Austria", AT: "Austria",
+  DEN: "Denmark", DK: "Denmark", DNK: "Denmark",
+  SWE: "Sweden", SE: "Sweden",
+  POR: "Portugal", PT: "Portugal", PRT: "Portugal",
   PER: "Peru",
-  CAM: "Cambodia",
-  KHM: "Cambodia",
+  CAM: "Cambodia", KHM: "Cambodia",
+  CHN: "China", CN: "China",
 };
+
+export function NationFlag({ code }: { code: string | null | undefined }) {
+  const trimmed = (code || "").trim().toUpperCase();
+  if (!trimmed || trimmed === "—") return null;
+  return <i className={flagClass(trimmed)} title={COUNTRIES[trimmed] ?? trimmed} aria-hidden="true" />;
+}
 
 export function NationPlate({ code }: { code: string }) {
   const trimmed = (code || "").trim().toUpperCase();
-  if (!trimmed) return null;
+  if (!trimmed || trimmed === "—") return null;
   const full = COUNTRIES[trimmed];
   return (
     <span
       title={full ?? trimmed}
-      className="tnum inline-flex items-center border border-[var(--hair)] bg-[var(--paper-2)] px-1.5 py-[1px] text-[10.5px] font-bold uppercase tracking-[0.04em] text-[var(--ink)]"
+      className="tnum inline-flex items-center gap-1.5 rounded-[2px] border border-[var(--line)] bg-[var(--bar)] px-1.5 py-[1px] text-[10.5px] font-semibold uppercase tracking-[0.03em] text-[var(--text)]"
     >
-      {trimmed}
+      <i className={flagClass(trimmed)} aria-hidden="true" />
+      <span>{trimmed}</span>
     </span>
   );
 }

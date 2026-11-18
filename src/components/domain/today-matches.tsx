@@ -177,7 +177,11 @@ function ScoreCell({ value, won }: { value: number | null; won: boolean }) {
     <span
       className={cn(
         "score-cell flex h-[18px] items-center text-[14px]",
-        value === null ? "text-[var(--ink-3)]" : won ? "text-[var(--ink)] font-black" : "text-[var(--ink-3)]",
+        value === null
+          ? "text-[var(--muted)]"
+          : won
+            ? "font-bold text-[var(--win)]"
+            : "text-[var(--muted)]",
       )}
     >
       {value ?? "–"}
@@ -207,13 +211,13 @@ function SideRow({
       <span
         className={cn(
           "min-w-0 flex-1 truncate text-[13px] leading-none",
-          won ? "font-bold text-[var(--ink)]" : dim ? "text-[var(--ink-3)]" : "font-medium text-[var(--ink)]",
+          won ? "font-bold text-[var(--text)]" : dim ? "text-[var(--muted)]" : "font-medium text-[var(--text)]",
         )}
       >
         {name}
       </span>
       {average !== null && (
-        <span className="tnum hidden shrink-0 text-[11px] text-[var(--ink-3)] sm:inline">
+        <span className="tnum hidden shrink-0 text-[11px] text-[var(--muted)] sm:inline">
           {average.toFixed(3)}
           {highRun !== null ? ` · HR ${highRun}` : ""}
         </span>

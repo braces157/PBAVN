@@ -160,8 +160,8 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
 
   return (
     <>
-      <section className="border-b border-ink-800 bg-ink-900/60">
-        <div className="mx-auto max-w-[1440px] px-4 pb-6 pt-4 sm:px-6 lg:px-8">
+      <section className="border-b border-ink-800 bg-ink-900">
+        <div className="mx-auto max-w-[1300px] px-3 pb-5 pt-4">
           <nav className="flex items-center gap-1.5 text-[11.5px] text-fog-500" aria-label="Breadcrumb">
             <Link href="/teams" className="transition-colors hover:text-carom-300">
               Team League
@@ -197,7 +197,7 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
         </div>
       </section>
 
-      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1300px] px-3 py-5">
         <DataStatus failures={failures} />
         {standing && <TeamStatGrid team={standing} />}
 

@@ -38,7 +38,7 @@ export function TextLink({ href, children }: { href: string; children: ReactNode
   return (
     <Link
       href={href}
-      className="group inline-flex items-center gap-1 text-[13px] font-bold text-[var(--ink)] transition-colors hover:text-[var(--red)] hover:no-underline"
+      className="group inline-flex items-center gap-1 text-[11.5px] font-medium text-[var(--link)] transition-colors hover:underline"
     >
       {children}
       <svg viewBox="0 0 12 12" className="h-3 w-3 transition-transform group-hover:translate-x-0.5" aria-hidden="true">
@@ -58,16 +58,16 @@ export function TextLink({ href, children }: { href: string; children: ReactNode
 /* ----------------------------------------------------------------- chips */
 
 const TONE: Record<string, string> = {
-  carom: "border-[var(--red)]/45 bg-[var(--red)]/10 text-[var(--red)]",
-  lime: "border-[var(--ink)]/35 bg-[var(--paper-2)] text-[var(--ink)]",
-  cloth: "border-[var(--cloth)]/45 bg-[var(--cloth)]/10 text-[var(--cloth)]",
-  rose: "border-[var(--red)]/45 bg-[var(--red)]/10 text-[var(--red)]",
-  cyan: "border-[var(--cloth)]/45 bg-[var(--cloth)]/10 text-[var(--cloth)]",
-  amber: "border-[var(--yellow)] bg-[var(--yellow)]/20 text-[var(--ink)]",
-  violet: "border-[var(--cloth)]/45 bg-[var(--cloth)]/10 text-[var(--cloth)]",
-  neutral: "border-[var(--hair)] bg-[var(--paper-2)] text-[var(--ink-2)]",
-  live: "border-[var(--red)] bg-[var(--red)] text-white",
-  gold: "border-[var(--yellow)] bg-[var(--yellow)]/25 text-[var(--ink)]",
+  carom: "border-[var(--link)]/35 bg-[var(--link)]/10 text-[var(--link)]",
+  lime: "border-[var(--win)]/35 bg-[var(--win)]/10 text-[var(--win)]",
+  cloth: "border-[var(--cloth)]/40 bg-[var(--cloth)]/10 text-[var(--cloth)]",
+  rose: "border-[var(--live)]/40 bg-[var(--live)]/10 text-[var(--live)]",
+  cyan: "border-[var(--cloth)]/40 bg-[var(--cloth)]/10 text-[var(--cloth)]",
+  amber: "border-[var(--gold)]/45 bg-[var(--gold)]/12 text-[var(--gold)]",
+  violet: "border-[var(--cloth)]/40 bg-[var(--cloth)]/10 text-[var(--cloth)]",
+  neutral: "border-[var(--line)] bg-[var(--bar-2)] text-[var(--text-2)]",
+  live: "border-[var(--live)] bg-[var(--live)] text-white",
+  gold: "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold)]",
 };
 
 export function Chip({
@@ -82,7 +82,7 @@ export function Chip({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 border px-2 py-[2px] text-[11px] font-bold uppercase tracking-[0.05em]",
+        "inline-flex items-center gap-1.5 rounded-[2px] border px-1.5 py-[1px] font-display text-[10px] font-bold uppercase tracking-[0.05em]",
         TONE[tone] ?? TONE.neutral,
         className,
       )}
@@ -120,17 +120,17 @@ export function StatusPill({ status }: { status: "live" | "upcoming" | "complete
 /* ------------------------------------------------------------------ rank */
 
 export function RankBadge({ rank, size = "md" }: { rank: number; size?: "sm" | "md" }) {
-  const highlight = rank === 1;
+  const top3 = rank > 0 && rank <= 3;
   return (
     <span
       className={cn(
-        "tnum inline-grid place-items-center font-bold",
-        size === "sm" ? "h-6 min-w-6 px-1 text-[11px]" : "h-7 min-w-7 px-1.5 text-xs",
-        highlight
-          ? "bg-[var(--ink)] text-[var(--paper)]"
-          : rank <= 3
-            ? "border border-[var(--ink)] bg-[var(--paper-2)] text-[var(--ink)]"
-            : "text-[var(--ink-3)]",
+        "tnum inline-grid place-items-center rounded-[2px] font-bold",
+        size === "sm" ? "h-5 min-w-5 px-1 text-[11px]" : "h-6 min-w-6 px-1.5 text-[12px]",
+        rank === 1
+          ? "bg-[var(--yellow)] text-[#1d2329]"
+          : top3
+            ? "border border-[var(--gold)]/45 bg-[var(--gold)]/12 text-[var(--gold)]"
+            : "text-[var(--muted)]",
       )}
     >
       {rank || "—"}
@@ -155,16 +155,16 @@ export function Stat({
 }) {
   return (
     <div className={cn("min-w-0", className)}>
-      <p className="text-[11px] font-bold uppercase tracking-[0.05em] text-[var(--ink-3)]">{label}</p>
+      <p className="font-display text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[var(--muted)]">{label}</p>
       <p
         className={cn(
-          "x num mt-1 text-[24px] font-extrabold leading-none",
-          accent ? "text-[var(--red)]" : "text-[var(--ink)]",
+          "tnum mt-0.5 font-display text-[20px] font-bold leading-tight",
+          accent ? "text-[var(--win)]" : "text-[var(--text)]",
         )}
       >
         {value}
       </p>
-      {hint && <p className="mt-1 text-[11.5px] leading-snug text-[var(--ink-3)]">{hint}</p>}
+      {hint && <p className="mt-0.5 text-[11px] leading-snug text-[var(--muted)]">{hint}</p>}
     </div>
   );
 }
@@ -185,13 +185,13 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-2.5 border-y border-dashed border-[var(--hair)] bg-[var(--paper-2)]/50 px-5 py-10 text-center",
+        "flex flex-col items-center justify-center gap-2 rounded-[3px] border border-dashed border-[var(--line-2)] bg-[var(--panel)] px-5 py-9 text-center",
         className,
       )}
     >
-      <p className="x text-[20px] font-extrabold text-[var(--ink)]">{title}</p>
+      <p className="font-display text-[16px] font-bold text-[var(--text)]">{title}</p>
       {description && (
-        <p className="font-serif-ed max-w-md text-[14px] leading-relaxed text-[var(--ink-2)]">{description}</p>
+        <p className="max-w-md text-[12.5px] leading-relaxed text-[var(--text-2)]">{description}</p>
       )}
       {action}
     </div>
@@ -218,18 +218,18 @@ export function Pagination({
   }
 
   const base =
-    "tnum inline-grid h-8 min-w-8 place-items-center border px-2 text-[13px] font-bold transition-colors";
+    "tnum inline-grid h-7 min-w-7 place-items-center rounded-[2px] border px-2 text-[12px] font-semibold transition-colors";
 
   return (
-    <nav className="flex items-center justify-center gap-1.5 pt-7" aria-label="Pagination">
+    <nav className="flex items-center justify-center gap-1 pt-5" aria-label="Pagination">
       {page === 1 ? (
-        <span aria-hidden="true" className={cn(base, "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] opacity-35")}>
+        <span aria-hidden="true" className={cn(base, "border-[var(--line)] bg-[var(--panel)] text-[var(--muted)] opacity-40")}>
           ←
         </span>
       ) : (
         <Link
           href={buildHref(page - 1)}
-          className={cn(base, "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]")}
+          className={cn(base, "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:border-[var(--link)] hover:text-[var(--link)]")}
         >
           ←
         </Link>
@@ -239,11 +239,11 @@ export function Pagination({
         <>
           <Link
             href={buildHref(1)}
-            className={cn(base, "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:text-[var(--ink)]")}
+            className={cn(base, "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:text-[var(--link)]")}
           >
             1
           </Link>
-          {pages[0] > 2 && <span className="px-1 text-[var(--ink-3)]">…</span>}
+          {pages[0] > 2 && <span className="px-1 text-[var(--muted)]">…</span>}
         </>
       )}
 
@@ -255,8 +255,8 @@ export function Pagination({
           className={cn(
             base,
             p === page
-              ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
-              : "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
+              ? "border-[var(--nav)] bg-[var(--nav)] text-white"
+              : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:border-[var(--link)] hover:text-[var(--link)]",
           )}
         >
           {p}
@@ -265,10 +265,10 @@ export function Pagination({
 
       {pages[pages.length - 1] < pageCount && (
         <>
-          {pages[pages.length - 1] < pageCount - 1 && <span className="px-1 text-[var(--ink-3)]">…</span>}
+          {pages[pages.length - 1] < pageCount - 1 && <span className="px-1 text-[var(--muted)]">…</span>}
           <Link
             href={buildHref(pageCount)}
-            className={cn(base, "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:text-[var(--ink)]")}
+            className={cn(base, "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:text-[var(--link)]")}
           >
             {pageCount}
           </Link>
@@ -276,13 +276,13 @@ export function Pagination({
       )}
 
       {page === pageCount ? (
-        <span aria-hidden="true" className={cn(base, "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] opacity-35")}>
+        <span aria-hidden="true" className={cn(base, "border-[var(--line)] bg-[var(--panel)] text-[var(--muted)] opacity-40")}>
           →
         </span>
       ) : (
         <Link
           href={buildHref(page + 1)}
-          className={cn(base, "border-[var(--hair)] bg-[var(--paper)] text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]")}
+          className={cn(base, "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:border-[var(--link)] hover:text-[var(--link)]")}
         >
           →
         </Link>
@@ -303,7 +303,7 @@ export function TabLinks({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-wrap gap-2", className)}>
+    <div className={cn("flex flex-wrap gap-1.5", className)}>
       {items.map((item) => {
         const isActive = item.href === active;
         return (
@@ -312,15 +312,15 @@ export function TabLinks({
             href={item.href}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "border px-3 py-1.5 text-[13px] font-bold transition-colors hover:no-underline",
+              "rounded-[3px] border px-2.5 py-1 font-display text-[12px] font-semibold uppercase tracking-[0.04em] transition-colors hover:no-underline",
               isActive
-                ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
-                : "border-[var(--hair)] bg-transparent text-[var(--ink-2)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
+                ? "border-[var(--line-2)] border-b-2 border-b-[var(--yellow)] bg-[var(--bar-2)] text-[var(--text)]"
+                : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:bg-[var(--hover)] hover:text-[var(--text)]",
             )}
           >
             {item.label}
             {typeof item.count === "number" && (
-              <span className={cn("tnum ml-1.5 text-[11px]", isActive ? "opacity-80" : "text-[var(--ink-3)]")}>
+              <span className={cn("tnum ml-1.5 text-[10.5px]", isActive ? "text-[var(--text)]" : "text-[var(--muted)]")}>
                 {item.count}
               </span>
             )}
@@ -334,14 +334,14 @@ export function TabLinks({
 /* ------------------------------------------------------------------ misc */
 
 export function Rule({ className }: { className?: string }) {
-  return <div className={cn("h-px w-full bg-[var(--hair)]", className)} />;
+  return <div className={cn("h-px w-full bg-[var(--line)]", className)} />;
 }
 
 export function KeyValue({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-[var(--hair)] py-2 last:border-0">
-      <dt className="shrink-0 text-[11.5px] font-bold uppercase tracking-[0.04em] text-[var(--ink-3)]">{label}</dt>
-      <dd className="text-right text-[13.5px] font-medium text-[var(--ink)]">{children}</dd>
+    <div className="flex items-baseline justify-between gap-4 border-b border-[var(--line)] py-2 last:border-0">
+      <dt className="shrink-0 font-display text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--muted)]">{label}</dt>
+      <dd className="text-right text-[12.5px] font-medium text-[var(--text)]">{children}</dd>
     </div>
   );
 }
@@ -371,7 +371,7 @@ export function Panel({
     <section
       id={id}
       className={cn(
-        "border-b border-[var(--hair)] border-t-2 border-t-[var(--ink)] bg-[var(--paper)]",
+        "rounded-[3px] border border-[var(--line)] bg-[var(--panel)]",
         stickyHead ? "overflow-clip" : "overflow-hidden",
         className,
       )}
@@ -379,13 +379,15 @@ export function Panel({
       {(title || action) && (
         <header
           className={cn(
-            "flex min-h-[40px] items-center justify-between gap-3 border-b border-[var(--hair)] bg-[var(--paper)] px-3.5 py-2",
+            "flex h-[34px] items-center justify-between gap-2 border-b border-[var(--line)] bg-[var(--bar)] px-2.5",
             stickyHead && "sticky top-0 z-30",
           )}
         >
           <div className="flex min-w-0 items-center gap-2">
-            <h2 className="x truncate text-[18px] font-extrabold text-[var(--ink)]">{title}</h2>
-            {meta && <span className="tnum shrink-0 text-[12px] font-semibold text-[var(--ink-3)]">{meta}</span>}
+            <h2 className="truncate font-display text-[12.5px] font-bold uppercase tracking-[0.05em] text-[var(--text)]">
+              {title}
+            </h2>
+            {meta && <span className="tnum shrink-0 text-[11.5px] font-medium text-[var(--muted)]">{meta}</span>}
           </div>
           {action && <div className="shrink-0">{action}</div>}
         </header>
@@ -408,8 +410,8 @@ export function TabStrip({
     <nav
       aria-label="Section tabs"
       className={cn(
-        "no-scrollbar mask-fade-r flex items-stretch gap-4 overflow-x-auto border-b border-[var(--hair)] pr-4",
-        sticky && "sticky top-0 z-30 bg-[var(--paper)]",
+        "no-scrollbar mask-fade-r flex items-stretch gap-3 overflow-x-auto border-b border-[var(--line)] bg-[var(--panel)] px-2.5",
+        sticky && "sticky top-0 z-30",
         className,
       )}
     >
@@ -420,15 +422,15 @@ export function TabStrip({
           aria-current={item.active ? "page" : undefined}
           data-active={item.active ? "true" : undefined}
           className={cn(
-            "relative -mb-px shrink-0 border-b-2 py-2.5 text-[13.5px] font-bold transition-colors hover:no-underline",
+            "relative -mb-px shrink-0 border-b-2 py-2 font-display text-[12px] font-semibold uppercase tracking-[0.04em] transition-colors hover:no-underline",
             item.active
-              ? "border-[var(--ink)] text-[var(--ink)]"
-              : "border-transparent text-[var(--ink-3)] hover:border-[var(--hair)] hover:text-[var(--ink)]",
+              ? "border-[var(--yellow)] text-[var(--text)]"
+              : "border-transparent text-[var(--muted)] hover:text-[var(--text)]",
           )}
         >
           {item.label}
           {typeof item.count === "number" && (
-            <span className="tnum ml-1.5 text-[11px] text-[var(--ink-3)]">{item.count}</span>
+            <span className="tnum ml-1.5 text-[10.5px] text-[var(--muted)]">{item.count}</span>
           )}
         </Link>
       ))}
@@ -440,7 +442,7 @@ export function CountTag({ children, className }: { children: ReactNode; classNa
   return (
     <span
       className={cn(
-        "tnum inline-block border border-[var(--hair)] bg-[var(--paper-2)] px-1.5 py-[1px] text-[11px] font-bold text-[var(--ink)]",
+        "tnum inline-block rounded-[2px] border border-[var(--line)] bg-[var(--bar-2)] px-1.5 py-[1px] text-[10.5px] font-semibold text-[var(--text-2)]",
         className,
       )}
     >
