@@ -204,14 +204,19 @@ async function englishNames(tourCode: string, depth: number, revalidate: number,
 
   const read = unstable_cache(
     async (code: string, bracketDepth: number, ttl: number, maxPage: number) => {
+      const htmls = await Promise.all(
+        Array.from({ length: maxPage }, (_, index) =>
+          fetchHtmlFragment(
+            `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(code)}&iBLCode=${bracketDepth}&iPage=${index + 1}&txt_Search=&LangCode=en`,
+            { revalidate: ttl, timeoutMs: 12_000 },
+          ),
+        ),
+      );
       const pairs: [string, string[]][] = [];
-      for (let page = 1; page <= maxPage; page++) {
-        const html = await fetchHtmlFragment(
-          `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(code)}&iBLCode=${bracketDepth}&iPage=${page}&txt_Search=&LangCode=en`,
-          { revalidate: ttl, timeoutMs: 12_000 },
-        );
+      for (let index = 0; index < htmls.length; index++) {
+        const html = htmls[index];
         if (html === null) {
-          if (page === 1) throw new Error("UNREACHABLE");
+          if (index === 0) throw new Error("UNREACHABLE");
           break;
         }
         const rows: BracketMatch[] = parseBracketRows(html, bracketDepth);

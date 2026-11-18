@@ -177,7 +177,11 @@ const waitFor = async (expression, timeout = 25_000) => {
   const deadline = Date.now() + timeout;
   let last = null;
   while (Date.now() < deadline) {
-    last = await evaluate(expression);
+    try {
+      last = await evaluate(expression);
+    } catch {
+      last = null;
+    }
     if (last) return last;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
@@ -238,15 +242,22 @@ const path = await evaluate("location.pathname");
 check("clicking a non-link cell opens the detail page", /^\/players\//.test(path ?? ""), path);
 
 await navigate("/");
+await waitFor(
+  `location.pathname === "/" && document.readyState === "complete" && Boolean(document.querySelector('input[role="combobox"]'))`,
+);
 await evaluate(`document.querySelector('input[role="combobox"]').focus()`);
-await new Promise((resolve) => setTimeout(resolve, 1800));
+await new Promise((resolve) => setTimeout(resolve, 800));
 for (const character of "gayoung") {
   await send("Input.dispatchKeyEvent", { type: "char", text: character });
   await new Promise((resolve) => setTimeout(resolve, 60));
 }
-await new Promise((resolve) => setTimeout(resolve, 1200));
-const options = await evaluate(`
-  [...document.querySelectorAll('[role="option"]')].map(o => o.textContent.replace(/\\s+/g, ' ').trim()).slice(0, 3)
+const options = await waitFor(`
+  (() => {
+    const items = [...document.querySelectorAll('[role="option"]')]
+      .map(o => o.textContent.replace(/\\s+/g, ' ').trim())
+      .slice(0, 3);
+    return items.length > 0 ? items : null;
+  })()
 `);
 check("header search suggests players", Array.isArray(options) && options.length > 0, options?.[0]);
 check("search ignores the hyphen in a name", /Ga-young KIM/i.test(options?.[0] ?? ""), options?.[0]);

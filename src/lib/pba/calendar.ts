@@ -163,10 +163,10 @@ export function daysWithEvents(from: string, to: string, events = calendarEvents
   for (const event of events) {
     const start = isoDay(event.start);
     const end = isoDay(event.end) ?? start;
-    if (!start) continue;
-    if (end! < from || start > to) continue;
+    if (!start || !end || end < start) continue;
+    if (end < from || start > to) continue;
     let cursor = start < from ? from : start;
-    const last = end! > to ? to : end!;
+    const last = end > to ? to : end;
     while (cursor <= last) {
       days.add(cursor);
       const next = parseIsoDay(cursor);
@@ -184,7 +184,7 @@ export function nextActiveDay(day: string, events = calendarEvents()): string | 
   for (const event of events) {
     const start = isoDay(event.start);
     const end = isoDay(event.end) ?? start;
-    if (!start || !end || end < day) continue;
+    if (!start || !end || end < start || end < day) continue;
     const candidate = start <= day ? day : start;
     if (candidate === day) return day;
     if (best === null || candidate < best) best = candidate;
@@ -199,7 +199,7 @@ export function previousActiveDay(day: string, events = calendarEvents()): strin
   for (const event of events) {
     const start = isoDay(event.start);
     const end = isoDay(event.end) ?? start;
-    if (!start || !end || start >= day) continue;
+    if (!start || !end || end < start || start >= day) continue;
     const candidate = end >= day ? yesterday : end;
     if (candidate === yesterday) return yesterday;
     if (best === null || candidate > best) best = candidate;

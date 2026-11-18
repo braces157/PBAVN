@@ -156,6 +156,7 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing) return;
     if (event.key === "Escape") {
       setOpen(false);
       inputRef.current?.blur();

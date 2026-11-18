@@ -16,6 +16,11 @@ function formatKstClock(date: Date): string {
   })} KST`;
 }
 
+function parseTimestamp(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 function useLiveFeed(initial: LiveFeed, tourCode?: string) {
   const [feed, setFeed] = useState<LiveFeed>(initial);
   const [refreshing, setRefreshing] = useState(false);
@@ -23,11 +28,23 @@ function useLiveFeed(initial: LiveFeed, tourCode?: string) {
   const mounted = useRef(true);
   const requestId = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
+  const latestFetchedAtRef = useRef<number>(parseTimestamp(initial.fetchedAt));
+  const prevTourCodeRef = useRef<string | undefined>(tourCode);
 
   useEffect(() => {
+    const incomingTs = parseTimestamp(initial.fetchedAt);
+    const tourChanged = prevTourCodeRef.current !== tourCode;
+    prevTourCodeRef.current = tourCode;
+    if (!tourChanged && incomingTs < latestFetchedAtRef.current) return;
+
+    requestId.current += 1;
+    controllerRef.current?.abort();
+    controllerRef.current = null;
+    latestFetchedAtRef.current = incomingTs;
     setFeed(initial);
     setLastChecked(new Date(initial.fetchedAt));
-  }, [initial]);
+    setRefreshing(false);
+  }, [initial, tourCode]);
 
   const refresh = useCallback(async () => {
     const id = ++requestId.current;
@@ -42,7 +59,9 @@ function useLiveFeed(initial: LiveFeed, tourCode?: string) {
       });
       if (response.ok) {
         const next = (await response.json()) as LiveFeed;
-        if (mounted.current && id === requestId.current) {
+        const nextTs = parseTimestamp(next.fetchedAt);
+        if (mounted.current && id === requestId.current && nextTs >= latestFetchedAtRef.current) {
+          latestFetchedAtRef.current = nextTs;
           setFeed(next);
           setLastChecked(new Date(next.fetchedAt));
         }
@@ -50,7 +69,10 @@ function useLiveFeed(initial: LiveFeed, tourCode?: string) {
     } catch {
       // Aborted or network error; next poll retries cleanly.
     } finally {
-      if (mounted.current && id === requestId.current) setRefreshing(false);
+      if (mounted.current && id === requestId.current) {
+        controllerRef.current = null;
+        setRefreshing(false);
+      }
     }
   }, [tourCode]);
 
@@ -243,31 +265,35 @@ export function LiveBoard({
         </div>
       </div>
 
-      {compact ? null : onTable ? (
-        <ul className="divide-y divide-ink-800" aria-live="polite">
-          {feed.matches.map((match) => (
-            <MatchRow key={match.key} match={match} />
-          ))}
-        </ul>
-      ) : readable ? (
-        <ul className="divide-y divide-ink-800">
-          {feed.lines.map((line, index) => (
-            <li key={`${index}-${line}`} className="flex items-baseline gap-3 px-4 py-2.5">
-              <span className="tnum w-5 shrink-0 text-[10.5px] text-fog-550">{index + 1}</span>
-              <span className="text-[13px] text-fog-200">{line}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="px-5 py-10 text-center">
-          <p className="font-display text-[14.5px] font-bold text-fog-100">
-            {feed.reachable ? "No match is currently in play" : "Scoring board unreachable"}
-          </p>
-          <p className="mx-auto mt-1.5 max-w-md text-[12.5px] leading-relaxed text-fog-450">
-            {feed.reachable
-              ? "All individual tour and Team League tables are idle. Checks automatically every 20 seconds."
-              : "The scoring terminal did not respond. Checks automatically every 20 seconds."}
-          </p>
+      {compact ? null : (
+        <div aria-live="polite">
+          {onTable ? (
+            <ul className="divide-y divide-ink-800">
+              {feed.matches.map((match) => (
+                <MatchRow key={match.key} match={match} />
+              ))}
+            </ul>
+          ) : readable ? (
+            <ul className="divide-y divide-ink-800">
+              {feed.lines.map((line, index) => (
+                <li key={`${index}-${line}`} className="flex items-baseline gap-3 px-4 py-2.5">
+                  <span className="tnum w-5 shrink-0 text-[10.5px] text-fog-550">{index + 1}</span>
+                  <span className="text-[13px] text-fog-200">{line}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="px-5 py-10 text-center">
+              <p className="font-display text-[14.5px] font-bold text-fog-100">
+                {feed.reachable ? "No match is currently in play" : "Scoring board unreachable"}
+              </p>
+              <p className="mx-auto mt-1.5 max-w-md text-[12.5px] leading-relaxed text-fog-450">
+                {feed.reachable
+                  ? "All individual tour and Team League tables are idle. Checks automatically every 20 seconds."
+                  : "The scoring terminal did not respond. Checks automatically every 20 seconds."}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -285,24 +311,22 @@ export function LiveMatchBoards({ initial, tourCode }: { initial: LiveFeed; tour
 
   return (
     <div className="space-y-4">
-      {feed.matches.length > 0 ? (
-        <div className="space-y-4" aria-live="polite">
-          {feed.matches.map((match) => (
-            <LiveMatchPanel key={match.key} match={match} />
-          ))}
-        </div>
-      ) : (
-        <div className="surface px-5 py-8 text-center">
-          <p className="font-display text-[14.5px] font-bold text-fog-100">
-            {feed.reachable ? "No match is currently in play" : "Scoring board unreachable"}
-          </p>
-          <p className="mx-auto mt-1.5 max-w-md text-[12.5px] leading-relaxed text-fog-450">
-            {feed.reachable
-              ? "The live table finished or paused. Polling continues every 20 seconds."
-              : "The scoring terminal did not respond. Polling continues every 20 seconds."}
-          </p>
-        </div>
-      )}
+      <div className="space-y-4" aria-live="polite">
+        {feed.matches.length > 0 ? (
+          feed.matches.map((match) => <LiveMatchPanel key={match.key} match={match} />)
+        ) : (
+          <div className="surface px-5 py-8 text-center">
+            <p className="font-display text-[14.5px] font-bold text-fog-100">
+              {feed.reachable ? "No match is currently in play" : "Scoring board unreachable"}
+            </p>
+            <p className="mx-auto mt-1.5 max-w-md text-[12.5px] leading-relaxed text-fog-450">
+              {feed.reachable
+                ? "The live table finished or paused. Polling continues every 20 seconds."
+                : "The scoring terminal did not respond. Polling continues every 20 seconds."}
+            </p>
+          </div>
+        )}
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
         <p className="tnum text-[11px] text-fog-550" role="status" aria-live="polite">
           {refreshing ? "Syncing…" : `Source: ${feed.source} · synced ${formatKstClock(lastChecked)}`}

@@ -27,7 +27,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const eventEntries: MetadataRoute.Sitemap = calendarEvents().map((event) => ({
     url: `${base}/schedule/${encodeURIComponent(event.id)}`,
-    ...(event.end || event.start ? { lastModified: event.end ?? event.start ?? undefined } : {}),
     changeFrequency: event.status === "completed" ? "monthly" : "daily",
     priority: event.status === "live" ? 0.9 : 0.6,
   }));

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { sanitizeCmsHtml } from "../src/lib/sanitize.ts";
+import { eventArtUrl } from "../src/lib/event-art.ts";
 import {
   clockLabel,
   daysUntil,
@@ -96,6 +97,26 @@ check("setsWon keeps zero for a swept player", () => {
 check("detectNewsCategory does not misclassify 'teammate' as Team League", () => {
   assert.equal(detectNewsCategory("LPBA champion thanks teammate after victory").label, "LPBA");
   assert.equal(detectNewsCategory("PBA Team League Round 3 opens in Goyang").label, "Team League");
+});
+
+check("image proxy rewrites skip single-dot and parent traversal segments", () => {
+  const dotImg = `<img src="https://pbatour.org/resources/upload/board/./press/a.jpg" alt="">`;
+  const dotDotImg = `<img src="https://pbatour.org/resources/upload/board/../secret/a.jpg" alt="">`;
+  assert.equal(sanitizeCmsHtml(dotImg).includes("/api/photo"), false);
+  assert.equal(sanitizeCmsHtml(dotDotImg).includes("/api/photo"), false);
+
+  assert.equal(
+    eventArtUrl("https://pbatour.org/resources/upload/board/press/a.jpg", 768),
+    "/api/photo?src=%2Fboard%2Fpress%2Fa.jpg&w=768",
+  );
+  assert.equal(
+    eventArtUrl("https://pbatour.org/resources/upload/board/./press/a.jpg", 768),
+    "https://pbatour.org/resources/upload/board/./press/a.jpg",
+  );
+  assert.equal(
+    eventArtUrl("https://pbatour.org/resources/upload/board/../secret/a.jpg", 768),
+    "https://pbatour.org/resources/upload/board/../secret/a.jpg",
+  );
 });
 
 console.log(`\n${passed}/${passed} security & regression checks passed`);

@@ -52,10 +52,11 @@ export default async function NewsPage({ searchParams }: PageProps) {
       tab === "gallery" ? getGalleries(1, 24) : Promise.resolve([]),
     ]);
 
-    const pageCount = Math.max(1, Math.ceil(press.total / pageSize));
-    const page = tab === "news" ? Math.min(requestedPage, pageCount) : 1;
+    const initialPageCount = Math.max(1, Math.ceil(press.total / pageSize));
+    const page = tab === "news" ? Math.min(requestedPage, initialPageCount) : 1;
     const effectivePress =
       tab === "news" && page !== requestedPage ? await getPressList(page, pageSize) : press;
+    const pageCount = Math.max(1, Math.ceil(effectivePress.total / pageSize));
 
     const [articles, videoTitles, galleryTitles] = await Promise.all([
       tab === "news" ? translateArticleSummaries(effectivePress.list.map(normalizeArticle), 160) : Promise.resolve([]),

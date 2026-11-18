@@ -78,10 +78,13 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const description = bouts
     ? `Set-by-set bouts and per-inning records for ${bouts.homeName} vs ${bouts.awayName} in the PBA Team League.`
     : "Set-by-set bouts of one PBA Team League fixture, with per-inning records.";
+  const canonical = loaded
+    ? `/teams/matches/${gameNo}?season=${encodeURIComponent(loaded.season.시즌코드)}&round=${encodeURIComponent(loaded.roundCode)}`
+    : `/teams/matches/${gameNo}`;
   return {
     title,
     description,
-    alternates: { canonical: `/teams/matches/${gameNo}` },
+    alternates: { canonical },
     openGraph: { title, description, type: "website" },
     twitter: { card: "summary_large_image", title, description },
   };

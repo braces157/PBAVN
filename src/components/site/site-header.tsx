@@ -42,13 +42,13 @@ export function SiteHeader() {
     }
 
     const controller = new AbortController();
-    lastLiveCheck = now;
 
     fetch("/api/live", { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data && Array.isArray(data.matches)) {
+        if (!controller.signal.aborted && data && Array.isArray(data.matches)) {
           cachedLiveCount = data.matches.length;
+          lastLiveCheck = Date.now();
           setLiveCount(cachedLiveCount);
         }
       })

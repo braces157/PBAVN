@@ -157,7 +157,13 @@ export function DataTable({
     value: initialSort ?? null,
   });
 
-  // Reset client sort automatically whenever server-supplied `initialSort` changes.
+  // Commit the new default seed whenever server-supplied `initialSort` changes.
+  if (sortState.seed !== initialSortKey) {
+    setSortState({
+      seed: initialSortKey,
+      value: initialSort ?? null,
+    });
+  }
   const sort = sortState.seed === initialSortKey ? sortState.value : (initialSort ?? null);
   const setSort = (
     updater:

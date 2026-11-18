@@ -20,11 +20,16 @@ function toAbsoluteAsset(value: string): string {
   return trimmed;
 }
 
+function hasUnsafeSegments(path: string): boolean {
+  if (path.includes("\\") || path.includes("//")) return true;
+  return path.split("/").some((segment) => segment === "." || segment === "..");
+}
+
 function toProxiedImage(url: string): string {
   const match = url.match(PROXYABLE_UPLOAD);
   if (!match) return url;
   const rel = `/${match[1]}`;
-  if (rel.includes("..") || rel.includes("//")) return url;
+  if (hasUnsafeSegments(rel)) return url;
   return `/api/photo?src=${encodeURIComponent(rel)}&w=1200`;
 }
 

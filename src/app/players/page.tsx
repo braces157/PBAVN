@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 };
 
 const INITIALS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
+const VALID_PLAYER_LEAGUES = new Set([...PLAYER_LEAGUES.map((l) => l.code), "PBA9", "LPBA9"]);
 
 type SortOption = "rank" | "avg" | "hr" | "name";
 const SORT_LABELS: Record<SortOption, string> = {
@@ -80,7 +81,7 @@ export default async function PlayersPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const query = (params.q ?? "").trim();
   const explicitLeague =
-    params.league && PLAYER_LEAGUES.some((l) => l.code === params.league) ? params.league : undefined;
+    params.league && VALID_PLAYER_LEAGUES.has(params.league) ? params.league : undefined;
   const league = explicitLeague ?? (query ? "" : "PBA1");
   const rawInitial = (params.initial ?? "").toUpperCase();
   const initial = INITIALS.includes(rawInitial) ? rawInitial : "";
@@ -129,7 +130,12 @@ export default async function PlayersPage({ searchParams }: PageProps) {
                   name: "",
                   initial,
                 });
-                return { list: clamped.list, total: clamped.total, page, pageCount };
+                return {
+                  list: clamped.list,
+                  total: clamped.total,
+                  page,
+                  pageCount: Math.max(1, Math.ceil(clamped.total / pageSize)),
+                };
               }
               return { list: browsed.list, total: browsed.total, page, pageCount };
             })
@@ -184,6 +190,9 @@ export default async function PlayersPage({ searchParams }: PageProps) {
               options={[
                 ...(query ? [{ value: "", label: "All circuits" }] : []),
                 ...PLAYER_LEAGUES.map((l) => ({ value: l.code, label: l.name })),
+                ...(explicitLeague === "PBA9" || explicitLeague === "LPBA9"
+                  ? [{ value: explicitLeague, label: explicitLeague === "LPBA9" ? "LPBA Sponsor" : "PBA Sponsor" }]
+                  : []),
               ]}
             />
 

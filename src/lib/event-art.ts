@@ -8,20 +8,24 @@
  */
 
 const PROXYABLE_UPLOAD =
-  /^https:\/\/(?:www\.)?pbatour\.org\/resources\/upload\/(?:tournament|board|sponsor|team|banner|media)\/[\w./-]+\.(?:png|jpe?g|webp|gif)$/i;
+  /^https:\/\/(?:www\.)?pbatour\.org\/resources\/upload\/((?:tournament|board|sponsor|team|banner|media)\/[\w./-]+\.(?:png|jpe?g|webp|gif))$/i;
+
+function hasUnsafeSegments(path: string): boolean {
+  if (path.includes("\\") || path.includes("//")) return true;
+  return path.split("/").some((segment) => segment === "." || segment === "..");
+}
 
 export function isEventArt(url: string | null | undefined): url is string {
-  return typeof url === "string" && PROXYABLE_UPLOAD.test(url);
+  if (typeof url !== "string") return false;
+  const match = url.match(PROXYABLE_UPLOAD);
+  return Boolean(match && !hasUnsafeSegments(`/${match[1]}`));
 }
 
 function upstreamPath(url: string): string | null {
-  try {
-    const path = new URL(url).pathname;
-    if (path.includes("..") || path.includes("//")) return null;
-    return path.startsWith("/resources/upload/") ? path.slice("/resources/upload".length) : path;
-  } catch {
-    return null;
-  }
+  const match = url.match(PROXYABLE_UPLOAD);
+  if (!match) return null;
+  const rel = `/${match[1]}`;
+  return hasUnsafeSegments(rel) ? null : rel;
 }
 
 /**
