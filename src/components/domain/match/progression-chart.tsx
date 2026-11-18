@@ -29,13 +29,17 @@ export function ProgressionChart({
   const x = (inning: number) => PAD.left + (inning / innings) * innerWidth;
   const y = (score: number) => PAD.top + innerHeight - (score / ceiling) * innerHeight;
 
+  // Step chart: remain at previous total until inning `i`, then step vertically
+  // at `x(i)` to the cumulative score achieved in inning `i`.
   const path = (line: number[]): string => {
-    let d = `M ${x(0)} ${y(0)} L ${x(1)} ${y(0)}`;
+    if (line.length === 0) return "";
+    let d = `M ${x(0)} ${y(0)}`;
+    let prevY = y(0);
     for (let index = 0; index < line.length; index += 1) {
-      d += ` L ${x(index + 1)} ${y(line[index])}`;
-      const next = line[index + 1];
-      if (next === undefined) break;
-      d += ` L ${x(index + 1)} ${y(next)}`;
+      const xi = x(index + 1);
+      const yi = y(line[index]);
+      d += ` L ${xi} ${prevY} L ${xi} ${yi}`;
+      prevY = yi;
     }
     return d;
   };
@@ -94,9 +98,9 @@ export function ProgressionChart({
           </text>
         ))}
 
-        {series.map((line) => (
+        {series.map((line, index) => (
           <path
-            key={line.name}
+            key={`${line.name}-${index}`}
             d={path(line.values)}
             fill="none"
             stroke="currentColor"
@@ -106,21 +110,23 @@ export function ProgressionChart({
           />
         ))}
 
-        {series.map((line) => (
-          <circle
-            key={`${line.name}-end`}
-            cx={x(innings)}
-            cy={y(line.values.at(-1) ?? 0)}
-            r={3}
-            fill="currentColor"
-            className={line.tone}
-          />
-        ))}
+        {series.map((line, index) =>
+          line.values.length > 0 ? (
+            <circle
+              key={`${line.name}-${index}-end`}
+              cx={x(line.values.length)}
+              cy={y(line.values.at(-1) ?? 0)}
+              r={3}
+              fill="currentColor"
+              className={line.tone}
+            />
+          ) : null,
+        )}
       </svg>
       <figcaption className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-fog-450">
         <span className="text-fog-550">Innings (x-axis)</span>
-        {series.map((line) => (
-          <span key={line.name} className="inline-flex items-center gap-1.5 font-medium text-fog-200">
+        {series.map((line, index) => (
+          <span key={`${line.name}-${index}`} className="inline-flex items-center gap-1.5 font-medium text-fog-200">
             <span className={cn("inline-block h-[2.5px] w-4 rounded bg-current", line.tone)} />
             {line.name}
           </span>

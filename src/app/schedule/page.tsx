@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import {
-  calendarEvents,
   calendarForSeason,
   calendarSeasons,
   eventsOnDay,
@@ -12,7 +11,7 @@ import {
 } from "@/lib/pba/calendar";
 import { getCurrentSeason } from "@/lib/pba/service";
 import { LEAGUES, leagueByCode, leagueShort } from "@/lib/normalize";
-import { fmtRange, grouped, isoDay, kstDay, relativeDay, shiftIsoDay } from "@/lib/format";
+import { fmtRange, grouped, isoDay, kstDay, parseIsoDay, relativeDay, shiftIsoDay } from "@/lib/format";
 import { DateRail, DateStrip } from "@/components/domain/date-rail";
 import { Panel, EmptyState, LiveChip, Stat, cn } from "@/components/ui/primitives";
 import { boardSummary, TodayMatches } from "@/components/domain/today-matches";
@@ -37,12 +36,11 @@ export default async function SchedulePage({ searchParams }: PageProps) {
   const seasonCode = params.season && seasons.some((s) => s.code === params.season) ? params.season : season.SeasonCode;
   const today = kstDay();
 
-  const all = calendarEvents();
   const seasonEvents = calendarForSeason(seasonCode);
-  const league = params.league ?? "";
+  const league = params.league && LEAGUES.some((entry) => entry.code === params.league) ? params.league : "";
   const scoped = league ? seasonEvents.filter((event) => event.league === league) : seasonEvents;
 
-  const requestedDay = params.day && /^\d{4}-\d{2}-\d{2}$/.test(params.day) ? params.day : null;
+  const requestedDay = params.day && parseIsoDay(params.day) ? params.day : null;
   const focusDay =
     requestedDay ?? nextActiveDay(today, scoped) ?? previousActiveDay(today, scoped) ?? today;
 
@@ -50,7 +48,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
   const onFocusIds = new Set(onFocus.map((event) => event.id));
   const liveNow = scoped.filter((event) => event.status === "live");
   const liveExtra = liveNow.filter((event) => !onFocusIds.has(event.id));
-  const upcoming = scoped.filter((event) => (isoDay(event.start) ?? "") >= today);
+  const upcoming = scoped.filter((event) => event.status === "upcoming");
   const done = scoped.filter((event) => event.status === "completed").reverse();
 
   const defaultFrom = shiftIsoDay(today, -14);
@@ -193,6 +191,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
             </Panel>
 
             <Suspense
+              key={`${focusDay}-${league}`}
               fallback={
                 <Panel title="Matches on this day" meta="loading fixtures…">
                   <div className="space-y-px py-1.5" aria-hidden="true">
@@ -243,7 +242,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
             <Panel title="Season summary">
               <dl className="grid grid-cols-2 gap-px bg-ink-750">
                 <div className="bg-ink-900 p-3.5">
-                  <Stat label="Events" value={grouped(seasonEvents.length)} />
+                  <Stat label="Events" value={grouped(scoped.length)} />
                 </div>
                 <div className="bg-ink-900 p-3.5">
                   <Stat label="Live" value={grouped(liveNow.length)} accent={liveNow.length > 0} />
@@ -279,13 +278,13 @@ export default async function SchedulePage({ searchParams }: PageProps) {
               </ul>
             </Panel>
 
-            {all.length > 0 && (
+            {seasons.length > 0 && (
               <Panel title="Seasons">
                 <ul className="divide-y divide-ink-800/70">
                   {seasons.map((entry) => (
                     <li key={entry.code}>
                       <Link
-                        href={`/schedule?season=${entry.code}`}
+                        href={query({ season: entry.code })}
                         className="row-hover flex items-center justify-between gap-2 px-3.5 py-2"
                         aria-current={entry.code === seasonCode ? "page" : undefined}
                       >

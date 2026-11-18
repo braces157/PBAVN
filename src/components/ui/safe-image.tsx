@@ -30,12 +30,11 @@ export function SafeImage({
   fallback: ReactNode;
   loading?: "lazy" | "eager";
 }) {
-  const [failed, setFailed] = useState(false);
-
-  const resolved = path ? photoUrl(path, width) : src;
+  const resolved = (path ? photoUrl(path, width) : null) ?? src ?? null;
   const srcSet = path ? photoSrcSet(path, [width * 2, width * 3]) : undefined;
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
-  if (!resolved || failed) return <>{fallback}</>;
+  if (!resolved || failedSrc === resolved) return <>{fallback}</>;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -45,7 +44,7 @@ export function SafeImage({
       alt={alt}
       loading={loading}
       decoding="async"
-      onError={() => setFailed(true)}
+      onError={() => setFailedSrc(resolved)}
       className={className}
     />
   );

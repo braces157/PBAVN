@@ -1,4 +1,5 @@
 import { initials } from "@/lib/format";
+import { eventArtUrl } from "@/lib/event-art";
 import { LEAGUES } from "@/lib/normalize";
 import { SafeImage } from "./safe-image";
 import { cn } from "./primitives";
@@ -173,15 +174,32 @@ export function PlayerAvatar({
 export function TeamLogo({
   src,
   name,
+  alt = "",
   size = "md",
   className,
 }: {
   src?: string | null;
   name: string;
+  alt?: string;
   size?: AvatarSize;
   className?: string;
 }) {
   const badge = clubBadge(name);
+  const resolved = src ? (eventArtUrl(src, PIXELS[size] * 2) ?? src) : null;
+  if (!resolved) {
+    return (
+      <span
+        className={cn("inline-grid shrink-0 place-items-center overflow-hidden rounded-[3px]", SIZES[size], className)}
+        aria-hidden={alt === "" ? "true" : undefined}
+        role={alt ? "img" : undefined}
+        aria-label={alt || undefined}
+      >
+        <span className={cn("cr h-full w-full", badge.cls)} aria-hidden="true">
+          {badge.code}
+        </span>
+      </span>
+    );
+  }
   return (
     <span
       className={cn(
@@ -191,8 +209,8 @@ export function TeamLogo({
       )}
     >
       <SafeImage
-        src={src}
-        alt={name}
+        src={resolved}
+        alt={alt}
         className="h-full w-full object-contain"
         fallback={
           <span className={cn("cr", badge.cls)} aria-hidden="true">
@@ -241,7 +259,6 @@ export function EventCrest({
   className,
 }: {
   src?: string | null;
-  srcSet?: string;
   league: string;
   name?: string;
   alt?: string;
@@ -265,7 +282,11 @@ export function EventCrest({
 
   if (!src) {
     return (
-      <span className={cn("inline-grid shrink-0 place-items-center", CREST_SIZES[size], className)} aria-label={label}>
+      <span
+        role="img"
+        className={cn("inline-grid shrink-0 place-items-center", CREST_SIZES[size], className)}
+        aria-label={label}
+      >
         {fallback}
       </span>
     );
@@ -279,7 +300,7 @@ export function EventCrest({
         className,
       )}
     >
-      <SafeImage src={src} alt={label} className="h-full w-full object-contain" fallback={fallback} />
+      <SafeImage src={src} alt={alt ?? ""} className="h-full w-full object-contain" fallback={fallback} />
     </span>
   );
 }

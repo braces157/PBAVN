@@ -7,19 +7,38 @@ import { LiveMatchPanel } from "./live-match";
 
 const POLL_MS = 20_000;
 
+function formatKstClock(date: Date): string {
+  return `${date.toLocaleTimeString("en-GB", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })} KST`;
+}
+
 function useLiveFeed(initial: LiveFeed, tourCode?: string) {
   const [feed, setFeed] = useState<LiveFeed>(initial);
   const [refreshing, setRefreshing] = useState(false);
-  const [lastChecked, setLastChecked] = useState<Date>(new Date(initial.fetchedAt));
+  const [lastChecked, setLastChecked] = useState<Date>(() => new Date(initial.fetchedAt));
   const mounted = useRef(true);
   const requestId = useRef(0);
+  const controllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    setFeed(initial);
+    setLastChecked(new Date(initial.fetchedAt));
+  }, [initial]);
 
   const refresh = useCallback(async () => {
     const id = ++requestId.current;
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
     setRefreshing(true);
     try {
       const response = await fetch(`/api/live${tourCode ? `?tour=${encodeURIComponent(tourCode)}` : ""}`, {
         cache: "no-store",
+        signal: controller.signal,
       });
       if (response.ok) {
         const next = (await response.json()) as LiveFeed;
@@ -29,7 +48,7 @@ function useLiveFeed(initial: LiveFeed, tourCode?: string) {
         }
       }
     } catch {
-      // Next poll retries cleanly.
+      // Aborted or network error; next poll retries cleanly.
     } finally {
       if (mounted.current && id === requestId.current) setRefreshing(false);
     }
@@ -37,10 +56,20 @@ function useLiveFeed(initial: LiveFeed, tourCode?: string) {
 
   useEffect(() => {
     mounted.current = true;
-    const timer = setInterval(refresh, POLL_MS);
+    const poll = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      void refresh();
+    };
+    const onVisibility = () => {
+      if (typeof document !== "undefined" && !document.hidden) void refresh();
+    };
+    const timer = setInterval(poll, POLL_MS);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       mounted.current = false;
       clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+      controllerRef.current?.abort();
     };
   }, [refresh]);
 
@@ -59,7 +88,7 @@ function MatchRow({ match }: { match: LiveMatch }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-[4px] border border-live-500/45 bg-live-500/12 px-2 py-[2px] text-[9.5px] font-bold uppercase tracking-[0.08em] text-live-400">
-              <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
+              <span aria-hidden="true" className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
               Live
             </span>
             {match.competition && (
@@ -129,7 +158,8 @@ function MatchRow({ match }: { match: LiveMatch }) {
               rel="noreferrer noopener"
               className="inline-flex items-center gap-1 rounded-md border border-live-500/45 bg-live-500/12 px-2.5 py-1 text-[11.5px] font-bold text-live-400 transition-colors hover:bg-live-500/20"
             >
-              Watch ↗
+              Watch <span aria-hidden="true">↗</span>
+              <span className="sr-only"> (opens in new tab)</span>
             </a>
           )}
           {cardHref && (
@@ -179,17 +209,17 @@ export function LiveBoard({
         <div className="flex items-center gap-2.5">
           {onTable ? (
             <span className="inline-flex items-center gap-1.5 rounded-md border border-live-500/45 bg-live-500/12 px-2 py-[2px] text-[10px] font-bold uppercase tracking-[0.08em] text-live-400">
-              <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
+              <span aria-hidden="true" className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
               {feed.matches.length} on table
             </span>
           ) : reachable ? (
             <span className="inline-flex items-center gap-1.5 rounded-md border border-ink-700 bg-ink-900 px-2 py-[2px] text-[10px] font-bold uppercase tracking-[0.08em] text-fog-450">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-fog-550" />
+              <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-fog-550" />
               Idle
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 rounded-md border border-rose-450/40 bg-rose-450/12 px-2 py-[2px] text-[10px] font-bold uppercase tracking-[0.08em] text-rose-450">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-rose-450" />
+              <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-rose-450" />
               Unreachable
             </span>
           )}
@@ -199,14 +229,12 @@ export function LiveBoard({
         </div>
 
         <div className="flex items-center gap-3">
-          <p className="tnum text-[11px] text-fog-550">
-            {refreshing
-              ? "Syncing…"
-              : `Synced ${lastChecked.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`}
+          <p className="tnum text-[11px] text-fog-550" role="status" aria-live="polite">
+            {refreshing ? "Syncing…" : `Synced ${formatKstClock(lastChecked)}`}
           </p>
           <button
             type="button"
-            onClick={refresh}
+            onClick={() => void refresh()}
             disabled={refreshing}
             className="rounded-md border border-ink-700 bg-ink-900 px-2.5 py-1 text-[11px] font-semibold text-fog-200 transition-colors hover:border-carom-400/50 hover:text-carom-300 disabled:opacity-50"
           >
@@ -216,7 +244,7 @@ export function LiveBoard({
       </div>
 
       {compact ? null : onTable ? (
-        <ul className="divide-y divide-ink-800">
+        <ul className="divide-y divide-ink-800" aria-live="polite">
           {feed.matches.map((match) => (
             <MatchRow key={match.key} match={match} />
           ))}
@@ -257,21 +285,31 @@ export function LiveMatchBoards({ initial, tourCode }: { initial: LiveFeed; tour
 
   return (
     <div className="space-y-4">
-      {feed.matches.map((match) => (
-        <LiveMatchPanel key={match.key} match={match} />
-      ))}
+      {feed.matches.length > 0 ? (
+        <div className="space-y-4" aria-live="polite">
+          {feed.matches.map((match) => (
+            <LiveMatchPanel key={match.key} match={match} />
+          ))}
+        </div>
+      ) : (
+        <div className="surface px-5 py-8 text-center">
+          <p className="font-display text-[14.5px] font-bold text-fog-100">
+            {feed.reachable ? "No match is currently in play" : "Scoring board unreachable"}
+          </p>
+          <p className="mx-auto mt-1.5 max-w-md text-[12.5px] leading-relaxed text-fog-450">
+            {feed.reachable
+              ? "The live table finished or paused. Polling continues every 20 seconds."
+              : "The scoring terminal did not respond. Polling continues every 20 seconds."}
+          </p>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
-        <p className="tnum text-[11px] text-fog-550">
-          Source: {feed.source} · synced{" "}
-          {lastChecked.toLocaleTimeString("en-GB", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          })}
+        <p className="tnum text-[11px] text-fog-550" role="status" aria-live="polite">
+          {refreshing ? "Syncing…" : `Source: ${feed.source} · synced ${formatKstClock(lastChecked)}`}
         </p>
         <button
           type="button"
-          onClick={refresh}
+          onClick={() => void refresh()}
           disabled={refreshing}
           className="rounded-md border border-ink-700 bg-ink-900 px-3 py-1 text-[11.5px] font-semibold text-fog-200 transition-colors hover:border-carom-400/50 hover:text-carom-300 disabled:opacity-50"
         >

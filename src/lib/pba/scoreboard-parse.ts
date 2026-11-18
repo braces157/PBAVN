@@ -122,7 +122,9 @@ function span(html: string, className: string): string | null {
 
 function toNumber(value: string | null | undefined): number | null {
   if (!value) return null;
-  const parsed = Number(value.replace(/[^0-9.\-]/g, ""));
+  const cleaned = value.replace(/[^0-9.\-]/g, "");
+  if (!cleaned || cleaned === "-" || cleaned === ".") return null;
+  const parsed = Number(cleaned);
   return Number.isFinite(parsed) ? parsed : null;
 }
 

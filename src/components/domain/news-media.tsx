@@ -54,20 +54,8 @@ export function NewsVideoGrid({ items }: { items: VideoCardItem[] }) {
             ? `https://www.youtube.com/watch?v=${video.youtubeId}`
             : video.url;
 
-          return (
-            <button
-              key={video.seq}
-              type="button"
-              onClick={(e) => {
-                if (video.youtubeId) {
-                  openerRef.current = e.currentTarget;
-                  setActive(video);
-                } else if (watchUrl) {
-                  window.open(watchUrl, "_blank", "noopener,noreferrer");
-                }
-              }}
-              className="surface card-hover group flex flex-col overflow-hidden text-left"
-            >
+          const cardBody = (
+            <>
               <div className="relative aspect-video w-full overflow-hidden bg-[var(--bar)]">
                 <SafeImage
                   src={poster}
@@ -97,9 +85,39 @@ export function NewsVideoGrid({ items }: { items: VideoCardItem[] }) {
                   {headline}
                 </p>
                 <span className="text-[11px] font-semibold text-[var(--muted)] group-hover:text-[var(--link)]">
-                  Watch highlight →
+                  {video.youtubeId ? "Watch highlight →" : "Open video ↗"}
                 </span>
               </div>
+            </>
+          );
+
+          if (!video.youtubeId && watchUrl) {
+            return (
+              <a
+                key={video.seq}
+                href={watchUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="surface card-hover group flex flex-col overflow-hidden text-left"
+              >
+                {cardBody}
+              </a>
+            );
+          }
+
+          return (
+            <button
+              key={video.seq}
+              type="button"
+              onClick={(e) => {
+                if (video.youtubeId) {
+                  openerRef.current = e.currentTarget;
+                  setActive(video);
+                }
+              }}
+              className="surface card-hover group flex flex-col overflow-hidden text-left"
+            >
+              {cardBody}
             </button>
           );
         })}
@@ -112,7 +130,7 @@ export function NewsVideoGrid({ items }: { items: VideoCardItem[] }) {
         onClick={(e) => {
           if (e.target === dialogRef.current) setActive(null);
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-[920px] overflow-hidden rounded-[6px] border border-[var(--line-2)] bg-[var(--panel)] p-0 text-inherit shadow-2xl backdrop:bg-black/80"
+        className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-[920px] overflow-y-auto rounded-[6px] border border-[var(--line-2)] bg-[var(--panel)] p-0 text-inherit shadow-2xl backdrop:bg-black/80"
       >
         {active && active.youtubeId && (
           <div>
@@ -127,7 +145,8 @@ export function NewsVideoGrid({ items }: { items: VideoCardItem[] }) {
                   rel="noreferrer noopener"
                   className="text-[11.5px] font-semibold text-[var(--link)] hover:underline"
                 >
-                  Open on YouTube ↗
+                  Open on YouTube <span aria-hidden="true">↗</span>
+                  <span className="sr-only"> (opens in new tab)</span>
                 </a>
                 <button
                   type="button"
@@ -159,27 +178,32 @@ export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
+  const isOpen = activeIndex !== null;
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (activeIndex !== null) {
+    if (isOpen) {
       if (!dialog.open) dialog.showModal();
     } else if (dialog.open) {
       dialog.close();
     }
-  }, [activeIndex]);
+  }, [isOpen]);
 
   useEffect(() => {
-    if (activeIndex === null) return;
+    if (!isOpen || items.length === 0) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") setActiveIndex((i) => (i === null ? null : (i + 1) % items.length));
-      if (e.key === "ArrowLeft")
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setActiveIndex((i) => (i === null ? null : (i + 1) % items.length));
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
         setActiveIndex((i) => (i === null ? null : (i - 1 + items.length) % items.length));
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeIndex, items.length]);
+  }, [isOpen, items.length]);
 
   const closeDialog = () => {
     setActiveIndex(null);
@@ -237,7 +261,7 @@ export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
         onClick={(e) => {
           if (e.target === dialogRef.current) setActiveIndex(null);
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-[960px] overflow-hidden rounded-[6px] border border-[var(--line-2)] bg-[var(--panel)] p-0 text-inherit shadow-2xl backdrop:bg-black/85"
+        className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-[960px] overflow-y-auto rounded-[6px] border border-[var(--line-2)] bg-[var(--panel)] p-0 text-inherit shadow-2xl backdrop:bg-black/85"
       >
         {active && activeIndex !== null && (
           <div>
@@ -246,14 +270,16 @@ export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
                 <p className="truncate font-display text-[15px] font-bold text-[var(--text)]">
                   {splitNewsHeadline(active.title.replace(/_/g, " · ")).headline}
                 </p>
-                <p className="tnum text-[11px] text-[var(--muted)]">
+                <p className="tnum text-[11px] text-[var(--muted)]" aria-live="polite">
                   {active.dateLabel} · {activeIndex + 1} / {items.length}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setActiveIndex((activeIndex - 1 + items.length) % items.length)}
+                  onClick={() =>
+                    items.length > 0 && setActiveIndex((activeIndex - 1 + items.length) % items.length)
+                  }
                   aria-label="Previous photo"
                   className="grid h-7 w-7 place-items-center rounded-[3px] border border-[var(--line)] bg-[var(--panel)] text-[13px] text-[var(--text-2)] hover:text-[var(--text)]"
                 >
@@ -261,7 +287,7 @@ export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveIndex((activeIndex + 1) % items.length)}
+                  onClick={() => items.length > 0 && setActiveIndex((activeIndex + 1) % items.length)}
                   aria-label="Next photo"
                   className="grid h-7 w-7 place-items-center rounded-[3px] border border-[var(--line)] bg-[var(--panel)] text-[13px] text-[var(--text-2)] hover:text-[var(--text)]"
                 >
@@ -279,6 +305,7 @@ export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
             </div>
             <div className="flex max-h-[75vh] items-center justify-center bg-black p-2">
               <SafeImage
+                key={active.seq}
                 src={active.image}
                 alt={active.alt}
                 loading="eager"

@@ -116,7 +116,7 @@ export default async function TeamFixturesPage({ searchParams }: PageProps) {
               basePath="/teams/matches"
               paramKey="season"
               active={season.시즌코드}
-              params={{ round: params.round }}
+              params={{}}
               options={seasons.map((s) => ({ value: s.시즌코드, label: s.시즌명 }))}
             />
             {rounds.length > 0 && (

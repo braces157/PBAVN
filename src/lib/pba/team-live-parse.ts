@@ -254,10 +254,21 @@ export function parseLiveTeamFixtures(html: string | null): LiveTeamFixture[] {
     const setLabel = headerText.match(/(\d+)\s*Set/i)?.[0] ?? null;
     const setNo = number(setLabel);
     const innings = number(headerText.match(/inn\s*(\d+)/i)?.[1] ?? null);
-    const watchUrl =
+    const rawWatch =
       item.match(/openWebBrowser\('([^']+)'\)/i)?.[1] ??
       item.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/[\w?=&%./-]+|youtu\.be\/[\w-]+)/i)?.[0] ??
       null;
+    let watchUrl: string | null = null;
+    if (rawWatch) {
+      try {
+        const parsed = new URL(rawWatch.trim());
+        if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+          watchUrl = parsed.toString();
+        }
+      } catch {
+        watchUrl = null;
+      }
+    }
 
     // The bouts follow the fixture block, each one a `li.completed` carrying its
     // own SET heading and score rows.

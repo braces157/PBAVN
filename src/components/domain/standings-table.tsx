@@ -22,15 +22,15 @@ export function StandingsTable({
       <table className="stat-table">
         <thead>
           <tr>
-            <th className="!w-10">#</th>
-            <th className="!text-left">Club</th>
-            <th>Pts</th>
-            <th>W</th>
-            {!compact && <th className="hidden sm:table-cell">D</th>}
-            <th>L</th>
-            {!compact && <th className="hidden md:table-cell">Sets</th>}
-            {!compact && <th className="hidden lg:table-cell">Set ratio</th>}
-            {!compact && <th className="hidden lg:table-cell">Point ratio</th>}
+            <th scope="col" className="!w-10">#</th>
+            <th scope="col" className="!text-left">Club</th>
+            <th scope="col">Pts</th>
+            <th scope="col">W</th>
+            {!compact && <th scope="col" className="hidden sm:table-cell">D</th>}
+            <th scope="col">L</th>
+            {!compact && <th scope="col" className="hidden md:table-cell">Sets</th>}
+            {!compact && <th scope="col" className="hidden lg:table-cell">Set ratio</th>}
+            {!compact && <th scope="col" className="hidden lg:table-cell">Point ratio</th>}
           </tr>
         </thead>
         <tbody>

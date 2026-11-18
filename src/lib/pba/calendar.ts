@@ -17,7 +17,7 @@
 import raw from "./data/calendar.json";
 import { eventArtUrl } from "../event-art";
 import { eventStatus, type Event, type EventStatus } from "../normalize";
-import { cleanDisplayText, hasHangul, isPlaceholder, parseIsoDay, isoDay } from "../format";
+import { cleanDisplayText, hasHangul, isPlaceholder, kstDay, parseIsoDay, isoDay, shiftIsoDay } from "../format";
 import { englishSponsor, getPlayerNameIndex, resolveKoreanName, translateKoreanTourTitle } from "./service";
 
 interface CalendarRow {
@@ -104,9 +104,18 @@ function toEvent(row: CalendarRow, now = new Date()): CalendarEvent {
   };
 }
 
-/** Every event, chronological. */
+let cachedEventsDay = "";
+let cachedEventsList: CalendarEvent[] = [];
+
+/** Every event, chronological, memoized per KST calendar day. */
 export function calendarEvents(): CalendarEvent[] {
-  return ROWS.map((row) => toEvent(row));
+  const todayKey = kstDay();
+  if (cachedEventsDay !== todayKey) {
+    const now = new Date();
+    cachedEventsList = ROWS.map((row) => toEvent(row, now));
+    cachedEventsDay = todayKey;
+  }
+  return cachedEventsList;
 }
 
 /** The seasons the calendar covers, newest first, with their event counts. */
@@ -120,13 +129,12 @@ export function calendarSeasons(): { code: string; count: number }[] {
 
 /** One season's events, chronological. */
 export function calendarForSeason(season: string): CalendarEvent[] {
-  return ROWS.filter((row) => row.season === season).map((row) => toEvent(row));
+  return calendarEvents().filter((event) => event.season === season);
 }
 
 /** One event by its schedule sequence number. */
 export function calendarEvent(id: string): CalendarEvent | null {
-  const row = ROWS.find((entry) => entry.id === id);
-  return row ? toEvent(row) : null;
+  return calendarEvents().find((entry) => entry.id === id) ?? null;
 }
 
 /** Season labels read "2026-2027"; the calendar stores the opening year. */
@@ -170,15 +178,31 @@ export function daysWithEvents(from: string, to: string, events = calendarEvents
   return [...days].sort();
 }
 
-/** The next day on or after `day` that has an event. */
+/** The next day on or after `day` that has an event — O(N) interval scan. */
 export function nextActiveDay(day: string, events = calendarEvents()): string | null {
-  return (
-    daysWithEvents(day, "9999-12-31", events).find((candidate) => candidate >= day) ?? null
-  );
+  let best: string | null = null;
+  for (const event of events) {
+    const start = isoDay(event.start);
+    const end = isoDay(event.end) ?? start;
+    if (!start || !end || end < day) continue;
+    const candidate = start <= day ? day : start;
+    if (candidate === day) return day;
+    if (best === null || candidate < best) best = candidate;
+  }
+  return best;
 }
 
-/** The most recent day before `day` that had an event. */
+/** The most recent day before `day` that had an event — O(N) interval scan. */
 export function previousActiveDay(day: string, events = calendarEvents()): string | null {
-  const past = daysWithEvents("0000-01-01", day, events).filter((candidate) => candidate < day);
-  return past.length > 0 ? past[past.length - 1] : null;
+  const yesterday = shiftIsoDay(day, -1);
+  let best: string | null = null;
+  for (const event of events) {
+    const start = isoDay(event.start);
+    const end = isoDay(event.end) ?? start;
+    if (!start || !end || start >= day) continue;
+    const candidate = end >= day ? yesterday : end;
+    if (candidate === yesterday) return yesterday;
+    if (best === null || candidate > best) best = candidate;
+  }
+  return best;
 }

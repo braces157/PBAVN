@@ -25,28 +25,35 @@ interface PageProps {
 
 export default async function RankingsPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const seasons = await getSeasonList();
-  const currentSeason = await getCurrentSeason();
+  const [seasons, currentSeason] = await Promise.all([getSeasonList(), getCurrentSeason()]);
 
-  const leagueCode = params.league ?? "PBA1";
+  const leagueCode = PLAYER_LEAGUES.some((l) => l.code === params.league) ? params.league! : "PBA1";
   const league = leagueByCode(leagueCode);
   const season =
     params.season && seasons.some((s) => s.SeasonCode === params.season)
       ? params.season
       : currentSeason.SeasonCode;
-  const tourCode = params.tour ?? "0";
+  const requestedTour = params.tour && /^\d{1,6}$/.test(params.tour) ? params.tour : "0";
   const metric = params.metric === "point" ? "point" : "prize";
 
-  const { tours, rows, failures } = await trackFailures(async () => {
-    const [tours, rows] = await Promise.all([
-      getRankingTours({ leagueCode, season }),
-      getRanking({ kind: metric === "point" ? "point" : "prize", leagueCode, season, tourCode }),
-    ]);
-    return { tours, rows, failures: getRequestFailures() };
+  const { tours, rows, tourCode, failures } = await trackFailures(async () => {
+    const tours = await getRankingTours({ leagueCode, season });
+    const validTour =
+      requestedTour !== "0" && tours.some((t) => t.TourCode === requestedTour)
+        ? requestedTour
+        : "0";
+    const rows = await getRanking({
+      kind: metric === "point" ? "point" : "prize",
+      leagueCode,
+      season,
+      tourCode: validTour,
+    });
+    return { tours, rows, tourCode: validTour, failures: getRequestFailures() };
   });
 
   const podium = rows.slice(0, 3);
-  const tourName = tours.find((t) => t.TourCode === tourCode)?.TourTitleEn;
+  const matchedTour = tours.find((t) => t.TourCode === tourCode);
+  const tourName = matchedTour ? cleanDisplayText(matchedTour.TourTitleEn || matchedTour.TourTitle) : "";
 
   return (
     <>
@@ -63,7 +70,7 @@ export default async function RankingsPage({ searchParams }: PageProps) {
               basePath="/rankings"
               paramKey="league"
               active={leagueCode}
-              params={{ season, tour: tourCode, metric }}
+              params={{ season, metric }}
               options={PLAYER_LEAGUES.map((l) => ({ value: l.code, label: l.name }))}
             />
             <FilterRow
@@ -71,7 +78,7 @@ export default async function RankingsPage({ searchParams }: PageProps) {
               basePath="/rankings"
               paramKey="metric"
               active={metric}
-              params={{ league: leagueCode, season, tour: tourCode }}
+              params={{ league: leagueCode, season, tour: tourCode !== "0" ? tourCode : undefined }}
               options={[
                 { value: "prize", label: "Prize money" },
                 { value: "point", label: "Ranking points" },
@@ -83,7 +90,7 @@ export default async function RankingsPage({ searchParams }: PageProps) {
             basePath="/rankings"
             paramKey="season"
             active={season}
-            params={{ league: leagueCode, tour: tourCode, metric }}
+            params={{ league: leagueCode, metric }}
             options={seasons.map((s) => ({ value: s.SeasonCode, label: s.SeasonTitle || s.SeasonCode }))}
           />
           {tours.length > 0 && (
@@ -173,7 +180,12 @@ export default async function RankingsPage({ searchParams }: PageProps) {
                 </p>
                 <p className="text-[11px] text-fog-500">Click any column header to sort</p>
               </div>
-              <RankingTable rows={rows} metric={metric} className="border-0 rounded-none" />
+              <RankingTable
+                key={`${season}-${leagueCode}-${tourCode}-${metric}`}
+                rows={rows}
+                metric={metric}
+                className="border-0 rounded-none"
+              />
             </div>
           </>
         )}

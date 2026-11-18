@@ -5,16 +5,20 @@
  */
 
 import { asset, isRealAsset } from "./pba/http";
+import { eventArtUrl } from "./event-art";
 import { playerPhotoPath } from "./photo";
 import {
   cleanDisplayText,
   cleanPlayerName,
   hasHangul,
   int,
+  isoDay,
+  kstDay,
   num,
   pick,
   isPlaceholder,
   romanizeKoreanName,
+  safeHttpUrl,
   stripTags,
   toDate,
 } from "./format";
@@ -110,18 +114,15 @@ export interface Event {
 }
 
 export function eventStatus(start: Date | null, end: Date | null, now = new Date()): EventStatus {
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  if (start && end) {
-    const s = new Date(start);
-    s.setHours(0, 0, 0, 0);
-    const e = new Date(end);
-    e.setHours(0, 0, 0, 0);
+  const today = kstDay(now);
+  const s = isoDay(start);
+  const e = isoDay(end);
+  if (s && e) {
     if (today >= s && today <= e) return "live";
     if (today < s) return "upcoming";
     return "completed";
   }
-  if (start) return start < today ? "completed" : "upcoming";
+  if (s) return s < today ? "completed" : "upcoming";
   return "upcoming";
 }
 
@@ -158,7 +159,7 @@ export function normalizeEvent(raw: RawTournament): Event {
     },
     logo: isRealAsset(raw.SPONSOR_LOGO_FILE_PATH) ? asset(raw.SPONSOR_LOGO_FILE_PATH) : null,
     hasDetail: raw.DETAIL_BTN_ACTIVE_YN === 1,
-    guideUrl: raw.TOURNAMENT_GUIDE_URL_EN || raw.TOURNAMENT_GUIDE_URL || null,
+    guideUrl: safeHttpUrl(raw.TOURNAMENT_GUIDE_URL_EN || raw.TOURNAMENT_GUIDE_URL),
     status: eventStatus(start, end),
     raw,
   };
@@ -490,14 +491,17 @@ export function normalizeTeamPlayer(raw: RawTeamPlayerStat): TeamPlayer {
   const resolvedName = latin ?? romanizeKoreanName(primary || secondary);
   const sets = int(raw.세트수) || int(raw.세트승리수) + int(raw.세트패배수);
 
+  const rawPhoto = isRealAsset(img) ? asset(img) : null;
+  const rawTeamLogo = isRealAsset(raw.팀로고) ? asset(raw.팀로고) : null;
+
   return {
     code: raw.선수코드,
     name: resolvedName || "—",
     nameEn: resolvedName || "—",
     team: cleanTeamName(raw.팀코드, raw.팀명),
     teamCode: raw.팀코드,
-    teamLogo: isRealAsset(raw.팀로고) ? asset(raw.팀로고) : null,
-    photo: isRealAsset(img) ? asset(img) : null,
+    teamLogo: rawTeamLogo ? (eventArtUrl(rawTeamLogo, 128) ?? rawTeamLogo) : null,
+    photo: rawPhoto ? (eventArtUrl(rawPhoto, 256) ?? rawPhoto) : null,
     photoPath: playerPhotoPath(img),
     nation: raw.국가명 || "—",
     gender: raw.성별 === "F" ? "F" : "M",
@@ -614,7 +618,7 @@ export function matchMatrix(
     }
 
     const key = [code1, code2].sort().join("|");
-    if (rosterToClub && seenPairs.has(key)) continue;
+    if (seenPairs.has(key)) continue;
     seenPairs.add(key);
 
     const existing = matrix.get(key) ?? { wins: 0, losses: 0, draws: 0, setWins: 0, setLosses: 0, played: 0 };
@@ -644,11 +648,12 @@ export interface Article {
 }
 
 export function normalizeArticle(raw: RawPress): Article {
+  const rawImg = isRealAsset(raw.THUMBNAIL_FILE_PATH) ? asset(raw.THUMBNAIL_FILE_PATH) : null;
   return {
     seq: raw.SEQ,
     title: stripTags(raw.TITLE) || "Untitled release",
     body: raw.CONTENT ?? "",
-    image: isRealAsset(raw.THUMBNAIL_FILE_PATH) ? asset(raw.THUMBNAIL_FILE_PATH) : null,
+    image: rawImg ? (eventArtUrl(rawImg, 768) ?? rawImg) : null,
     views: int(raw.VIEW_CNT),
     featured: raw.TOP_YN === 1,
     date: toDate(raw.VIEW_DATE ?? raw.UPDATE_DATE),

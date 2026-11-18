@@ -1,6 +1,8 @@
 import type { MetadataRoute } from "next";
+import { calendarEvents } from "@/lib/pba/calendar";
+import { siteUrl } from "@/lib/site";
 
-const ROUTES = [
+const STATIC_ROUTES = [
   "",
   "/live",
   "/schedule",
@@ -16,12 +18,19 @@ const ROUTES = [
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pba-3c.vercel.app";
-  const lastModified = new Date();
-  return ROUTES.map((route, index) => ({
+  const base = siteUrl();
+  const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((route, index) => ({
     url: `${base}${route}`,
-    lastModified,
     changeFrequency: route === "" || route === "/live" ? "hourly" : "daily",
     priority: index === 0 ? 1 : 0.7,
   }));
+
+  const eventEntries: MetadataRoute.Sitemap = calendarEvents().map((event) => ({
+    url: `${base}/schedule/${encodeURIComponent(event.id)}`,
+    ...(event.end || event.start ? { lastModified: event.end ?? event.start ?? undefined } : {}),
+    changeFrequency: event.status === "completed" ? "monthly" : "daily",
+    priority: event.status === "live" ? 0.9 : 0.6,
+  }));
+
+  return [...staticEntries, ...eventEntries];
 }

@@ -22,10 +22,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { memCode } = await params;
   const raw = await getPlayerCached(memCode);
   if (!raw) return { title: "Match history" };
-  const name = raw.PlayerNameEN || raw.PlayerNameKO;
+  const player = normalizePlayer(raw);
+  const title = `${player.name} — Match history`;
+  const description = `${player.name} — every recorded individual-tour match, season by season, each linked to its turn-by-turn card.`;
   return {
-    title: `${name} — match history`,
-    description: `${name} — every recorded individual-tour match, season by season, each linked to its turn-by-turn card.`,
+    title,
+    description,
+    alternates: { canonical: `/players/${encodeURIComponent(player.code)}/matches` },
+    openGraph: { title, description, type: "website" },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
@@ -73,9 +78,7 @@ async function HistorySection({
     return { history, failures: getRequestFailures() };
   });
 
-  const matches = [...history.matches].sort(
-    (a, b) => (Number(b.tourCode) || 0) - (Number(a.tourCode) || 0),
-  );
+  const matches = history.matches;
   const everyTourFailed = history.toursSearched > 0 && history.toursFailed === history.toursSearched;
 
   return (
@@ -110,15 +113,15 @@ async function HistorySection({
             <table className="stat-table">
               <thead>
                 <tr>
-                  <th className="!text-left">Date</th>
-                  <th className="!text-left">Event</th>
-                  <th className="!text-left">Round</th>
-                  <th className="!text-left">Opponent</th>
-                  <th>W/L</th>
-                  <th>Sets</th>
-                  <th>Avg</th>
-                  <th className="hidden sm:table-cell">HR</th>
-                  <th className="w-0 !p-0" aria-hidden="true" />
+                  <th scope="col" className="!text-left">Date</th>
+                  <th scope="col" className="!text-left">Event</th>
+                  <th scope="col" className="!text-left">Round</th>
+                  <th scope="col" className="!text-left">Opponent</th>
+                  <th scope="col">W/L</th>
+                  <th scope="col">Sets</th>
+                  <th scope="col">Avg</th>
+                  <th scope="col" className="hidden sm:table-cell">HR</th>
+                  <th scope="col" className="!text-right">Card</th>
                 </tr>
               </thead>
               <tbody>
@@ -126,19 +129,25 @@ async function HistorySection({
                   const own = match.sides.find((side) => side.memCode === memCode);
                   const opponent = match.sides.find((side) => side.memCode !== memCode);
                   if (!own) return null;
+                  const href = `/matches/${match.pstCode}?tour=${encodeURIComponent(match.tourCode)}&round=${encodeURIComponent(match.round)}`;
                   return (
-                    <tr key={`${match.tourCode}-${match.pstCode}`} className="group relative">
+                    <tr key={`${match.tourCode}-${match.pstCode}`} className="group">
                       <td className="!text-left tnum text-[var(--text-2)]">
                         {match.scheduledAt ?? "—"}
                       </td>
                       <td className="!text-left">
-                        <span className="block max-w-[280px] truncate text-[12.5px] font-medium text-[var(--text)]">
+                        <Link
+                          href={href}
+                          className="block max-w-[280px] truncate text-[12.5px] font-medium text-[var(--text)] hover:text-[var(--link)]"
+                        >
                           {match.tourTitle}
-                        </span>
+                        </Link>
                       </td>
                       <td className="!text-left text-[var(--text-2)]">{match.round || "—"}</td>
-                      <td className="!text-left font-semibold text-[var(--link)] group-hover:underline">
-                        {opponent?.name ?? "—"}
+                      <td className="!text-left font-semibold text-[var(--link)]">
+                        <Link href={href} className="hover:underline">
+                          {opponent?.name ?? "—"}
+                        </Link>
                       </td>
                       <td
                         className={`font-bold ${own.won ? "text-[var(--win)]" : "text-[var(--muted)]"}`}
@@ -152,12 +161,14 @@ async function HistorySection({
                       <td className="hidden tnum text-[var(--text-2)] sm:table-cell">
                         {own.highRun ?? "—"}
                       </td>
-                      <td className="p-0">
+                      <td className="!text-right">
                         <Link
-                          href={`/matches/${match.pstCode}?tour=${encodeURIComponent(match.tourCode)}&round=${encodeURIComponent(match.round)}`}
-                          className="absolute inset-0"
+                          href={href}
                           aria-label={`${match.tourTitle}, ${match.round}: ${own.won ? "won" : "lost"} against ${opponent?.name ?? "unknown"}`}
-                        />
+                          className="text-[11.5px] font-semibold text-[var(--link)] hover:underline"
+                        >
+                          →
+                        </Link>
                       </td>
                     </tr>
                   );
@@ -199,7 +210,11 @@ export default async function PlayerMatchesPage({ params, searchParams }: PagePr
       <PageHeader
         eyebrow="Match history"
         title={player.name}
-        description={`${player.nameKo} · Individual-tour matches in the selected season`}
+        description={
+          player.nameKo && player.nameKo !== player.name
+            ? `${player.nameKo} · Individual-tour matches in the selected season`
+            : "Individual-tour matches in the selected season"
+        }
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <FilterRow
@@ -223,7 +238,7 @@ export default async function PlayerMatchesPage({ params, searchParams }: PagePr
       </PageHeader>
 
       <div className="mx-auto max-w-[1300px] px-3 py-5">
-        <Suspense fallback={<HistorySkeleton />}>
+        <Suspense key={`${memCode}-${seasonCode}`} fallback={<HistorySkeleton />}>
           <HistorySection
             memCode={memCode}
             playerName={player.name}

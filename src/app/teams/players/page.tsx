@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getTeamLeagueRounds, getTeamLeagueSeasons, getTeamPlayerStats } from "@/lib/pba/api";
+import { getTeamLeagueRounds, getTeamLeagueSeasons, getTeamPlayerStats, trackFailures } from "@/lib/pba/api";
+import { getRequestFailures } from "@/lib/pba/failures";
 import { getPlayerNameIndex, resolveOfficialTeamPlayer, teamLeagueTitle } from "@/lib/pba/service";
 import { normalizeTeamPlayer, type TeamPlayer } from "@/lib/normalize";
-import { percent, average, hasHangul } from "@/lib/format";
+import { percent, average, grouped } from "@/lib/format";
 import { photoUrl } from "@/lib/photo";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
 import { DataTable, type CellValue, type TableColumn, type TableRow } from "@/components/ui/data-table";
@@ -44,6 +45,7 @@ function columnsFor(): TableColumn[] {
     { id: "average", label: "Avg", numeric: true, defaultDirection: "desc" },
     { id: "winRate", label: "Win%", numeric: true, defaultDirection: "desc" },
     { id: "highRun", label: "HR", numeric: true, hideBelow: "sm", defaultDirection: "desc" },
+    { id: "points", label: "Pts", shortLabel: "Pts", numeric: true, hideBelow: "lg", defaultDirection: "desc" },
     { id: "matches", label: "Sets", shortLabel: "Sets", numeric: true, hideBelow: "md", defaultDirection: "desc" },
     { id: "sets", label: "W–L", align: "right", hideBelow: "md" },
     { id: "singles", label: "Singles", align: "right", hideBelow: "lg" },
@@ -65,6 +67,7 @@ function rowsFor(players: TeamPlayer[]): TableRow[] {
       average: average(player.average),
       winRate: percent(player.winRate),
       highRun: player.highRun,
+      points: grouped(player.pointsFor),
       matches: player.sets,
       sets: `${player.setWins}–${player.setLosses}`,
       singles: `${player.singlesWins}–${player.singlesLosses}`,
@@ -79,6 +82,7 @@ function rowsFor(players: TeamPlayer[]): TableRow[] {
         average: player.average,
         winRate: player.winRate,
         highRun: player.highRun,
+        points: player.pointsFor,
         matches: player.sets,
         bank: player.bankShotRate,
       },
@@ -92,13 +96,32 @@ interface PageProps {
 
 export default async function TeamPlayersPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const seasons = await getTeamLeagueSeasons();
-  const season = seasons.find((s) => s.시즌코드 === params.season) ?? seasons[0] ?? null;
+  const loaded = await trackFailures(async () => {
+    const seasons = await getTeamLeagueSeasons();
+    const season = seasons.find((s) => s.시즌코드 === params.season) ?? seasons[0] ?? null;
+    if (!season) return { seasons, season: null, rounds: [], round: null, raw: [], failures: getRequestFailures() };
+
+    const rounds = await getTeamLeagueRounds(season.리그코드);
+    const round =
+      rounds.find((r) => String(r.라운드코드) === params.round) ??
+      rounds.find((r) => r.진행상황 === "진행중") ??
+      rounds[0] ??
+      null;
+    const roundCode = round ? String(round.라운드코드) : "0";
+    const raw = await getTeamPlayerStats({
+      seasonCode: season.시즌코드,
+      leagueCode: String(season.리그코드),
+      roundCode,
+    });
+    return { seasons, season, rounds, round, raw, failures: getRequestFailures() };
+  });
+
+  const { seasons, season, rounds, round, raw, failures } = loaded;
 
   if (!season) {
     return (
       <>
-        <PageHeader eyebrow="Team league" title="Player Statistics" />
+        <PageHeader failures={failures} eyebrow="Team league" title="Player Statistics" />
         <div className="mx-auto max-w-[1300px] px-3 py-10">
           <EmptyState title="No team league season published" />
         </div>
@@ -106,24 +129,11 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
     );
   }
 
-  const rounds = await getTeamLeagueRounds(season.리그코드);
-  const round =
-    rounds.find((r) => String(r.라운드코드) === params.round) ??
-    rounds.find((r) => r.진행상황 === "진행중") ??
-    rounds[0] ??
-    null;
   const roundCode = round ? String(round.라운드코드) : "0";
-
-  const raw = await getTeamPlayerStats({
-    seasonCode: season.시즌코드,
-    leagueCode: String(season.리그코드),
-    roundCode,
-  });
-
   const nameIndex = getPlayerNameIndex();
   const allPlayers = raw.map(normalizeTeamPlayer).map((p) => resolveOfficialTeamPlayer(p, nameIndex));
   const teams = [...new Set(allPlayers.map((p) => p.team))].sort();
-  const teamFilter = params.team ?? "";
+  const teamFilter = params.team && teams.includes(params.team) ? params.team : "";
   const filtered = teamFilter ? allPlayers.filter((p) => p.team === teamFilter) : allPlayers;
 
   const sortKey: SortKey = params.sort && params.sort in SORT_ACCESSORS ? (params.sort as SortKey) : "average";
@@ -142,6 +152,7 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
   return (
     <>
       <PageHeader
+        failures={failures}
         eyebrow="Team league"
         title="Player Statistics"
         description={`${teamLeagueTitle(season.시즌명)}${round ? ` · Round ${round.라운드}` : ""} · ${allPlayers.length} players across ${teams.length} clubs`}
@@ -152,7 +163,7 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
             basePath="/teams/players"
             paramKey="season"
             active={season.시즌코드}
-            params={{ round: roundCode, sort: sortKey, team: teamFilter || undefined }}
+            params={{ sort: sortKey }}
             options={seasons.map((s) => ({ value: s.시즌코드, label: s.시즌명 }))}
           />
           {rounds.length > 0 && (
@@ -164,7 +175,10 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
               params={{ season: season.시즌코드, sort: sortKey, team: teamFilter || undefined }}
               options={[...rounds]
                 .sort((a, b) => a.라운드 - b.라운드)
-                .map((r) => ({ value: String(r.라운드코드), label: `R${r.라운드}` }))}
+                .map((r) => ({
+                  value: String(r.라운드코드),
+                  label: `${r.포스트여부 === "Y" ? "PO " : ""}R${r.라운드}`,
+                }))}
             />
           )}
           {teams.length > 0 && (
@@ -204,6 +218,7 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
         </div>
 
         <DataTable
+          key={`${season.시즌코드}-${roundCode}-${sortKey}-${teamFilter}`}
           payload={{
             columns: columnsFor(),
             rows: rowsFor(players),

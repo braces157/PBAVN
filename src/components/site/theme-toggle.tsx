@@ -18,6 +18,7 @@ export function ThemeToggle() {
     const next: Theme = theme === "dark" ? "light" : "dark";
     setTheme(next);
     document.documentElement.dataset.theme = next;
+    document.documentElement.style.colorScheme = next;
     try {
       localStorage.setItem("pba-theme", next);
     } catch {
@@ -30,11 +31,11 @@ export function ThemeToggle() {
       id="theme"
       type="button"
       onClick={toggle}
-      aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-      title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={mounted && theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      title={mounted && theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       className="tbtn"
     >
-      {mounted ? (theme === "dark" ? "Light" : "Dark") : "Dark"}
+      <span suppressHydrationWarning>{mounted ? (theme === "dark" ? "Light" : "Dark") : "Theme"}</span>
     </button>
   );
 }

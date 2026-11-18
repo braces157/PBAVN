@@ -8,18 +8,20 @@
     "build": "next build",
     "start": "next start -p 3100",
     "lint": "tsc --noEmit -p tsconfig.lint.json",
-    "test": "npm run test:parsers && npm run test:match",
+    "test": "npm run test:parsers && npm run test:match && npm run test:security",
     "test:parsers": "node --experimental-strip-types scripts/test-parsers.mjs",
     "test:match": "node --experimental-strip-types scripts/test-match.mjs",
+    "test:security": "node --experimental-strip-types scripts/test-security.mjs",
     "verify": "node scripts/verify-interactions.mjs",
     "refresh-data": "node scripts/refresh-data.mjs && node --experimental-strip-types scripts/build-calendar.mjs",
     "build-calendar": "node --experimental-strip-types scripts/build-calendar.mjs"
   },
   "dependencies": {
     "flag-icons": "^7.6.0",
-    "next": "15.5.28",
+    "next": "^15.5.29",
     "react": "19.1.1",
     "react-dom": "19.1.1",
+    "sanitize-html": "^2.18.2",
     "sharp": "^0.35.5"
   },
   "devDependencies": {
@@ -27,7 +29,11 @@
     "@types/node": "22.18.13",
     "@types/react": "19.1.10",
     "@types/react-dom": "19.1.7",
+    "@types/sanitize-html": "^2.16.2",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3"
+  },
+  "overrides": {
+    "postcss": "^8.5.33"
   }
 }

@@ -52,29 +52,39 @@ export default async function TeamsPage({ searchParams }: PageProps) {
     );
   }
 
-  const rounds = await getTeamLeagueRounds(season.리그코드);
-  const selectedRound =
-    rounds.find((r) => String(r.라운드코드) === params.round) ??
-    rounds.find((r) => r.진행상황 === "진행중") ??
-    rounds[0] ??
-    null;
-  const roundCode = selectedRound ? String(selectedRound.라운드코드) : "0";
+  const { rounds, selectedRound, roundCode, standingsRaw, playersRaw, rosterRaw, fixtures, failures } =
+    await trackFailures(async () => {
+      const rounds = await getTeamLeagueRounds(season.리그코드);
+      const selectedRound =
+        rounds.find((r) => String(r.라운드코드) === params.round) ??
+        rounds.find((r) => r.진행상황 === "진행중") ??
+        rounds[0] ??
+        null;
+      const roundCode = selectedRound ? String(selectedRound.라운드코드) : "0";
 
-  const { standingsRaw, playersRaw, rosterRaw, fixtures, failures } = await trackFailures(async () => {
-    const [standingsRaw, playersRaw, rosterRaw, fixtures] = await Promise.all([
-      getTeamStandings({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
-      getTeamPlayerStats({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
-      getTeamRoster({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
-      selectedRound
-        ? getRoundFixtures(
-            String(selectedRound.라운드코드),
-            selectedRound.라운드,
-            selectedRound.진행상황 === "진행중" ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
-          )
-        : Promise.resolve([]),
-    ]);
-    return { standingsRaw, playersRaw, rosterRaw, fixtures, failures: getRequestFailures() };
-  });
+      const [standingsRaw, playersRaw, rosterRaw, fixtures] = await Promise.all([
+        getTeamStandings({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
+        getTeamPlayerStats({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
+        getTeamRoster({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
+        selectedRound
+          ? getRoundFixtures(
+              String(selectedRound.라운드코드),
+              selectedRound.라운드,
+              selectedRound.진행상황 === "진행중" ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
+            )
+          : Promise.resolve([]),
+      ]);
+      return {
+        rounds,
+        selectedRound,
+        roundCode,
+        standingsRaw,
+        playersRaw,
+        rosterRaw,
+        fixtures,
+        failures: getRequestFailures(),
+      };
+    });
 
   const nameIndex = getPlayerNameIndex();
   const standings = standingsRaw.map(normalizeTeam);
@@ -100,12 +110,14 @@ export default async function TeamsPage({ searchParams }: PageProps) {
     });
   }
 
-  const topScorers = [...players].sort((a, b) => b.average - a.average).slice(0, 6);
+  const playersByAverage = [...players].sort((a, b) => b.average - a.average);
+  const topScorers = playersByAverage.slice(0, 6);
+  const teamPlayersHref = `/teams/players?season=${encodeURIComponent(season.시즌코드)}&round=${encodeURIComponent(roundCode)}`;
 
   return (
     <>
       <PageHeader
-        failures={failures}
+        failures={[...seasonFailures, ...failures]}
         eyebrow="Team league"
         title={teamLeagueTitle(season.시즌명)}
         description={`${englishSponsor(season.스폰서)} · ${wonCompact(season.상금)} prize purse`}
@@ -116,7 +128,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
             basePath="/teams"
             paramKey="season"
             active={season.시즌코드}
-            params={{ round: params.round }}
+            params={{}}
             options={seasons.map((s) => ({ value: s.시즌코드, label: s.시즌명 }))}
           />
           {rounds.length > 0 && (
@@ -169,7 +181,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
             <SectionHeading
               eyebrow="Standings"
               title="Club Standings"
-              action={<TextLink href="/teams/players">Player statistics</TextLink>}
+              action={<TextLink href={teamPlayersHref}>Player statistics</TextLink>}
             />
             <div className="surface mt-3 overflow-hidden">
               {standings.length > 0 ? (
@@ -237,85 +249,97 @@ export default async function TeamsPage({ searchParams }: PageProps) {
             eyebrow="Clubs"
             title="Clubs"
           />
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {standings.map((team) => {
-              const profile = profiles.get(team.code);
-              return (
-                <Link
-                  key={team.code}
-                  href={`/teams/${encodeURIComponent(team.code)}?season=${season.시즌코드}&round=${roundCode}`}
-                  className="surface card-hover group flex flex-col p-3.5"
-                >
-                  <div className="flex items-start justify-between">
-                    <TeamLogo src={team.logo} name={team.name} size="md" />
-                    <span className="tnum rounded-[5px] border border-ink-700 bg-ink-850 px-2 py-0.5 font-display text-[11px] font-bold text-fog-200">
-                      #{team.rank}
-                    </span>
-                  </div>
-                  <p className="mt-2.5 line-clamp-2 font-display text-[13.5px] font-bold leading-snug text-fog-100 group-hover:text-carom-300">
-                    {profile?.name ?? team.name}
-                  </p>
-                  <p className="mt-0.5 truncate text-[11px] text-fog-500">
-                    {profile?.coach ? `Coach ${profile.coach}` : team.shortName}
-                  </p>
-                  <div className="mt-2.5 flex items-center justify-between border-t border-ink-800 pt-2">
-                    <span className="tnum text-[11px] text-fog-450">
-                      {team.wins}W {team.losses}L
-                    </span>
-                    <span className="tnum text-[11.5px] font-bold text-carom-300">{team.points} pts</span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+          {standings.length === 0 ? (
+            <EmptyState className="mt-4" title="No club rosters published" />
+          ) : (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+              {standings.map((team) => {
+                const profile = profiles.get(team.code);
+                const displayName = profile?.name ?? team.name;
+                const subtitle = profile?.coach
+                  ? `Coach ${profile.coach}`
+                  : profile?.base || (team.shortName !== displayName ? team.shortName : "Team League club");
+                return (
+                  <Link
+                    key={team.code}
+                    href={`/teams/${encodeURIComponent(team.code)}?season=${season.시즌코드}&round=${roundCode}`}
+                    className="surface card-hover group flex flex-col p-3.5"
+                  >
+                    <div className="flex items-start justify-between">
+                      <TeamLogo src={team.logo} name={team.name} size="md" />
+                      <span className="tnum rounded-[5px] border border-ink-700 bg-ink-850 px-2 py-0.5 font-display text-[11px] font-bold text-fog-200">
+                        #{team.rank}
+                      </span>
+                    </div>
+                    <p className="mt-2.5 line-clamp-2 font-display text-[13.5px] font-bold leading-snug text-fog-100 group-hover:text-carom-300">
+                      {displayName}
+                    </p>
+                    <p className="mt-0.5 truncate text-[11px] text-fog-500">
+                      {subtitle}
+                    </p>
+                    <div className="mt-2.5 flex items-center justify-between border-t border-ink-800 pt-2">
+                      <span className="tnum text-[11px] text-fog-450">
+                        {team.wins}W {team.losses}L
+                      </span>
+                      <span className="tnum text-[11.5px] font-bold text-carom-300">{team.points} pts</span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <section className="mt-10">
           <SectionHeading
             eyebrow="Player stats"
             title="Player Leaders"
-            action={<TextLink href="/teams/players">Full table</TextLink>}
+            action={<TextLink href={teamPlayersHref}>Full table</TextLink>}
           />
           <div className="mt-4 overflow-x-auto rounded-[8px] border border-ink-750 bg-ink-900">
-            <table className="stat-table">
-              <thead>
-                <tr>
-                  <th className="!text-left">Player</th>
-                  <th className="!text-left hidden sm:table-cell">Team</th>
-                  <th>Avg</th>
-                  <th>Win%</th>
-                  <th className="hidden sm:table-cell">HR</th>
-                  <th className="hidden md:table-cell">Sets</th>
-                  <th className="hidden md:table-cell">Singles</th>
-                  <th className="hidden lg:table-cell">Doubles</th>
-                </tr>
-              </thead>
-              <tbody>
-                {players.slice(0, 12).map((player) => (
-                  <tr key={player.code}>
-                    <td className="!text-left">
-                      <Link href={`/players/${player.code}`} className="flex items-center gap-2 hover:text-carom-300">
-                        <PlayerAvatar path={player.photoPath} src={player.photo} name={player.name} size="xs" />
-                        <span className="truncate text-[12.5px] font-semibold text-fog-100">{player.name}</span>
-                      </Link>
-                    </td>
-                    <td className="!text-left hidden text-fog-400 sm:table-cell">{player.team}</td>
-                    <td className="font-bold text-carom-300">{player.average.toFixed(3)}</td>
-                    <td className="text-fog-300">{percent(player.winRate)}</td>
-                    <td className="hidden text-fog-300 sm:table-cell">{player.highRun}</td>
-                    <td className="hidden text-fog-400 md:table-cell">
-                      {player.setWins}–{player.setLosses}
-                    </td>
-                    <td className="hidden text-fog-400 md:table-cell">
-                      {player.singlesWins}–{player.singlesLosses}
-                    </td>
-                    <td className="hidden text-fog-400 lg:table-cell">
-                      {player.doublesWins}–{player.doublesLosses}
-                    </td>
+            {playersByAverage.length === 0 ? (
+              <EmptyState className="border-0" title="No player stats published" />
+            ) : (
+              <table className="stat-table">
+                <thead>
+                  <tr>
+                    <th scope="col" className="!text-left">Player</th>
+                    <th scope="col" className="!text-left hidden sm:table-cell">Team</th>
+                    <th scope="col">Avg</th>
+                    <th scope="col">Win%</th>
+                    <th scope="col" className="hidden sm:table-cell">HR</th>
+                    <th scope="col" className="hidden md:table-cell">Sets</th>
+                    <th scope="col" className="hidden md:table-cell">Singles</th>
+                    <th scope="col" className="hidden lg:table-cell">Doubles</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {playersByAverage.slice(0, 12).map((player) => (
+                    <tr key={player.code}>
+                      <td className="!text-left">
+                        <Link href={`/players/${player.code}`} className="flex items-center gap-2 hover:text-carom-300">
+                          <PlayerAvatar path={player.photoPath} src={player.photo} name={player.name} size="xs" />
+                          <span className="truncate text-[12.5px] font-semibold text-fog-100">{player.name}</span>
+                        </Link>
+                      </td>
+                      <td className="!text-left hidden text-fog-400 sm:table-cell">{player.team}</td>
+                      <td className="font-bold text-carom-300">{player.average.toFixed(3)}</td>
+                      <td className="text-fog-300">{percent(player.winRate)}</td>
+                      <td className="hidden text-fog-300 sm:table-cell">{player.highRun}</td>
+                      <td className="hidden text-fog-400 md:table-cell">
+                        {player.setWins}–{player.setLosses}
+                      </td>
+                      <td className="hidden text-fog-400 md:table-cell">
+                        {player.singlesWins}–{player.singlesLosses}
+                      </td>
+                      <td className="hidden text-fog-400 lg:table-cell">
+                        {player.doublesWins}–{player.doublesLosses}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </section>
       </div>

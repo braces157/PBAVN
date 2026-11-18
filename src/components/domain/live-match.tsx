@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/components/ui/primitives";
+import { SafeImage } from "@/components/ui/safe-image";
 import type { LiveMatch } from "@/lib/pba/live";
 
 export function LiveMatchPanel({ match }: { match: LiveMatch }) {
@@ -11,7 +12,7 @@ export function LiveMatchPanel({ match }: { match: LiveMatch }) {
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-800 bg-live-500/[0.08] px-4 py-2.5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.1em] text-live-400">
-            <span className="live-dot inline-block h-2 w-2 rounded-full bg-live-500" />
+            <span aria-hidden="true" className="live-dot inline-block h-2 w-2 rounded-full bg-live-500" />
             Live
           </span>
           {match.competition && (
@@ -148,15 +149,22 @@ function FieldSide({
         align === "right" && "sm:flex-row-reverse sm:text-right",
       )}
     >
-      <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-md border border-ink-750 bg-ink-850">
-        {side?.logo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={side.logo} alt="" className="h-full w-full object-contain p-1" />
-        ) : (
-          <span className="text-[11px] font-bold text-fog-450">
-            {(side?.name ?? "?").replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2).toUpperCase()}
-          </span>
+      <span
+        className={cn(
+          "grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-md border border-ink-750",
+          side?.logo ? "bg-[#ffffff] p-1" : "bg-ink-850",
         )}
+      >
+        <SafeImage
+          src={side?.logo}
+          alt=""
+          className="h-full w-full object-contain"
+          fallback={
+            <span className="text-[11px] font-bold text-fog-450">
+              {(side?.name ?? "?").replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2).toUpperCase()}
+            </span>
+          }
+        />
       </span>
       <div className="min-w-0">
         <p
@@ -200,7 +208,11 @@ function BoutSideLine({
           won ? "font-semibold text-fog-100" : "text-fog-400",
         )}
       >
-        {side.points !== null ? `${side.points}P / ${side.innings}` : "–"}
+        {side.points !== null
+          ? side.innings !== null
+            ? `${side.points}P / ${side.innings}`
+            : `${side.points}P`
+          : "–"}
       </span>
       {side.average !== null && (
         <span className="tnum hidden w-[88px] shrink-0 text-right text-[10.5px] text-fog-550 sm:inline">

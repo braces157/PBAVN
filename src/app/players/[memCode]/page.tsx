@@ -39,9 +39,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const raw = await getPlayerCached(memCode);
   if (!raw) return { title: "Player not found" };
   const player = normalizePlayer(raw);
+  const title = `${player.name} — Stats & Profile`;
+  const description = `${player.name} — 3-cushion season averages, high runs, win rates, bank-shot accuracy, tour results and prize money.`;
   return {
-    title: `${player.name} — Stats & Profile`,
-    description: `${player.name} — 3-cushion season averages, high runs, win rates, bank-shot accuracy, tour results and prize money.`,
+    title,
+    description,
+    alternates: { canonical: `/players/${encodeURIComponent(player.code)}` },
+    openGraph: { title, description, type: "profile" },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
@@ -186,11 +191,15 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                 <Stat label="Career Average" value={average(player.average)} accent />
                 <Stat label="High Run" value={grouped(player.highRun)} />
                 <Stat label="Win Rate" value={percent(rate, 1)} hint={`${player.wins}W · ${player.losses}L`} />
-                <Stat label="Career Prize" value={wonCompact(player.prize)} hint={`Rank #${player.prizeRank || "—"}`} />
+                <Stat
+                  label="Career Prize"
+                  value={wonCompact(player.prize)}
+                  hint={player.prizeRank > 0 ? `Rank #${player.prizeRank}` : undefined}
+                />
                 <Stat
                   label="Ranking Points"
                   value={grouped(player.points)}
-                  hint={`Rank #${player.pointsRank || "—"}`}
+                  hint={player.pointsRank > 0 ? `Rank #${player.pointsRank}` : undefined}
                 />
               </dl>
             </div>
@@ -338,18 +347,22 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                     <p className="tnum mt-1 font-display text-lg font-bold text-fog-100">
                       {grouped(seasonRank.랭킹포인트)}
                     </p>
-                    <p className="tnum mt-0.5 text-[11px] text-fog-450">
-                      {ordinal(seasonRank.랭킹포인트순위)} place
-                    </p>
+                    {Number(seasonRank.랭킹포인트순위) > 0 && (
+                      <p className="tnum mt-0.5 text-[11px] text-fog-450">
+                        {ordinal(seasonRank.랭킹포인트순위)} place
+                      </p>
+                    )}
                   </div>
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-fog-500">Prize</p>
                     <p className="tnum mt-1 font-display text-lg font-bold text-carom-300">
                       {wonCompact(seasonRank.상금)}
                     </p>
-                    <p className="tnum mt-0.5 text-[11px] text-fog-450">
-                      {ordinal(seasonRank.상금순위)} place
-                    </p>
+                    {Number(seasonRank.상금순위) > 0 && (
+                      <p className="tnum mt-0.5 text-[11px] text-fog-450">
+                        {ordinal(seasonRank.상금순위)} place
+                      </p>
+                    )}
                   </div>
                 </div>
                 <dl className="mt-3.5 grid grid-cols-2 gap-3 border-t border-ink-800 pt-2.5 text-[12px]">
@@ -433,7 +446,7 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                 </div>
                 <div className="flex items-baseline justify-between">
                   <dt className="text-fog-450">Circuit</dt>
-                  <dd className="font-semibold text-fog-200">{player.league}</dd>
+                  <dd className="font-semibold text-fog-200">{league.name}</dd>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <dt className="text-fog-450">Nation</dt>

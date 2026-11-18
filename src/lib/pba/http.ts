@@ -52,6 +52,27 @@ export const ASSET_ORIGIN = "https://pbatour.org/resources/upload";
 const LANG = "en";
 
 const DEFAULT_TIMEOUT_MS = 12_000;
+const MAX_TEXT_BYTES = 10 * 1024 * 1024; // 10 MB cap on JSON/HTML upstream responses
+const MAX_BINARY_BYTES = 15 * 1024 * 1024; // 15 MB cap on binary image fetches
+
+const ALLOWED_UPSTREAM_HOSTS = new Set([
+  "pbatour.org",
+  "www.pbatour.org",
+  "app.pbatour.org",
+  "team.pbatour.org",
+]);
+
+function assertAllowedUpstream(url: string): URL {
+  const parsed = new URL(url);
+  const host = parsed.hostname.toLowerCase();
+  if (!ALLOWED_UPSTREAM_HOSTS.has(host)) {
+    throw new Error(`PBA_UPSTREAM_DISALLOWED_HOST_${host}`);
+  }
+  if (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && host === "team.pbatour.org")) {
+    throw new Error(`PBA_UPSTREAM_DISALLOWED_PROTOCOL_${parsed.protocol}`);
+  }
+  return parsed;
+}
 
 const BASE_HEADERS: Record<string, string> = {
   "User-Agent":
@@ -114,13 +135,22 @@ const gunzipAsync = promisify(gunzip);
 const inflateAsync = promisify(inflate);
 const brotliAsync = promisify(brotliDecompress);
 
-async function decodeBody(body: Buffer, encoding: string | undefined): Promise<Buffer> {
+async function decodeBody(
+  body: Buffer,
+  encoding: string | undefined,
+  maxBytes: number,
+): Promise<Buffer> {
   if (body.length === 0 || !encoding) return body;
   const enc = encoding.toLowerCase();
-  if (enc.includes("gzip")) return gunzipAsync(body);
-  if (enc.includes("br")) return brotliAsync(body);
-  if (enc.includes("deflate")) return inflateAsync(body);
-  return body;
+  let decoded: Buffer;
+  if (enc.includes("gzip")) decoded = await gunzipAsync(body, { maxOutputLength: maxBytes });
+  else if (enc.includes("br")) decoded = await brotliAsync(body, { maxOutputLength: maxBytes });
+  else if (enc.includes("deflate")) decoded = await inflateAsync(body, { maxOutputLength: maxBytes });
+  else decoded = body;
+  if (decoded.length > maxBytes) {
+    throw new Error("PBA_UPSTREAM_TOO_LARGE");
+  }
+  return decoded;
 }
 
 /** PEM blocks from a `NODE_EXTRA_CA_CERTS` file, or none when it is absent. */
@@ -146,10 +176,23 @@ interface RawResponse {
 function sendRequest(
   transport: "https" | "http",
   url: string,
-  options: { method: string; headers: Record<string, string>; body?: string; timeoutMs: number },
+  options: {
+    method: string;
+    headers: Record<string, string>;
+    body?: string;
+    timeoutMs: number;
+    maxBytes?: number;
+  },
 ): Promise<RawResponse> {
   return new Promise((resolve, reject) => {
-    const target = new URL(url);
+    let target: URL;
+    try {
+      target = assertAllowedUpstream(url);
+    } catch (err) {
+      reject(err);
+      return;
+    }
+    const maxBytes = options.maxBytes ?? MAX_TEXT_BYTES;
     let settled = false;
     let timer: NodeJS.Timeout | undefined;
 
@@ -168,7 +211,17 @@ function sendRequest(
 
     const onResponse = (response: import("node:http").IncomingMessage) => {
       const chunks: Buffer[] = [];
-      response.on("data", (chunk: Buffer) => chunks.push(chunk));
+      let received = 0;
+      response.on("data", (chunk: Buffer) => {
+        received += chunk.length;
+        if (received > maxBytes) {
+          const err = new Error("PBA_UPSTREAM_TOO_LARGE");
+          response.destroy(err);
+          finish(() => reject(err));
+          return;
+        }
+        chunks.push(chunk);
+      });
       response.on("error", (err) => finish(() => reject(err)));
       response.on("close", () => {
         if (!response.complete) {
@@ -184,7 +237,7 @@ function sendRequest(
         const encoding = Array.isArray(response.headers["content-encoding"])
           ? response.headers["content-encoding"][0]
           : response.headers["content-encoding"];
-        decodeBody(raw, encoding).then(
+        decodeBody(raw, encoding, maxBytes).then(
           (body) =>
             finish(() =>
               resolve({
@@ -241,7 +294,13 @@ function sendRequest(
 
 function requestUpstream(
   url: string,
-  options: { method: string; headers: Record<string, string>; body?: string; timeoutMs: number },
+  options: {
+    method: string;
+    headers: Record<string, string>;
+    body?: string;
+    timeoutMs: number;
+    maxBytes?: number;
+  },
 ): Promise<RawResponse> {
   return sendRequest("https", url, options);
 }
@@ -249,7 +308,13 @@ function requestUpstream(
 /** Same shape as `requestUpstream`, for the team host that never had TLS. */
 function requestPlain(
   url: string,
-  options: { method: string; headers: Record<string, string>; body?: string; timeoutMs: number },
+  options: {
+    method: string;
+    headers: Record<string, string>;
+    body?: string;
+    timeoutMs: number;
+    maxBytes?: number;
+  },
 ): Promise<RawResponse> {
   return sendRequest("http", url, options);
 }
@@ -273,6 +338,9 @@ function readTextCache(key: string): string | undefined {
 function storeTextCache(key: string, value: string, ttlSeconds: number): void {
   if (ttlSeconds <= 0) return;
   const now = Date.now();
+  for (const [k, v] of textCache) {
+    if (v.expires <= now) textCache.delete(k);
+  }
   while (textCache.size >= TEXT_CACHE_LIMIT) {
     const oldest = textCache.keys().next().value;
     if (oldest === undefined) break;
@@ -281,21 +349,13 @@ function storeTextCache(key: string, value: string, ttlSeconds: number): void {
   textCache.set(key, { value, expires: now + ttlSeconds * 1000 });
 }
 
-/**
- * One cached upstream read, shared by every text transport. Plain-HTTP targets
- * (the team terminal) ride `node:http`; everything else rides `node:https`
- * with `TRUSTED_CA`. Next keys the store on the callback's arguments, so the
- * method and body ride as arguments — the same team-terminal endpoint means
- * something different for every form posting. The revalidate window is part of
- * the key too: the same URL is read at two very different freshnesses (a match
- * card is archived at 86 400 s the moment it ends, 30 s while it is in play),
- * and a shared entry would let whichever caller read first pin its TTL on the
- * other — a live score frozen for a day, an archive refreshed every 30 s.
- * The cached body throws on any failure, so an outage or a placeholder status
- * is never stored, and the catch turns that into the null contract callers
- * already handle. `recordFailure` stays outside the cached closure because it
- * needs the render context.
- */
+function headerFingerprint(headers: Record<string, string>): string {
+  return Object.keys(headers)
+    .sort()
+    .map((k) => `${k.toLowerCase()}:${headers[k]}`)
+    .join("|");
+}
+
 async function cachedText(
   url: string,
   options: {
@@ -304,15 +364,24 @@ async function cachedText(
     body?: string;
     timeoutMs: number;
     allowEmpty: boolean;
+    expectJson?: boolean;
     revalidate: number;
   },
 ): Promise<string | null> {
-  const flightKey = `${options.revalidate}\0${options.method}\0${url}\0${options.body ?? ""}`;
+  const hdrSig = headerFingerprint(options.headers);
+  const modeSig = `${options.allowEmpty ? "e1" : "e0"}-${options.expectJson ? "j1" : "j0"}`;
+  const flightKey = `${options.revalidate}\0${modeSig}\0${options.method}\0${url}\0${options.body ?? ""}\0${hdrSig}`;
   const hot = options.revalidate > 0 ? readTextCache(flightKey) : undefined;
   if (hot !== undefined) return hot;
 
   const request = unstable_cache(
-    async (target: string, cacheMethod: "GET" | "POST", cacheBody: string | undefined) => {
+    async (
+      target: string,
+      cacheMethod: "GET" | "POST",
+      cacheBody: string | undefined,
+      _mode: string,
+      _hdr: string,
+    ) => {
       const result = target.startsWith("http://")
         ? await requestPlain(target, { ...options, method: cacheMethod, body: cacheBody })
         : await requestUpstream(target, { ...options, method: cacheMethod, body: cacheBody });
@@ -324,17 +393,21 @@ async function cachedText(
         throw new Error(`PBA_UPSTREAM_STATUS_${result.status}`);
       }
       const text = result.body.toString("utf8");
+      if (options.expectJson) {
+        // Reject HTML error pages or malformed JSON before caching.
+        JSON.parse(text);
+      }
       // Populate the in-memory cache only when an actual upstream fetch ran so stale Next cache hits keep their true TTL.
       storeTextCache(flightKey, text, options.revalidate);
       return text;
     },
-    ["pba-upstream", `ttl-${options.revalidate}`],
+    ["pba-upstream", `ttl-${options.revalidate}`, modeSig],
     { revalidate: options.revalidate },
   );
 
   let pending = inFlight.get(flightKey);
   if (!pending) {
-    pending = request(url, options.method, options.body).finally(() => {
+    pending = request(url, options.method, options.body, modeSig, hdrSig).finally(() => {
       inFlight.delete(flightKey);
     });
     inFlight.set(flightKey, pending);
@@ -366,7 +439,7 @@ export function qs(params: Record<string, string | number | undefined | null>): 
 
 async function getText(
   url: string,
-  options: FetchOptions & { accept?: string; referer?: string },
+  options: FetchOptions & { accept?: string; referer?: string; expectJson?: boolean },
 ): Promise<string | null> {
   const {
     revalidate = 300,
@@ -377,6 +450,7 @@ async function getText(
     accept,
     referer,
     allowEmpty = false,
+    expectJson = false,
   } = options;
 
   if (FORCED_OFFLINE) {
@@ -398,6 +472,7 @@ async function getText(
     body,
     timeoutMs,
     allowEmpty,
+    expectJson,
     revalidate,
   });
 }
@@ -415,7 +490,23 @@ interface BinaryEntry {
 }
 
 const binaryCache = new Map<string, BinaryEntry>();
+const binaryInFlight = new Map<string, Promise<BinaryAsset | null>>();
 const BINARY_CACHE_LIMIT = 600;
+
+/** Sniff magic bytes to confirm the payload is a real raster image (never HTML/SVG). */
+function detectRasterMime(buf: Buffer): string | null {
+  if (buf.length < 12) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return "image/png";
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) return "image/gif";
+  if (
+    buf.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buf.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
 
 /**
  * Expired entries leave first, then the least recently used ones pay for the
@@ -457,24 +548,38 @@ export async function fetchBinary(
     return cached.asset;
   }
 
-  try {
-    const result = await requestUpstream(url, {
-      method: "GET",
-      headers: {
-        "User-Agent": BASE_HEADERS["User-Agent"],
-        Accept: "image/avif,image/webp,image/jpeg,image/png,*/*",
-        Referer: `${SITE_ORIGIN}/`,
-      },
-      timeoutMs: options.timeoutMs ?? 15_000,
-    });
-    if (result.status < 200 || result.status >= 300 || result.body.length === 0) return null;
+  let pending = binaryInFlight.get(url);
+  if (!pending) {
+    pending = (async () => {
+      try {
+        const result = await requestUpstream(url, {
+          method: "GET",
+          headers: {
+            "User-Agent": BASE_HEADERS["User-Agent"],
+            Accept: "image/avif,image/webp,image/jpeg,image/png,*/*",
+            Referer: `${SITE_ORIGIN}/`,
+          },
+          timeoutMs: options.timeoutMs ?? 15_000,
+          maxBytes: MAX_BINARY_BYTES,
+        });
+        if (result.status < 200 || result.status >= 300 || result.body.length === 0) return null;
 
-    const asset: BinaryAsset = { body: result.body, contentType: result.contentType };
-    storeBinary(url, asset, options.ttlSeconds ?? 21_600);
-    return asset;
-  } catch {
-    return null;
+        const detectedMime = detectRasterMime(result.body);
+        if (!detectedMime) return null;
+
+        const asset: BinaryAsset = { body: result.body, contentType: detectedMime };
+        storeBinary(url, asset, options.ttlSeconds ?? 21_600);
+        return asset;
+      } catch {
+        return null;
+      }
+    })().finally(() => {
+      binaryInFlight.delete(url);
+    });
+    binaryInFlight.set(url, pending);
   }
+
+  return pending;
 }
 
 /* -------------------------------------------------------------------- calls */
@@ -485,11 +590,12 @@ export async function fetchJson<T = PbaEnvelope<unknown>>(
   options: FetchOptions = {},
 ): Promise<T | null> {
   const url = path.startsWith("http") ? path : `${SITE_ORIGIN}/${LANG}${path}`;
-  const text = await getText(url, options);
+  const text = await getText(url, { ...options, expectJson: true });
   if (!text) return null;
   try {
     return JSON.parse(text) as T;
   } catch {
+    recordFailure(url);
     return null;
   }
 }

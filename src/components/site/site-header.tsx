@@ -18,6 +18,10 @@ const NAV = [
   { href: "/news", label: "News" },
 ];
 
+const LIVE_THROTTLE_MS = 15_000;
+let lastLiveCheck = 0;
+let cachedLiveCount = 0;
+
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
   if (href === "/teams") return pathname === "/teams" || (pathname.startsWith("/teams/") && !pathname.startsWith("/teams/matches"));
@@ -28,20 +32,30 @@ function isActive(pathname: string, href: string): boolean {
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const [liveCount, setLiveCount] = useState<number>(0);
+  const [liveCount, setLiveCount] = useState<number>(cachedLiveCount);
 
   useEffect(() => {
-    let cancelled = false;
-    fetch("/api/live", { cache: "no-store" })
+    const now = Date.now();
+    if (now - lastLiveCheck < LIVE_THROTTLE_MS) {
+      setLiveCount(cachedLiveCount);
+      return;
+    }
+
+    const controller = new AbortController();
+    lastLiveCheck = now;
+
+    fetch("/api/live", { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!cancelled && data && Array.isArray(data.matches)) {
-          setLiveCount(data.matches.length);
+        if (data && Array.isArray(data.matches)) {
+          cachedLiveCount = data.matches.length;
+          setLiveCount(cachedLiveCount);
         }
       })
       .catch(() => undefined);
+
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [pathname]);
 
@@ -50,24 +64,36 @@ export function SiteHeader() {
       <div className="wrap">
         <LogoLink />
 
-        <ul aria-label="Primary navigation">
-          {NAV.map((item) => {
-            const active = isActive(pathname, item.href);
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={active ? "on" : undefined}
-                  aria-current={active ? "page" : undefined}
-                >
-                  {item.live && <i className="dot" aria-hidden="true" />}
-                  {item.label}
-                  {item.live && liveCount > 0 && <span className="cnt">{liveCount}</span>}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <nav className="desknav" aria-label="Primary navigation">
+          <ul>
+            {NAV.map((item) => {
+              const active = isActive(pathname, item.href);
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={active ? "on" : undefined}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    {item.live && (
+                      <i
+                        className={liveCount > 0 ? "dot" : "dot dot-idle"}
+                        aria-hidden="true"
+                      />
+                    )}
+                    {item.label}
+                    {item.live && liveCount > 0 && (
+                      <span className="cnt">
+                        {liveCount}
+                        <span className="sr-only"> live matches</span>
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
 
         <div className="right">
           <PlayerSearch />

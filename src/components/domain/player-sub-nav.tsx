@@ -43,7 +43,7 @@ export function PlayerSubNav({
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
         if (visible[0]) setActive(visible[0].target.id);
       },
-      { rootMargin: "-120px 0px -60% 0px", threshold: 0 },
+      { rootMargin: "-60px 0px -35% 0px", threshold: 0 },
     );
 
     for (const element of elements) observer.observe(element);
@@ -60,7 +60,7 @@ export function PlayerSubNav({
           <a
             key={section.id}
             href={`#${section.id}`}
-            aria-current={active === section.id ? "true" : undefined}
+            aria-current={active === section.id ? "location" : undefined}
             className={cn(
               "relative -mb-px shrink-0 border-b-2 py-2 font-display text-[12px] font-semibold uppercase tracking-[0.04em] transition-colors hover:no-underline",
               active === section.id
