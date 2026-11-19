@@ -5,6 +5,12 @@ import type { AnalysedSet, ComparisonRow, MatchSummary } from "@/lib/match";
 
 const TONES = ["text-fog-100", "text-fog-100", "text-fog-100", "text-fog-100"];
 
+function parseSingleNumber(value: string): number {
+  const trimmed = value.trim().replace(/%$/, "");
+  if (!/^-?\d+(?:\.\d+)?$/.test(trimmed)) return Number.NaN;
+  return Number(trimmed);
+}
+
 export function MatchHeader({
   analysed,
   summary,
@@ -37,17 +43,19 @@ export function MatchHeader({
     <section className="surface overflow-hidden" aria-label="Match scorecard">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-750 bg-ink-850 px-4 py-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          {eventTitle ? (
-            eventHref ? (
-              <Link href={eventHref} className="text-[12px] font-bold text-fog-100 transition-colors hover:text-carom-300">
-                {eventTitle}
-              </Link>
+          <h1 className="text-[12px] font-bold text-fog-100">
+            {eventTitle ? (
+              eventHref ? (
+                <Link href={eventHref} className="transition-colors hover:text-carom-300">
+                  {eventTitle}
+                </Link>
+              ) : (
+                eventTitle
+              )
             ) : (
-              <span className="text-[12px] font-bold text-fog-100">{eventTitle}</span>
-            )
-          ) : (
-            <span className="text-[12px] font-bold text-fog-100">Match Scorecard</span>
-          )}
+              names.filter(Boolean).join(" vs ") || "Match Scorecard"
+            )}
+          </h1>
           {round && <Chip tone="neutral">{round}</Chip>}
         </div>
         <div className="flex items-center gap-2">
@@ -56,7 +64,7 @@ export function MatchHeader({
         </div>
       </div>
 
-      {/* Centered FotMob/HLTV Scoreboard */}
+      {/* Centered Scoreboard */}
       {sides === 2 ? (
         <dl className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 bg-ink-900 px-4 py-4 sm:gap-5 sm:px-6">
           <div className="min-w-0">
@@ -69,30 +77,33 @@ export function MatchHeader({
               {names[0] || "Player 1"}
             </dt>
             {summary.average[0] !== null && summary.average[0] !== undefined && (
-              <p className="tnum mt-1 text-[11px] text-fog-450">
+              <dd className="tnum mt-1 text-[11px] text-fog-450">
                 AVG {summary.average[0].toFixed(3)} · {summary.totalPoints[0] ?? 0} pts
-              </p>
+              </dd>
             )}
           </div>
-          <dd className="flex items-center gap-2 rounded-[6px] border border-ink-750 bg-ink-850 px-3.5 py-2 sm:gap-3 sm:px-4">
-            <span
-              className={cn(
-                "tnum font-display text-[28px] font-extrabold leading-none sm:text-[36px]",
-                isFinal && setsWon[0] === maxWon ? "text-carom-300" : "text-fog-300",
-              )}
-            >
-              {setsWon[0]}
-            </span>
-            <span className="text-[18px] font-bold text-fog-550">–</span>
-            <span
-              className={cn(
-                "tnum font-display text-[28px] font-extrabold leading-none sm:text-[36px]",
-                isFinal && setsWon[1] === maxWon ? "text-carom-300" : "text-fog-300",
-              )}
-            >
-              {setsWon[1]}
-            </span>
-          </dd>
+          <div>
+            <dt className="sr-only">Sets score</dt>
+            <dd className="flex items-center gap-2 rounded-[6px] border border-ink-750 bg-ink-850 px-3.5 py-2 sm:gap-3 sm:px-4">
+              <span
+                className={cn(
+                  "tnum font-display text-[28px] font-extrabold leading-none sm:text-[36px]",
+                  isFinal && setsWon[0] === maxWon ? "text-carom-300" : "text-fog-300",
+                )}
+              >
+                {setsWon[0]}
+              </span>
+              <span className="text-[18px] font-bold text-fog-550" aria-hidden="true">–</span>
+              <span
+                className={cn(
+                  "tnum font-display text-[28px] font-extrabold leading-none sm:text-[36px]",
+                  isFinal && setsWon[1] === maxWon ? "text-carom-300" : "text-fog-300",
+                )}
+              >
+                {setsWon[1]}
+              </span>
+            </dd>
+          </div>
           <div className="min-w-0 text-right">
             <dt
               className={cn(
@@ -103,9 +114,9 @@ export function MatchHeader({
               {names[1] || "Player 2"}
             </dt>
             {summary.average[1] !== null && summary.average[1] !== undefined && (
-              <p className="tnum mt-1 text-[11px] text-fog-450">
+              <dd className="tnum mt-1 text-[11px] text-fog-450">
                 AVG {summary.average[1].toFixed(3)} · {summary.totalPoints[1] ?? 0} pts
-              </p>
+              </dd>
             )}
           </div>
         </dl>
@@ -142,9 +153,9 @@ export function MatchHeader({
                   <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-fog-550">sets</span>
                 </dd>
                 {avg !== null && avg !== undefined && (
-                  <span className="tnum mt-1.5 text-[11px] text-fog-500">
+                  <dd className="tnum mt-1.5 text-[11px] text-fog-500">
                     AVG {avg.toFixed(3)} · {summary.totalPoints[index] ?? 0} pts
-                  </span>
+                  </dd>
                 )}
               </div>
             );
@@ -165,12 +176,11 @@ export function MatchHeader({
                 >
                   <span className="mr-1 text-[10px] font-bold text-fog-550">S{set.setNo}</span>
                   {set.sides.map((side, index) => (
-                    <span
-                      key={side.index}
-                      className={cn(index > 0 && "ml-1 text-ink-500", side.won ? "font-bold text-fog-100" : "")}
-                    >
-                      {index > 0 && "–"}
-                      {side.points}
+                    <span key={side.index} className={index > 0 ? "ml-1" : undefined}>
+                      {index > 0 && <span className="mr-1 text-fog-550">–</span>}
+                      <span className={side.won ? "font-bold text-fog-100" : "text-fog-400"}>
+                        {side.points}
+                      </span>
                     </span>
                   ))}
                 </li>
@@ -188,8 +198,9 @@ export function MatchHeader({
             rel="noreferrer noopener"
             className="inline-flex items-center gap-1.5 rounded-md border border-live-500/45 bg-live-500/12 px-2.5 py-1 text-[11.5px] font-bold text-live-400 transition-colors hover:bg-live-500/20"
           >
-            <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
-            Watch broadcast ↗
+            <span aria-hidden="true" className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
+            Watch broadcast <span aria-hidden="true">↗</span>
+            <span className="sr-only"> (opens in new tab)</span>
           </a>
         ) : null}
         <a
@@ -198,7 +209,8 @@ export function MatchHeader({
           rel="noreferrer noopener"
           className="inline-flex items-center gap-1.5 rounded-md border border-ink-700 bg-ink-900 px-2.5 py-1 text-[11.5px] font-semibold text-fog-200 transition-colors hover:border-carom-400/50 hover:text-carom-300"
         >
-          Official sheet ↗
+          Official sheet <span aria-hidden="true">↗</span>
+          <span className="sr-only"> (opens in new tab)</span>
         </a>
       </div>
     </section>
@@ -225,36 +237,36 @@ export function MatchTotals({
         <span className="truncate">{names[0] || "Player 1"}</span>
         <span className="truncate text-right">{names[1] || "Player 2"}</span>
       </div>
-      <dl className="divide-y divide-ink-800/70">
+      <ul className="divide-y divide-ink-800/70">
         {rows.map((row) => {
-          const leftNum = parseFloat(String(row.left).replace(/[^0-9.]/g, ""));
-          const rightNum = parseFloat(String(row.right).replace(/[^0-9.]/g, ""));
+          const leftNum = parseSingleNumber(String(row.left));
+          const rightNum = parseSingleNumber(String(row.right));
           const bothNumeric = Number.isFinite(leftNum) && Number.isFinite(rightNum) && leftNum + rightNum > 0;
           const leftPct = bothNumeric ? (leftNum / (leftNum + rightNum)) * 100 : 50;
 
           return (
-            <div key={row.label} className="px-4 py-2.5">
+            <li key={row.label} className="px-4 py-2.5">
               <div className="flex items-center justify-between gap-2 text-[12px]">
-                <dd
+                <span
                   className={cn(
                     "tnum w-16 text-left",
                     row.better === "left" ? "font-bold text-carom-300" : "text-fog-300",
                   )}
                 >
                   {row.left}
-                </dd>
-                <dt className="text-center text-[11.5px] font-semibold text-fog-450">{row.label}</dt>
-                <dd
+                </span>
+                <span className="text-center text-[11.5px] font-semibold text-fog-450">{row.label}</span>
+                <span
                   className={cn(
                     "tnum w-16 text-right",
                     row.better === "right" ? "font-bold text-carom-300" : "text-fog-300",
                   )}
                 >
                   {row.right}
-                </dd>
+                </span>
               </div>
               {bothNumeric && (
-                <div className="mt-1.5 flex h-1 overflow-hidden rounded-full bg-ink-800">
+                <div className="mt-1.5 flex h-1 overflow-hidden rounded-full bg-ink-800" aria-hidden="true">
                   <span
                     className={row.better === "left" ? "bg-carom-400" : "bg-ink-600"}
                     style={{ width: `${leftPct}%` }}
@@ -265,10 +277,10 @@ export function MatchTotals({
                   />
                 </div>
               )}
-            </div>
+            </li>
           );
         })}
-      </dl>
+      </ul>
     </div>
   );
 }

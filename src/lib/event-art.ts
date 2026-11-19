@@ -1,35 +1,36 @@
 /**
- * Sponsor and tournament artwork.
+ * Sponsor, tournament, team, and press/gallery artwork hosted on pbatour.org.
  *
- * The association publishes these as full-resolution PNGs on a plate — the
- * Welcome Savings Bank mark alone is 80 KB. An event header that draws it at
- * 56 px does not need the original, so it goes through `/api/photo` like a
- * player photo does and comes back as a WebP at the width the layout asks for.
+ * Routing these through `/api/photo` avoids intermittent client TLS-chain
+ * failures on `pbatour.org` and resizes large originals to WebP.
  *
  * Imported by client components, so it must stay dependency-free.
  */
 
-/** Tournament artwork is published under `/resources/upload/tournament/…`. */
-const EVENT_ART = /^https:\/\/(?:www\.)?pbatour\.org\/resources\/upload\/[\w./-]+\.(?:png|jpe?g|webp)$/i;
+const PROXYABLE_UPLOAD =
+  /^https:\/\/(?:www\.)?pbatour\.org\/resources\/upload\/((?:tournament|board|sponsor|team|banner|media)\/[\w./-]+\.(?:png|jpe?g|webp|gif))$/i;
+
+function hasUnsafeSegments(path: string): boolean {
+  if (path.includes("\\") || path.includes("//")) return true;
+  return path.split("/").some((segment) => segment === "." || segment === "..");
+}
 
 export function isEventArt(url: string | null | undefined): url is string {
-  return typeof url === "string" && EVENT_ART.test(url);
+  if (typeof url !== "string") return false;
+  const match = url.match(PROXYABLE_UPLOAD);
+  return Boolean(match && !hasUnsafeSegments(`/${match[1]}`));
 }
 
 function upstreamPath(url: string): string | null {
-  try {
-    const path = new URL(url).pathname;
-    // The proxy serves the whole upload tree, but only the tournament folder is
-    // artwork it is allowed to read — send it the short form.
-    return path.startsWith("/resources/upload/") ? path.slice("/resources/upload".length) : path;
-  } catch {
-    return null;
-  }
+  const match = url.match(PROXYABLE_UPLOAD);
+  if (!match) return null;
+  const rel = `/${match[1]}`;
+  return hasUnsafeSegments(rel) ? null : rel;
 }
 
 /**
- * A resized URL for tournament artwork, or the original when the file lives
- * somewhere the proxy does not serve (an external sponsor CDN, for instance).
+ * A resized proxy URL for pbatour.org upload artwork, or the original URL when
+ * hosted elsewhere.
  */
 export function eventArtUrl(url: string | null | undefined, width: number): string | null {
   if (!url) return null;

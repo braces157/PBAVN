@@ -106,7 +106,7 @@ export default async function RecordsPage({ searchParams }: PageProps) {
             basePath="/records"
             paramKey="season"
             active={seasonCode}
-            params={{ circuit }}
+            params={{ circuit, stat: category.key }}
             options={seasons.map((s) => ({ value: s.SeasonCode, label: s.SeasonTitle || s.SeasonCode }))}
           />
           <FilterRow
@@ -114,7 +114,7 @@ export default async function RecordsPage({ searchParams }: PageProps) {
             basePath="/records"
             paramKey="circuit"
             active={circuit}
-            params={{ season: seasonCode }}
+            params={{ season: seasonCode, stat: category.key }}
             options={CIRCUITS}
           />
         </div>
@@ -142,7 +142,7 @@ export default async function RecordsPage({ searchParams }: PageProps) {
                     {cat.label}
                   </p>
                   <span className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-carom-300">
-                    {circuit.startsWith("LPBA") ? "LPBA" : circuit}
+                    {leagueShort(circuit)}
                   </span>
                 </div>
                 <ul className="divide-y divide-ink-800/70">

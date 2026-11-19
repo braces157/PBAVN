@@ -41,7 +41,7 @@ export function FixtureBoard({
         return (
           <section key={group.key}>
             {group.label && (
-              <header className="sticky top-14 z-20 flex items-center justify-between gap-3 border-y border-ink-800 bg-ink-950/95 px-3.5 py-2 backdrop-blur-md">
+              <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-y border-ink-800 bg-ink-950/95 px-3.5 py-2 backdrop-blur-md">
                 <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-fog-400">
                   {group.label}
                 </p>

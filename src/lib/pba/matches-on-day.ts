@@ -195,24 +195,36 @@ function writeParsedCache(key: string, value: unknown, ttlSeconds: number): void
   parsedCache.set(key, { value, expires: Date.now() + ttlSeconds * 1000 });
 }
 
-/** The Latin names for a bracket, keyed by match code. */
-async function englishNames(tourCode: string, depth: number, revalidate: number) {
-  const memKey = `en:${tourCode}:${depth}:${revalidate}`;
+/** The Latin names for a bracket across `1..pages`, keyed by match code. */
+async function englishNames(tourCode: string, depth: number, revalidate: number, pages: number) {
+  const pageCount = Math.max(1, Math.min(8, pages));
+  const memKey = `en:${tourCode}:${depth}:${revalidate}:p${pageCount}`;
   const hot = readParsedCache<[string, string[]][]>(memKey);
   if (hot) return { names: new Map<string, string[]>(hot), reachable: true };
 
   const read = unstable_cache(
-    async (code: string, bracketDepth: number, ttl: number) => {
-      const html = await fetchHtmlFragment(
-        `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(code)}&iBLCode=${bracketDepth}&iPage=1&txt_Search=&LangCode=en`,
-        { revalidate: ttl, timeoutMs: 12_000 },
+    async (code: string, bracketDepth: number, ttl: number, maxPage: number) => {
+      const htmls = await Promise.all(
+        Array.from({ length: maxPage }, (_, index) =>
+          fetchHtmlFragment(
+            `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(code)}&iBLCode=${bracketDepth}&iPage=${index + 1}&txt_Search=&LangCode=en`,
+            { revalidate: ttl, timeoutMs: 12_000 },
+          ),
+        ),
       );
-      if (html === null) throw new Error("UNREACHABLE");
-      const rows: BracketMatch[] = parseBracketRows(html, bracketDepth);
-      const pairs = rows.map((row): [string, string[]] => [
-        row.pstCode,
-        row.sides.map((side) => side.name),
-      ]);
+      const pairs: [string, string[]][] = [];
+      for (let index = 0; index < htmls.length; index++) {
+        const html = htmls[index];
+        if (html === null) {
+          if (index === 0) throw new Error("UNREACHABLE");
+          break;
+        }
+        const rows: BracketMatch[] = parseBracketRows(html, bracketDepth);
+        if (rows.length === 0) break;
+        for (const row of rows) {
+          pairs.push([row.pstCode, row.sides.map((side) => side.name)]);
+        }
+      }
       writeParsedCache(memKey, pairs, ttl);
       return pairs;
     },
@@ -221,7 +233,7 @@ async function englishNames(tourCode: string, depth: number, revalidate: number)
   );
 
   try {
-    const pairs = await read(tourCode, depth, revalidate);
+    const pairs = await read(tourCode, depth, revalidate, pageCount);
     return { names: new Map<string, string[]>(pairs), reachable: true };
   } catch {
     return { names: new Map<string, string[]>(), reachable: false };
@@ -233,18 +245,20 @@ async function englishNames(tourCode: string, depth: number, revalidate: number)
  * round needs several pages before its oldest row predates `day`. */
 async function datedRows(tourCode: string, depth: number, revalidate: number, day: string) {
   const memKey = `dr:${tourCode}:${depth}:${revalidate}:${day}`;
-  const hot = readParsedCache<DatedMatch[]>(memKey);
-  if (hot) return { rows: hot, reachable: true };
+  const hot = readParsedCache<{ rows: DatedMatch[]; pagesRead: number }>(memKey);
+  if (hot) return { ...hot, reachable: true };
 
   const read = unstable_cache(
     async (code: string, bracketDepth: number, ttl: number, targetDay: string) => {
       const rows: DatedMatch[] = [];
+      let pagesRead = 0;
       for (let page = 1; page <= 8; page++) {
         const html = await fetchDatedHtmlFragment(
           `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(code)}&iBLCode=${bracketDepth}&iPage=${page}&txt_Search=`,
           { revalidate: ttl, timeoutMs: 12_000 },
         );
         if (html === null) throw new Error("UNREACHABLE");
+        pagesRead = page;
         const pageRows = parseDatedBracketRows(html, bracketDepth);
         if (pageRows.length === 0) break;
         rows.push(...pageRows);
@@ -256,18 +270,19 @@ async function datedRows(tourCode: string, depth: number, revalidate: number, da
           .sort()[0];
         if (oldest && oldest.slice(0, 10) < targetDay) break;
       }
-      writeParsedCache(memKey, rows, ttl);
-      return rows;
+      const result = { rows, pagesRead: Math.max(1, pagesRead) };
+      writeParsedCache(memKey, result, ttl);
+      return result;
     },
     ["pba-day-dated-rows", `ttl-${revalidate}`],
     { revalidate },
   );
 
   try {
-    const rows = await read(tourCode, depth, revalidate, day);
-    return { rows, reachable: true };
+    const result = await read(tourCode, depth, revalidate, day);
+    return { ...result, reachable: true };
   } catch {
-    return { rows: [] as DatedMatch[], reachable: false };
+    return { rows: [] as DatedMatch[], pagesRead: 1, reachable: false };
   }
 }
 
@@ -338,7 +353,7 @@ async function tourMatches(event: CalendarEvent, day: string, now: string): Prom
       const onDay = dated.rows.filter((row) => row.day === day);
       if (onDay.length === 0) return { matches: [] as DayMatch[], failed: false };
 
-      const english = await englishNames(tourCode, depth, revalidate);
+      const english = await englishNames(tourCode, depth, revalidate, dated.pagesRead);
       return {
         matches: onDay.map((row) =>
           datedToDayMatch(row, english.names.get(row.pstCode), event, now),

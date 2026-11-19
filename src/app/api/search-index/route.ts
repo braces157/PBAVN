@@ -9,7 +9,7 @@ import { getPlayers } from "@/lib/pba/api";
  * This route is the only way the index leaves the server, so the client cannot
  * import the upstream API by accident.
  */
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 interface IndexRow {
   /** member code */
@@ -37,6 +37,18 @@ export async function GET() {
         l: player.LeagueCode || "",
       };
     });
+
+  if (rows.length === 0) {
+    return NextResponse.json(
+      { rows: [] },
+      {
+        status: 503,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
 
   return NextResponse.json(
     { rows },

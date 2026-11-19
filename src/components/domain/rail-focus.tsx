@@ -34,8 +34,13 @@ export function RailFocus({
     const observer = new ResizeObserver(() => {
       const visible = scroller.clientWidth > 0 && scroller.clientHeight > 0;
       if (visible && !wasVisible) {
-        const left = target.getBoundingClientRect().left - scroller.getBoundingClientRect().left + scroller.scrollLeft;
-        if (axis === "x") scroller.scrollLeft = Math.max(0, left - offset);
+        if (axis === "x") {
+          const left = target.getBoundingClientRect().left - scroller.getBoundingClientRect().left + scroller.scrollLeft;
+          scroller.scrollLeft = Math.max(0, left - offset);
+        } else {
+          const top = target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+          scroller.scrollTop = Math.max(0, top - offset);
+        }
       }
       wasVisible = visible;
     });

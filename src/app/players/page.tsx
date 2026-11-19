@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getPlayers } from "@/lib/pba/api";
+import { getRequestFailures, trackFailures } from "@/lib/pba/failures";
 import type { RawPlayer } from "@/lib/pba/types";
 import { getCurrentSeason, seasonLabel } from "@/lib/pba/service";
-import { normalizePlayer, leagueByCode, PLAYER_LEAGUES, winRate, type Player } from "@/lib/normalize";
+import { normalizePlayer, leagueByCode, leagueShort, PLAYER_LEAGUES, winRate, type Player } from "@/lib/normalize";
 import { average, grouped, wonCompact, percent } from "@/lib/format";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
 import { NationPlate, PlayerAvatar } from "@/components/ui/media";
@@ -18,6 +19,7 @@ export const metadata: Metadata = {
 };
 
 const INITIALS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
+const VALID_PLAYER_LEAGUES = new Set([...PLAYER_LEAGUES.map((l) => l.code), "PBA9", "LPBA9"]);
 
 type SortOption = "rank" | "avg" | "hr" | "name";
 const SORT_LABELS: Record<SortOption, string> = {
@@ -78,8 +80,11 @@ function sortPlayers(rows: RawPlayer[], sort: SortOption): RawPlayer[] {
 export default async function PlayersPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const query = (params.q ?? "").trim();
-  const league = params.league ?? (query ? "" : "PBA1");
-  const initial = (params.initial ?? "").toUpperCase();
+  const explicitLeague =
+    params.league && VALID_PLAYER_LEAGUES.has(params.league) ? params.league : undefined;
+  const league = explicitLeague ?? (query ? "" : "PBA1");
+  const rawInitial = (params.initial ?? "").toUpperCase();
+  const initial = INITIALS.includes(rawInitial) ? rawInitial : "";
   const requestedSort = params.sort;
   const sort: SortOption =
     requestedSort && Object.prototype.hasOwnProperty.call(SORT_LABELS, requestedSort)
@@ -88,55 +93,75 @@ export default async function PlayersPage({ searchParams }: PageProps) {
         ? "name"
         : "rank";
   const rawPage = Number(params.page ?? 1);
-  const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
+  const requestedPage = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
   const pageSize = 24;
 
-  const season = await getCurrentSeason();
+  const result = await trackFailures(async () => {
+    const [season, data] = await Promise.all([
+      getCurrentSeason(),
+      query
+        ? getPlayers({ page: 1, pageSize: 2000 }).then((directory) => {
+            const hits = sortPlayers(
+              searchDirectoryList(directory.list, query).filter(
+                (player) => !league || player.LeagueCode === league,
+              ),
+              sort,
+            );
+            const pageCount = Math.max(1, Math.ceil(hits.length / pageSize));
+            const page = Math.min(requestedPage, pageCount);
+            const start = (page - 1) * pageSize;
+            return { list: hits.slice(start, start + pageSize), total: hits.length, page, pageCount };
+          })
+        : sort === "name"
+          ? getPlayers({
+              page: requestedPage,
+              pageSize,
+              leagueCode: league,
+              name: "",
+              initial,
+            }).then(async (browsed) => {
+              const pageCount = Math.max(1, Math.ceil(browsed.total / pageSize));
+              const page = Math.min(requestedPage, pageCount);
+              if (page !== requestedPage) {
+                const clamped = await getPlayers({
+                  page,
+                  pageSize,
+                  leagueCode: league,
+                  name: "",
+                  initial,
+                });
+                return {
+                  list: clamped.list,
+                  total: clamped.total,
+                  page,
+                  pageCount: Math.max(1, Math.ceil(clamped.total / pageSize)),
+                };
+              }
+              return { list: browsed.list, total: browsed.total, page, pageCount };
+            })
+          : getPlayers({ page: 1, pageSize: 2000 }).then((directory) => {
+              const scoped = sortPlayers(
+                directory.list.filter(
+                  (player) =>
+                    (!league || player.LeagueCode === league) &&
+                    (!initial || (player.PlayerNameEN || "").trim().toUpperCase().startsWith(initial)),
+                ),
+                sort,
+              );
+              const pageCount = Math.max(1, Math.ceil(scoped.length / pageSize));
+              const page = Math.min(requestedPage, pageCount);
+              const start = (page - 1) * pageSize;
+              return { list: scoped.slice(start, start + pageSize), total: scoped.length, page, pageCount };
+            }),
+    ]);
+    return { season, ...data, failures: getRequestFailures() };
+  });
 
-  let list: RawPlayer[];
-  let total: number;
-
-  if (query) {
-    const directory = await getPlayers({ page: 1, pageSize: 2000 });
-    const hits = sortPlayers(
-      searchDirectoryList(directory.list, query).filter(
-        (player) => !league || player.LeagueCode === league,
-      ),
-      sort,
-    );
-    const start = (page - 1) * pageSize;
-    list = hits.slice(start, start + pageSize);
-    total = hits.length;
-  } else if (sort === "name") {
-    const browsed = await getPlayers({
-      page,
-      pageSize,
-      leagueCode: league,
-      name: "",
-      initial,
-    });
-    list = browsed.list;
-    total = browsed.total;
-  } else {
-    const directory = await getPlayers({ page: 1, pageSize: 2000 });
-    const scoped = sortPlayers(
-      directory.list.filter(
-        (player) =>
-          (!league || player.LeagueCode === league) &&
-          (!initial || (player.PlayerNameEN || "").trim().toUpperCase().startsWith(initial)),
-      ),
-      sort,
-    );
-    const start = (page - 1) * pageSize;
-    list = scoped.slice(start, start + pageSize);
-    total = scoped.length;
-  }
-
+  const { season, list, total, page, pageCount, failures } = result;
   const players = list.map(normalizePlayer);
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
   const baseParams = {
-    league,
+    league: explicitLeague ?? (query ? undefined : league),
     q: query || undefined,
     initial: initial || undefined,
     sort: sort !== "rank" ? sort : undefined,
@@ -145,6 +170,7 @@ export default async function PlayersPage({ searchParams }: PageProps) {
   return (
     <>
       <PageHeader
+        failures={failures}
         eyebrow="Directory"
         title="Players"
         description={
@@ -164,11 +190,14 @@ export default async function PlayersPage({ searchParams }: PageProps) {
               options={[
                 ...(query ? [{ value: "", label: "All circuits" }] : []),
                 ...PLAYER_LEAGUES.map((l) => ({ value: l.code, label: l.name })),
+                ...(explicitLeague === "PBA9" || explicitLeague === "LPBA9"
+                  ? [{ value: explicitLeague, label: explicitLeague === "LPBA9" ? "LPBA Sponsor" : "PBA Sponsor" }]
+                  : []),
               ]}
             />
 
             <form action="/players" className="flex items-center gap-1.5">
-              {league && <input type="hidden" name="league" value={league} />}
+              {explicitLeague && <input type="hidden" name="league" value={explicitLeague} />}
               <input
                 type="search"
                 name="q"
@@ -185,7 +214,7 @@ export default async function PlayersPage({ searchParams }: PageProps) {
               </button>
               {query && (
                 <Link
-                  href={`/players?league=${league || "PBA1"}`}
+                  href={explicitLeague ? `/players?league=${explicitLeague}` : "/players"}
                   className="px-1.5 text-[12px] font-medium text-[var(--muted)] hover:text-[var(--link)]"
                 >
                   Clear
@@ -312,7 +341,7 @@ function PlayerCard({ player }: { player: Player }) {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
               <Chip tone={league.tone} className="!px-1.5 !py-0 !text-[9px]">
-                {leagueShortLabel(player.league)}
+                {leagueShort(player.league)}
               </Chip>
               <NationPlate code={player.nation} />
             </div>
@@ -354,14 +383,4 @@ function PlayerCard({ player }: { player: Player }) {
       </div>
     </Link>
   );
-}
-
-function leagueShortLabel(code: string): string {
-  const map: Record<string, string> = {
-    PBA1: "PBA",
-    LPBA1: "LPBA",
-    PBA2: "DRM",
-    PBA3: "CHL",
-  };
-  return map[code] ?? code;
 }

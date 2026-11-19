@@ -229,6 +229,7 @@ export function Pagination({
       ) : (
         <Link
           href={buildHref(page - 1)}
+          aria-label="Previous page"
           className={cn(base, "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:border-[var(--link)] hover:text-[var(--link)]")}
         >
           ←
@@ -243,7 +244,7 @@ export function Pagination({
           >
             1
           </Link>
-          {pages[0] > 2 && <span className="px-1 text-[var(--muted)]">…</span>}
+          {pages[0] > 2 && <span aria-hidden="true" className="px-1 text-[var(--muted)]">…</span>}
         </>
       )}
 
@@ -265,7 +266,7 @@ export function Pagination({
 
       {pages[pages.length - 1] < pageCount && (
         <>
-          {pages[pages.length - 1] < pageCount - 1 && <span className="px-1 text-[var(--muted)]">…</span>}
+          {pages[pages.length - 1] < pageCount - 1 && <span aria-hidden="true" className="px-1 text-[var(--muted)]">…</span>}
           <Link
             href={buildHref(pageCount)}
             className={cn(base, "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:text-[var(--link)]")}
@@ -282,6 +283,7 @@ export function Pagination({
       ) : (
         <Link
           href={buildHref(page + 1)}
+          aria-label="Next page"
           className={cn(base, "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:border-[var(--link)] hover:text-[var(--link)]")}
         >
           →

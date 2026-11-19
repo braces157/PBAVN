@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { getPressDetail, getPressList } from "@/lib/pba/api";
 import { normalizeArticle } from "@/lib/normalize";
 import { excerpt, fmtDate, grouped, stripTags } from "@/lib/format";
@@ -16,31 +17,56 @@ interface PageProps {
   params: Promise<{ seq: string }>;
 }
 
+const loadArticle = cache(async (seq: string) => {
+  const raw = await getPressDetail(seq);
+  if (!raw) return null;
+  const normalized = normalizeArticle(raw);
+  const preSanitized = sanitizeCmsHtml(normalized.body);
+  const { article, body } = await translateArticleFull(normalized, preSanitized);
+  // Sanitize again after translation so translated HTML can never introduce unsafe markup.
+  const safeBody = sanitizeCmsHtml(body);
+  return { raw, article, body: safeBody };
+});
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { seq } = await params;
-  const article = await getPressDetail(seq);
-  if (!article) return { title: "Article not found" };
-  const [title, description] = await Promise.all([
-    translateKoToEn(stripTags(article.TITLE)),
-    translateKoToEn(excerpt(article.CONTENT, 180)),
-  ]);
+  const loaded = await loadArticle(seq);
+  if (!loaded) return { title: "Article not found" };
+
+  const fallbackTitle = stripTags(loaded.raw.TITLE) || "PBA News";
+  const title = loaded.article.title.trim() || fallbackTitle;
+  const rawExcerpt = excerpt(loaded.body || loaded.raw.CONTENT, 180);
+  const description = (await translateKoToEn(rawExcerpt)).trim() || rawExcerpt || title;
+
   return {
     title,
     description,
+    alternates: { canonical: `/news/${encodeURIComponent(seq)}` },
+    openGraph: {
+      title,
+      description,
+      type: "article",
+      ...(loaded.article.date ? { publishedTime: loaded.article.date.toISOString() } : {}),
+      ...(loaded.article.image ? { images: [{ url: loaded.article.image, alt: title }] } : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
 
 export default async function ArticlePage({ params }: PageProps) {
   const { seq } = await params;
-  const [raw, recent] = await Promise.all([getPressDetail(seq), getPressList(1, 5)]);
-  if (!raw) notFound();
+  const loaded = await loadArticle(seq);
+  if (!loaded) notFound();
 
-  const normalized = normalizeArticle(raw);
-  const related = recent.list.filter((item) => item.SEQ !== normalized.seq).slice(0, 3);
-  const [{ article, body }, relatedTitles] = await Promise.all([
-    translateArticleFull(normalized, sanitizeCmsHtml(normalized.body)),
-    translatePlainTitles(related.map((item) => item.TITLE)),
-  ]);
+  const { article, body } = loaded;
+  const recent = await getPressList(1, 5);
+  const related = recent.list.filter((item) => item.SEQ !== article.seq).slice(0, 3);
+  const relatedTitles = await translatePlainTitles(related.map((item) => item.TITLE));
+
   const hasBody = htmlTextLength(body) > 0;
   const { tag, headline } = splitNewsHeadline(article.title);
   const readMinutes = Math.max(1, Math.round(htmlTextLength(body) / 900));
@@ -110,7 +136,8 @@ export default async function ArticlePage({ params }: PageProps) {
             rel="noreferrer noopener"
             className="text-[12px] font-medium text-fog-450 transition-colors hover:text-carom-300"
           >
-            Original on pbatour.org ↗
+            Press archive on pbatour.org <span aria-hidden="true">↗</span>
+            <span className="sr-only"> (opens in new tab)</span>
           </a>
         </div>
 

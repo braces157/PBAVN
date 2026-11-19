@@ -366,7 +366,7 @@ export interface InningSide {
 export interface BoutInnings {
   maxInnings: number;
   /** One row per inning up to the longer side. A side that stopped early is null. */
-  rows: { inning: number; sides: [InningSide, InningSide | null] }[];
+  rows: { inning: number; sides: [InningSide | null, InningSide | null] }[];
 }
 
 interface RawInning {
@@ -410,7 +410,7 @@ export function parseInnings(json: string | null): BoutInnings {
   const maxInnings = number(raw.MaxInn ?? null);
   const rows = Array.from({ length }, (_, index) => ({
     inning: index + 1,
-    sides: [inningOf(first[index]), inningOf(second[index])] as [InningSide, InningSide | null],
+    sides: [inningOf(first[index]), inningOf(second[index])] as [InningSide | null, InningSide | null],
   }));
 
   return { maxInnings: maxInnings ?? length, rows };

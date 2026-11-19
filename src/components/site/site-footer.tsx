@@ -8,9 +8,11 @@ export function SiteFooter() {
         <nav aria-label="Footer navigation">
           <Link href="/about">About</Link>
           <Link href="/players">Players</Link>
-          <Link href="/live">API status</Link>
+          <Link href="/compare">Compare</Link>
+          <Link href="/live">Live</Link>
           <a href="https://www.pbatour.org/en/index" target="_blank" rel="noreferrer noopener">
-            pbatour.org ↗
+            pbatour.org <span aria-hidden="true">↗</span>
+            <span className="sr-only"> (opens in new tab)</span>
           </a>
         </nav>
       </div>

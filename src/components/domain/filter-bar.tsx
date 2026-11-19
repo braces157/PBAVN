@@ -43,10 +43,11 @@ export function FilterRow({
       <span className="min-w-[50px] shrink-0 font-display text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--muted)]">
         {label}
       </span>
-      <div
+      <nav
+        aria-label={label}
         className={cn(
           "flex w-full min-w-0 max-w-full gap-1 sm:w-auto",
-          scrollable ? "no-scrollbar flex-nowrap overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0" : "flex-wrap",
+          scrollable ? "no-scrollbar flex-nowrap overflow-x-auto py-1 sm:flex-wrap sm:overflow-visible sm:py-0" : "flex-wrap",
         )}
       >
         {options.map((option) => {
@@ -72,7 +73,7 @@ export function FilterRow({
             </Link>
           );
         })}
-      </div>
+      </nav>
     </div>
   );
 }

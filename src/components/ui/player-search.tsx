@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { cn } from "./primitives";
 
 interface IndexRow {
@@ -58,38 +58,61 @@ function search(rows: IndexRow[], term: string): IndexRow[] {
 export function PlayerSearch({ variant = "header" }: { variant?: "header" | "page" }) {
   const router = useRouter();
   const pathname = usePathname();
+  const baseId = useId();
+  const listId = `${baseId}-results`;
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [rows, setRows] = useState<IndexRow[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [cursor, setCursor] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const inFlightRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setOpen(false);
     setTerm("");
   }, [pathname]);
 
+  useEffect(() => {
+    return () => {
+      inFlightRef.current?.abort();
+    };
+  }, []);
+
   const load = useCallback(async () => {
-    if (rows || loading) return;
+    if (rows !== null || inFlightRef.current) return;
+    const controller = new AbortController();
+    inFlightRef.current = controller;
     setLoading(true);
+    setLoadFailed(false);
     try {
-      const response = await fetch("/api/search-index");
+      const response = await fetch("/api/search-index", { signal: controller.signal });
       if (response.ok) {
-        const payload = (await response.json()) as { rows: IndexRow[] };
-        setRows(payload.rows);
+        const payload = (await response.json()) as { rows?: IndexRow[] };
+        if (Array.isArray(payload.rows) && payload.rows.length > 0) {
+          setRows(payload.rows);
+        } else {
+          setLoadFailed(true);
+        }
       } else {
-        setRows([]);
+        setLoadFailed(true);
       }
-    } catch {
-      setRows([]);
+    } catch (err) {
+      if ((err as { name?: string })?.name !== "AbortError") {
+        setLoadFailed(true);
+      }
     } finally {
+      if (inFlightRef.current === controller) {
+        inFlightRef.current = null;
+      }
       setLoading(false);
     }
-  }, [rows, loading]);
+  }, [rows]);
 
   const results = useMemo(() => (rows ? search(rows, term) : []), [rows, term]);
+  const safeCursor = results.length > 0 ? Math.min(cursor, results.length - 1) : 0;
 
   useEffect(() => {
     setCursor(0);
@@ -112,6 +135,7 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
   }, [open]);
 
   useEffect(() => {
+    if (variant !== "header") return;
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const inField =
@@ -123,7 +147,7 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [variant]);
 
   const go = (row: IndexRow) => {
     setOpen(false);
@@ -132,9 +156,23 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing) return;
     if (event.key === "Escape") {
       setOpen(false);
       inputRef.current?.blur();
+      return;
+    }
+    if (event.key === "Enter") {
+      const trimmed = term.trim();
+      if (!trimmed) return;
+      event.preventDefault();
+      const picked = results[safeCursor];
+      if (picked) {
+        go(picked);
+      } else {
+        setOpen(false);
+        router.push(`/players?q=${encodeURIComponent(trimmed)}`);
+      }
       return;
     }
     if (!results.length) return;
@@ -144,11 +182,6 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setCursor((value) => (value - 1 + results.length) % results.length);
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      const picked = results[cursor];
-      if (picked) go(picked);
-      else router.push(`/players?q=${encodeURIComponent(term)}`);
     }
   };
 
@@ -158,7 +191,7 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
   return (
     <div
       ref={containerRef}
-      className={cn("relative", isHeader ? "min-w-0 flex-1 md:flex-none" : "w-full")}
+      className={cn("relative", isHeader ? "min-w-0 flex-1 lg:flex-none" : "w-full")}
     >
       <label
         className={
@@ -184,25 +217,26 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
           onChange={(event) => {
             setTerm(event.target.value);
             setOpen(true);
+            if (rows === null && !loading) void load();
           }}
           onFocus={() => {
             setOpen(true);
             void load();
           }}
           onKeyDown={onKeyDown}
-          placeholder="Search players, teams, events"
+          placeholder="Search players"
           aria-label="Search players"
           role="combobox"
           aria-expanded={showPanel}
-          aria-controls={showPanel ? "player-search-results" : undefined}
+          aria-controls={showPanel && results.length > 0 ? listId : undefined}
           aria-activedescendant={
-            showPanel && results.length > 0 ? `player-search-option-${cursor}` : undefined
+            showPanel && results.length > 0 ? `${baseId}-option-${safeCursor}` : undefined
           }
           aria-autocomplete="list"
           className={cn(
             "min-w-0 flex-1 bg-transparent outline-none",
             isHeader
-              ? "text-[12.5px] text-white placeholder:text-[#7c8894]"
+              ? "text-[12.5px] text-white placeholder:text-[#98a6b3]"
               : "text-[13px] text-[var(--text)] placeholder:text-[var(--muted)]",
           )}
         />
@@ -211,17 +245,35 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
 
       {showPanel && (
         <div
-          id="player-search-results"
-          role="listbox"
-          className="absolute right-0 top-[calc(100%+4px)] z-50 min-w-[270px] rounded-[3px] border border-[var(--line-2)] bg-[var(--panel)] text-[var(--text)] shadow-lg sm:left-0 sm:right-0"
+          className="absolute right-0 top-[calc(100%+4px)] z-50 w-[min(280px,calc(100vw-16px))] rounded-[3px] border border-[var(--line-2)] bg-[var(--panel)] text-[var(--text)] shadow-lg sm:left-0 sm:right-0 sm:w-auto sm:min-w-[270px]"
         >
+          <span className="sr-only" role="status" aria-live="polite">
+            {loading && !rows
+              ? "Indexing player directory"
+              : loadFailed
+                ? "Player directory unavailable"
+                : results.length === 0
+                  ? `No players matching ${term}`
+                  : `${results.length} matching players`}
+          </span>
           {loading && !rows ? (
             <p className="px-3 py-3 text-[12px] text-[var(--muted)]">Indexing directory…</p>
+          ) : loadFailed && !rows ? (
+            <div className="px-3 py-3">
+              <p className="text-[12.5px] text-[var(--text-2)]">Quick search is temporarily unavailable.</p>
+              <Link
+                href={`/players?q=${encodeURIComponent(term.trim())}`}
+                onClick={() => setOpen(false)}
+                className="mt-1 inline-block text-[12px] font-semibold text-[var(--link)] hover:underline"
+              >
+                Search full directory →
+              </Link>
+            </div>
           ) : results.length === 0 ? (
             <div className="px-3 py-3">
               <p className="text-[12.5px] text-[var(--text-2)]">No player matches “{term}”.</p>
               <Link
-                href={`/players?q=${encodeURIComponent(term)}`}
+                href={`/players?q=${encodeURIComponent(term.trim())}`}
                 onClick={() => setOpen(false)}
                 className="mt-1 inline-block text-[12px] font-semibold text-[var(--link)] hover:underline"
               >
@@ -229,22 +281,30 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
               </Link>
             </div>
           ) : (
-            <ul className="max-h-[320px] divide-y divide-[var(--line)] overflow-y-auto">
+            <ul
+              id={listId}
+              role="listbox"
+              aria-label="Matching players"
+              className="max-h-[320px] divide-y divide-[var(--line)] overflow-y-auto"
+            >
               {results.map((row, index) => (
-                <li key={row.c}>
+                <li
+                  key={row.c}
+                  id={`${baseId}-option-${index}`}
+                  role="option"
+                  aria-selected={index === safeCursor}
+                >
                   <button
                     type="button"
-                    id={`player-search-option-${index}`}
-                    role="option"
-                    aria-selected={index === cursor}
+                    tabIndex={-1}
                     onMouseEnter={() => setCursor(index)}
                     onClick={() => go(row)}
                     className={cn(
                       "flex w-full items-center gap-2 px-2.5 py-2 text-left transition-colors",
-                      index === cursor ? "bg-[var(--hover)]" : "hover:bg-[var(--hover)]",
+                      index === safeCursor ? "bg-[var(--hover)]" : "hover:bg-[var(--hover)]",
                     )}
                   >
-                    <span className="av shrink-0">
+                    <span className="av shrink-0" aria-hidden="true">
                       {(row.e || row.k).split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase()}
                     </span>
                     <span className="min-w-0 flex-1">
