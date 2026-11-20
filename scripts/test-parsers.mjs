@@ -29,6 +29,12 @@ import {
   parseRoundFixtures,
   parseTptCodes,
 } from "../src/lib/pba/team-matches-parse.ts";
+import { computePeriodRanks, tourSeasonWindow } from "../src/lib/period-ranks.ts";
+import {
+  extractClubCodeFromLogo,
+  matchRosterPlayer,
+  matchTeamByNameOrLogo,
+} from "../src/lib/team-links.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -788,6 +794,80 @@ check("bouts are ordered newest first so the live one is at the top of the list"
   const numbers = fixtureRow.bouts.map((bout) => bout.setNo ?? 0);
   assert.deepEqual(numbers, [...numbers].sort((a, b) => b - a));
 });
+
+check("tourSeasonWindow derives the exact cross-year span from tour dates and returns null when empty", () => {
+  const tours = [
+    { 시즌코드: 2025, 투어시작일자: "2025-06-15", 투어종료일자: "2025-06-23" },
+    { 시즌코드: 2025, 투어시작일자: "2026-03-06", 투어종료일자: "2026-03-23" },
+    { 시즌코드: 2024, 투어시작일자: "2024-06-16", 투어종료일자: "2025-03-17" },
+  ];
+  assert.deepEqual(tourSeasonWindow(tours, "2025"), {
+    startDate: "2025-06-15",
+    endDate: "2026-03-23",
+  });
+  assert.equal(tourSeasonWindow(tours, "2023"), null);
+});
+
+check("computePeriodRanks assigns competition ranks for winRate, points, and shootoutRate", () => {
+  const make = (memCode, wins, losses, points, tbWins, tbLosses) => ({
+    memCode,
+    matches: wins + losses,
+    winRate: wins + losses > 0 ? wins / (wins + losses) : null,
+    points,
+    tiebreak: { wins: tbWins, losses: tbLosses },
+  });
+  const ranks = computePeriodRanks([
+    make("A", 8, 2, 1000, 2, 0), // 80%, 1000 pts, 100% TB
+    make("B", 4, 1, 1500, 1, 1), // 80% (tied 1st), 1500 pts (1st), 50% TB (2nd)
+    make("C", 3, 7, 1000, 0, 0), // 30% (3rd), 1000 pts (tied 2nd), no TB (0)
+  ]);
+  assert.deepEqual(ranks.get("A"), { winRate: 1, points: 2, shootoutRate: 1 });
+  assert.deepEqual(ranks.get("B"), { winRate: 1, points: 1, shootoutRate: 2 });
+  assert.deepEqual(ranks.get("C"), { winRate: 3, points: 2, shootoutRate: 0 });
+});
+
+check("team-links matches club codes from logo URLs and short player names to rosters", () => {
+  assert.equal(
+    extractClubCodeFromLogo("https://teamfile.billiboard.co.kr/team/T00030_LOGO_300.png"),
+    "T00030",
+  );
+  const teams = [
+    { code: "T00030", name: "Breakers", shortName: "Breakers" },
+    { code: "T00029", name: "Harim Yonggaris", shortName: "Harim" },
+  ];
+  assert.equal(
+    matchTeamByNameOrLogo(teams, "Breakers", "https://teamfile.billiboard.co.kr/team/T00030_LOGO_300.png")?.code,
+    "T00030",
+  );
+  assert.equal(matchTeamByNameOrLogo(teams, "Harim YONGGARIS", null)?.code, "T00029");
+
+  const roster = [
+    { code: "M0017102", name: "Sang-yong LEE", nameEn: "Sang-yong LEE" },
+    { code: "M0017143", name: "Seung-jin LEE", nameEn: "Seung-jin LEE" },
+    { code: "M0022044", name: "Antonio MONTES", nameEn: "Antonio MONTES" },
+    { code: "M0017782", name: "Phuong-linh NGUYEN", nameEn: "Phuong-linh NGUYEN" },
+  ];
+  assert.equal(matchRosterPlayer("SY Lee", roster)?.code, "M0017102");
+  assert.equal(matchRosterPlayer("SJ Lee", roster)?.code, "M0017143");
+  assert.equal(matchRosterPlayer("Montes", roster)?.code, "M0022044");
+  assert.equal(matchRosterPlayer("P. Nguyen", roster)?.code, "M0017782");
+
+  const ambiguousRoster = [
+    { code: "M0000001", name: "Jae-ho KIM", nameEn: "Jae-ho KIM" },
+    { code: "M0000002", name: "Jun KIM", nameEn: "Jun KIM" },
+  ];
+  assert.equal(matchRosterPlayer("J. Kim", ambiguousRoster), null);
+});
+
+check("player-codes.json normalizes display artifacts and omits ambiguous aliases", () => {
+  const codes = JSON.parse(readFileSync(join(root, "src", "lib", "pba", "data", "player-codes.json"), "utf8"));
+  assert.equal(codes["sung-ki jung"], "M0025037");
+  assert.equal(codes["sung-ki?jung"], undefined);
+  assert.equal(codes["ga-eun park"], undefined);
+  assert.equal(codes["박가은"], "M0022002");
+  assert.equal(codes["박가은(b)"], "M0022407");
+});
+
 console.log(`\n${passed}/${passed + failures.length} parser checks passed`);
 if (failures.length > 0) {
   console.log(`failing: ${failures.join(", ")}`);

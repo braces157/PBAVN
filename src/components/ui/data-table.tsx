@@ -21,7 +21,8 @@ export type CellValue =
       badge?: string;
     }
   | { kind: "rank"; value: number }
-  | { kind: "tag"; text: string; tone?: string };
+  | { kind: "tag"; text: string; tone?: string }
+  | { kind: "link"; href: string; text: string };
 
 export interface TableColumn {
   id: string;
@@ -99,6 +100,18 @@ function Cell({ value }: { value: CellValue }) {
       <span className="rounded-[2px] border border-[var(--line)] bg-[var(--bar-2)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-[var(--text-2)]">
         {value.text}
       </span>
+    );
+  }
+
+  if (value.kind === "link") {
+    return (
+      <Link
+        href={value.href}
+        onClick={(e) => e.stopPropagation()}
+        className="text-[12.5px] font-medium text-[var(--text-2)] underline-offset-2 transition-colors hover:text-[var(--link)] hover:underline"
+      >
+        {value.text}
+      </Link>
     );
   }
 

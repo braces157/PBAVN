@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { IN_PLAY, getScorecard, getSetInnings } from "@/lib/pba/scoreboard";
-import { getTourTitleIndex } from "@/lib/pba/service";
+import { getTourTitleIndex, resolvePlayerCode } from "@/lib/pba/service";
 import {
   analyseSet,
   compareTotals,
@@ -124,6 +124,7 @@ export default async function MatchPage({
   const summary = summariseMatch(analysed);
   const rows = compareTotals(totals);
   const names = analysed[0].sides.map((side) => side.name);
+  const playerCodes = names.map((name) => resolvePlayerCode(name));
   const covered = summary.coveredSets;
 
   return (
@@ -176,6 +177,7 @@ export default async function MatchPage({
             watchUrl={context.watch}
             live={context.live}
             setNav={<SetNav sets={analysed} />}
+            playerCodes={playerCodes}
           />
 
           {analysed.map((set) => (

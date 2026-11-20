@@ -12,6 +12,12 @@
 
 import { cleanPlayerName, hasHangul, kstDay, romanizeKoreanName } from "./format";
 import type { RawPeriodStat } from "./pba/types";
+export {
+  computePeriodRanks,
+  tourSeasonWindow,
+  type ComputedCircuitRanks,
+  type PeriodRankInput,
+} from "./period-ranks";
 
 export interface TiebreakRecord {
   wins: number;

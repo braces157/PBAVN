@@ -234,9 +234,18 @@ export default async function RecordsPage({ searchParams }: PageProps) {
                           </span>
                         </td>
                         <td className="!text-left">
-                          <span className="text-[12.5px] font-bold text-gold-300">
-                            {seasonLabels[index]?.champion || "—"}
-                          </span>
+                          {seasonLabels[index]?.championCode ? (
+                            <Link
+                              href={`/players/${encodeURIComponent(seasonLabels[index].championCode!)}`}
+                              className="text-[12.5px] font-bold text-gold-300 underline-offset-2 transition-colors hover:text-carom-300 hover:underline"
+                            >
+                              {seasonLabels[index]?.champion || "—"}
+                            </Link>
+                          ) : (
+                            <span className="text-[12.5px] font-bold text-gold-300">
+                              {seasonLabels[index]?.champion || "—"}
+                            </span>
+                          )}
                         </td>
                         <td className="hidden text-[11.5px] text-fog-450 sm:table-cell">{leagueShort(tour.PBA타입)}</td>
                         <td className="tnum hidden text-[11.5px] text-fog-500 md:table-cell">
@@ -274,7 +283,16 @@ export default async function RecordsPage({ searchParams }: PageProps) {
                           </span>
                         </td>
                         <td className="!text-left text-[12px] font-bold text-gold-300">
-                          {honourLabels[index]?.champion || "—"}
+                          {honourLabels[index]?.championCode ? (
+                            <Link
+                              href={`/players/${encodeURIComponent(honourLabels[index].championCode!)}`}
+                              className="underline-offset-2 transition-colors hover:text-carom-300 hover:underline"
+                            >
+                              {honourLabels[index]?.champion || "—"}
+                            </Link>
+                          ) : (
+                            honourLabels[index]?.champion || "—"
+                          )}
                         </td>
                       </tr>
                     ))}
