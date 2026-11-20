@@ -15,6 +15,7 @@ export function MatchHeader({
   watchUrl,
   live = false,
   setNav,
+  playerCodes,
 }: {
   analysed: AnalysedSet[];
   summary: MatchSummary;
@@ -25,6 +26,7 @@ export function MatchHeader({
   watchUrl: string | null;
   live?: boolean;
   setNav?: ReactNode;
+  playerCodes?: (string | null)[];
 }) {
   const sides = analysed[0]?.sides.length ?? 2;
   const names = Array.from({ length: sides }, (_, index) => analysed[0]?.sides[index]?.name ?? "");
@@ -32,6 +34,10 @@ export function MatchHeader({
   const decided = setsWon.some((won) => won * 2 > analysed.length) && analysed.length > 0;
   const isFinal = !live && decided;
   const maxWon = Math.max(...setsWon);
+  const h2hHref =
+    sides === 2 && playerCodes?.[0] && playerCodes?.[1]
+      ? `/compare?a=${encodeURIComponent(playerCodes[0])}&b=${encodeURIComponent(playerCodes[1])}`
+      : null;
 
   return (
     <section className="surface overflow-hidden" aria-label="Match scorecard">
@@ -66,7 +72,16 @@ export function MatchHeader({
                 isFinal && setsWon[0] === maxWon ? "text-carom-300" : "text-fog-100",
               )}
             >
-              {names[0] || "Player 1"}
+              {playerCodes?.[0] ? (
+                <Link
+                  href={`/players/${encodeURIComponent(playerCodes[0])}`}
+                  className="underline-offset-2 transition-colors hover:text-carom-300 hover:underline"
+                >
+                  {names[0] || "Player 1"}
+                </Link>
+              ) : (
+                names[0] || "Player 1"
+              )}
             </dt>
             {summary.average[0] !== null && summary.average[0] !== undefined && (
               <p className="tnum mt-1 text-[11px] text-fog-450">
@@ -100,7 +115,16 @@ export function MatchHeader({
                 isFinal && setsWon[1] === maxWon ? "text-carom-300" : "text-fog-100",
               )}
             >
-              {names[1] || "Player 2"}
+              {playerCodes?.[1] ? (
+                <Link
+                  href={`/players/${encodeURIComponent(playerCodes[1])}`}
+                  className="underline-offset-2 transition-colors hover:text-carom-300 hover:underline"
+                >
+                  {names[1] || "Player 2"}
+                </Link>
+              ) : (
+                names[1] || "Player 2"
+              )}
             </dt>
             {summary.average[1] !== null && summary.average[1] !== undefined && (
               <p className="tnum mt-1 text-[11px] text-fog-450">
@@ -128,7 +152,16 @@ export function MatchHeader({
                     won ? "text-carom-300" : TONES[index] ?? "text-fog-100",
                   )}
                 >
-                  {name || `Player ${index + 1}`}
+                  {playerCodes?.[index] ? (
+                    <Link
+                      href={`/players/${encodeURIComponent(playerCodes[index]!)}`}
+                      className="underline-offset-2 transition-colors hover:text-carom-300 hover:underline"
+                    >
+                      {name || `Player ${index + 1}`}
+                    </Link>
+                  ) : (
+                    name || `Player ${index + 1}`
+                  )}
                 </dt>
                 <dd className="mt-2 flex items-baseline gap-2">
                   <span
@@ -192,6 +225,14 @@ export function MatchHeader({
             Watch broadcast ↗
           </a>
         ) : null}
+        {h2hHref && (
+          <Link
+            href={h2hHref}
+            className="inline-flex items-center gap-1.5 rounded-md border border-ink-700 bg-ink-900 px-2.5 py-1 text-[11.5px] font-semibold text-fog-200 transition-colors hover:border-carom-400/50 hover:text-carom-300"
+          >
+            Compare H2H →
+          </Link>
+        )}
         <a
           href={officialUrl}
           target="_blank"

@@ -51,8 +51,11 @@ function columnsFor(): TableColumn[] {
   ];
 }
 
-function rowsFor(players: TeamPlayer[]): TableRow[] {
+function rowsFor(players: TeamPlayer[], seasonCode: string, roundCode: string): TableRow[] {
   return players.map((player) => {
+    const teamHref = player.teamCode
+      ? `/teams/${encodeURIComponent(player.teamCode)}?season=${encodeURIComponent(seasonCode)}&round=${encodeURIComponent(roundCode)}`
+      : null;
     const cells: Record<string, CellValue> = {
       player: {
         kind: "person",
@@ -61,7 +64,7 @@ function rowsFor(players: TeamPlayer[]): TableRow[] {
         sub: `${player.nation}${player.isCaptain ? " · captain" : ""}`,
         photo: photoUrl(player.photoPath, 96) ?? player.photo,
       },
-      team: player.team,
+      team: teamHref ? { kind: "link", href: teamHref, text: player.team } : player.team,
       average: average(player.average),
       winRate: percent(player.winRate),
       highRun: player.highRun,
@@ -206,7 +209,7 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
         <DataTable
           payload={{
             columns: columnsFor(),
-            rows: rowsFor(players),
+            rows: rowsFor(players, season.시즌코드, roundCode),
             initialSort: { id: sortKey, direction: "desc" },
             maxHeight: "76vh",
           }}

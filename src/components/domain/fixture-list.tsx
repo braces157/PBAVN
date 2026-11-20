@@ -96,12 +96,17 @@ export function FixtureList({
               })}
             </div>
 
-            {fixture.played && fixture.playedAt && (
-              <p className="tnum mt-2.5 border-t border-ink-800 pt-2 text-[10.5px] text-fog-550 sm:hidden">
-                {fixture.playedAt}
-              </p>
+            {link && (
+              <div className="mt-2.5 flex items-center justify-between border-t border-ink-800 pt-2 text-[10.5px]">
+                <span className="tnum text-fog-550">
+                  {fixture.played ? (fixture.playedAt ?? "") : fixture.playedAt ? `Kickoff ${fixture.playedAt}` : ""}
+                </span>
+                <span className="font-semibold text-carom-400">
+                  {fixture.played ? "Bouts & innings →" : "Fixture details →"}
+                </span>
+              </div>
             )}
-            {!fixture.played && fixture.playedAt && (
+            {!link && fixture.playedAt && (
               <p className="tnum mt-2.5 border-t border-ink-800 pt-2 text-[10.5px] text-fog-450">
                 Kickoff {fixture.playedAt}
               </p>

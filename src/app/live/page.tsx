@@ -193,7 +193,17 @@ export default async function LivePage() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[12.5px] font-medium text-fog-100">{tour.title}</span>
                       <span className="mt-0.5 block truncate text-[11px] text-fog-500">
-                        <span className="font-semibold text-gold-300">{tour.champion}</span> won
+                        {tour.championCode ? (
+                          <Link
+                            href={`/players/${encodeURIComponent(tour.championCode)}`}
+                            className="font-semibold text-gold-300 underline-offset-2 transition-colors hover:text-carom-300 hover:underline"
+                          >
+                            {tour.champion}
+                          </Link>
+                        ) : (
+                          <span className="font-semibold text-gold-300">{tour.champion}</span>
+                        )}{" "}
+                        won
                         <span className="mx-1.5 text-ink-600">·</span>
                         {tour.circuit}
                       </span>
