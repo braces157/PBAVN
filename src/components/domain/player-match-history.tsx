@@ -104,67 +104,69 @@ export async function ProfileMatchHistory({
           title={
             failures.length > 0
               ? "This season could not be read completely"
-              : history.searchTerm
-                ? "No recorded individual-tour matches"
-                : "No searchable name on file"
+              : history.partial
+                ? "This season could not be searched completely"
+                : history.searchTerm
+                  ? "No recorded individual-tour matches"
+                  : "No searchable name on file"
           }
           description={
             failures.length > 0
               ? "The data service did not answer for every read, so an empty list is not proof of zero matches."
-              : history.searchTerm
-                ? `The scoring terminal holds no match for ${playerName} in ${seasonTitle}.`
-                : "The search terminal matches Latin-script names only, and this player's record carries no English name."
+              : history.partial
+                ? `The scoring terminal capped the search before finding matches for ${playerName} in ${seasonTitle}, so an empty list does not mean zero matches.`
+                : history.searchTerm
+                  ? `The scoring terminal holds no match for ${playerName} in ${seasonTitle}.`
+                  : "The search terminal matches Latin-script names only, and this player's record carries no English name."
           }
         />
       ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="stat-table">
-              <thead>
-                <tr>
-                  <th className="!text-left">Round</th>
-                  <th className="!text-left">Opponent</th>
-                  <th className="!text-center">Result</th>
-                  <th>Sets</th>
-                  <th>Avg</th>
-                  <th className="hidden sm:table-cell">HR</th>
-                </tr>
-              </thead>
-              {groups.map((group) => {
-                const groupWins = group.matches.filter(
-                  (match) => match.sides.find((side) => side.memCode === memCode)?.won,
-                ).length;
-                return (
-                  <tbody key={group.code}>
-                    <tr>
-                      <td
-                        colSpan={COLUMNS}
-                        className="!bg-[var(--bar)] !py-2 !text-left"
-                      >
-                        <div className="flex items-baseline justify-between gap-3">
-                          <span className="text-[12.5px] font-bold leading-snug text-[var(--text)]">
-                            {group.title}
-                          </span>
-                          <span className="tnum shrink-0 text-[11px] font-semibold text-[var(--muted)]">
-                            {groupWins}–{group.matches.length - groupWins}
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                    {group.matches.map((match) => (
-                      <MatchRow key={`${match.tourCode}-${match.pstCode}`} match={match} memCode={memCode} />
-                    ))}
-                  </tbody>
-                );
-              })}
-            </table>
-          </div>
-          {history.partial && (
-            <p className="border-t border-[var(--line)] px-2.5 py-2 text-[11px] text-[var(--muted)]">
-              The search was capped partway through this season, so some rows may be missing.
-            </p>
-          )}
-        </>
+        <div className="overflow-x-auto">
+          <table className="stat-table">
+            <thead>
+              <tr>
+                <th className="!text-left">Round</th>
+                <th className="!text-left">Opponent</th>
+                <th className="!text-center">Result</th>
+                <th>Sets</th>
+                <th>Avg</th>
+                <th className="hidden sm:table-cell">HR</th>
+              </tr>
+            </thead>
+            {groups.map((group) => {
+              const groupWins = group.matches.filter(
+                (match) => match.sides.find((side) => side.memCode === memCode)?.won,
+              ).length;
+              return (
+                <tbody key={group.code}>
+                  <tr>
+                    <td
+                      colSpan={COLUMNS}
+                      className="!bg-[var(--bar)] !py-2 !text-left"
+                    >
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-[12.5px] font-bold leading-snug text-[var(--text)]">
+                          {group.title}
+                        </span>
+                        <span className="tnum shrink-0 text-[11px] font-semibold text-[var(--muted)]">
+                          {groupWins}–{group.matches.length - groupWins}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                  {group.matches.map((match) => (
+                    <MatchRow key={`${match.tourCode}-${match.pstCode}`} match={match} memCode={memCode} />
+                  ))}
+                </tbody>
+              );
+            })}
+          </table>
+        </div>
+      )}
+      {!everyTourFailed && history.partial && (
+        <p className="border-t border-[var(--line)] px-2.5 py-2 text-[11px] text-[var(--muted)]">
+          The search was capped partway through this season, so some rows may be missing.
+        </p>
       )}
     </Panel>
   );

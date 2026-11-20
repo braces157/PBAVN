@@ -795,7 +795,7 @@ check("bouts are ordered newest first so the live one is at the top of the list"
   assert.deepEqual(numbers, [...numbers].sort((a, b) => b - a));
 });
 
-check("tourSeasonWindow derives the exact cross-year span from tour dates and falls back when empty", () => {
+check("tourSeasonWindow derives the exact cross-year span from tour dates and returns null when empty", () => {
   const tours = [
     { 시즌코드: 2025, 투어시작일자: "2025-06-15", 투어종료일자: "2025-06-23" },
     { 시즌코드: 2025, 투어시작일자: "2026-03-06", 투어종료일자: "2026-03-23" },
@@ -805,10 +805,7 @@ check("tourSeasonWindow derives the exact cross-year span from tour dates and fa
     startDate: "2025-06-15",
     endDate: "2026-03-23",
   });
-  assert.deepEqual(tourSeasonWindow(tours, "2023"), {
-    startDate: "2023-01-01",
-    endDate: "2023-12-31",
-  });
+  assert.equal(tourSeasonWindow(tours, "2023"), null);
 });
 
 check("computePeriodRanks assigns competition ranks for winRate, points, and shootoutRate", () => {
@@ -854,6 +851,21 @@ check("team-links matches club codes from logo URLs and short player names to ro
   assert.equal(matchRosterPlayer("SJ Lee", roster)?.code, "M0017143");
   assert.equal(matchRosterPlayer("Montes", roster)?.code, "M0022044");
   assert.equal(matchRosterPlayer("P. Nguyen", roster)?.code, "M0017782");
+
+  const ambiguousRoster = [
+    { code: "M0000001", name: "Jae-ho KIM", nameEn: "Jae-ho KIM" },
+    { code: "M0000002", name: "Jun KIM", nameEn: "Jun KIM" },
+  ];
+  assert.equal(matchRosterPlayer("J. Kim", ambiguousRoster), null);
+});
+
+check("player-codes.json normalizes display artifacts and omits ambiguous aliases", () => {
+  const codes = JSON.parse(readFileSync(join(root, "src", "lib", "pba", "data", "player-codes.json"), "utf8"));
+  assert.equal(codes["sung-ki jung"], "M0025037");
+  assert.equal(codes["sung-ki?jung"], undefined);
+  assert.equal(codes["ga-eun park"], undefined);
+  assert.equal(codes["박가은"], "M0022002");
+  assert.equal(codes["박가은(b)"], "M0022407");
 });
 
 console.log(`\n${passed}/${passed + failures.length} parser checks passed`);

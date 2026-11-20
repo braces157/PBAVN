@@ -119,8 +119,11 @@ export function matchRosterPlayer(shortName: string, roster: RosterEntry[]): Ros
   });
 
   if (initialMatches.length === 1) return initialMatches[0];
+  // Never disambiguate a single-letter initial (e.g. "J. Kim" matching both
+  // "Jae Ho Kim" and "Jun Kim") by picking the shorter full-initials player.
+  if (prefix.length <= 1) return null;
 
-  // If both "P" and "PL" matched multiple people, prefer exact full initials.
+  // For multi-letter prefixes (e.g. "PL"), prefer exact full initials.
   const exactInitials = initialMatches.filter((player) => {
     const candidate = splitLatinName(player.nameEn || player.name);
     if (!candidate) return false;

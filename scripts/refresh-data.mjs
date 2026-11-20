@@ -45,9 +45,26 @@ function get(url) {
 
 const playerNames = {};
 const playerCodes = {};
+const ambiguousKeys = new Set();
+const normalizeCodeKey = (raw) =>
+  String(raw ?? "")
+    .normalize("NFKC")
+    .replace(/\uFFFD/g, " ")
+    .replace(/([A-Za-z0-9])\?([A-Za-z0-9])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
 const recordCode = (raw, code) => {
-  const key = String(raw ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-  if (key && code && !playerCodes[key]) playerCodes[key] = code;
+  const key = normalizeCodeKey(raw);
+  if (!key || !code || ambiguousKeys.has(key)) return;
+  const existing = playerCodes[key];
+  if (existing && existing !== code) {
+    delete playerCodes[key];
+    ambiguousKeys.add(key);
+    return;
+  }
+  playerCodes[key] = code;
 };
 
 for (const leagueCode of ["PBA1", "LPBA1", "PBA2"]) {

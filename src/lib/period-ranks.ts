@@ -27,30 +27,22 @@ export interface ComputedCircuitRanks {
 /**
  * Derive the exact `[startDate, endDate]` span of a PBA season from its tour
  * calendar (PBA seasons run roughly June–March across two calendar years).
- * Falls back to the calendar year of `seasonCode` if no tour dates match.
+ * Returns `null` when no tour dates match `seasonCode`, so callers do not
+ * substitute a calendar-year window for an unknown season span.
  */
 export function tourSeasonWindow(
   tours: Pick<RawTour, "시즌코드" | "투어시작일자" | "투어종료일자">[],
   seasonCode: string,
-  today = new Date(),
-): { startDate: string; endDate: string } {
+): { startDate: string; endDate: string } | null {
   const dates: string[] = [];
   for (const tour of tours) {
     if (String(tour.시즌코드) !== seasonCode) continue;
     if (tour.투어시작일자) dates.push(tour.투어시작일자);
     if (tour.투어종료일자) dates.push(tour.투어종료일자);
   }
-  if (dates.length > 0) {
-    dates.sort();
-    return { startDate: dates[0], endDate: dates[dates.length - 1] };
-  }
-  const year = /^\d{4}$/.test(seasonCode) ? Number(seasonCode) : today.getFullYear();
-  const pad = (value: number) => String(value).padStart(2, "0");
-  const day = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
-  if (year === today.getFullYear()) {
-    return { startDate: `${year}-01-01`, endDate: day };
-  }
-  return { startDate: `${year}-01-01`, endDate: `${year}-12-31` };
+  if (dates.length === 0) return null;
+  dates.sort();
+  return { startDate: dates[0], endDate: dates[dates.length - 1] };
 }
 
 function assignCompetitionRanks(entries: { memCode: string; value: number }[]): Map<string, number> {

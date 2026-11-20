@@ -248,6 +248,7 @@ export const getSeasonCircuitRanks = cache(
   async (seasonCode: string, pbaType: string): Promise<Map<string, ComputedCircuitRanks>> => {
     const tours = await getTourHistory();
     const window = tourSeasonWindow(tours, seasonCode);
+    if (!window) return new Map();
     const period = await getPeriodStats({
       startDate: window.startDate,
       endDate: window.endDate,
