@@ -43,14 +43,28 @@ function get(url) {
   });
 }
 
-const playersRaw = await get(
-  "https://www.pbatour.org/en/player/search/ajax/indexList?curPage=1&pageRowSize=2000&leagueCode=PBA1",
-);
-const players = JSON.parse(playersRaw);
 const playerNames = {};
-for (const player of players.list ?? []) {
-  if (player.PlayerNameKO && player.PlayerNameEN) {
-    playerNames[player.PlayerNameKO.trim()] = player.PlayerNameEN.trim();
+const playerCodes = {};
+const recordCode = (raw, code) => {
+  const key = String(raw ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (key && code && !playerCodes[key]) playerCodes[key] = code;
+};
+
+for (const leagueCode of ["PBA1", "LPBA1", "PBA2"]) {
+  const playersRaw = await get(
+    `https://www.pbatour.org/en/player/search/ajax/indexList?curPage=1&pageRowSize=2000&leagueCode=${leagueCode}`,
+  );
+  const players = JSON.parse(playersRaw);
+  for (const player of players.list ?? []) {
+    const code = String(player.MemCode ?? "").trim();
+    if (player.PlayerNameKO && player.PlayerNameEN && !playerNames[player.PlayerNameKO.trim()]) {
+      playerNames[player.PlayerNameKO.trim()] = player.PlayerNameEN.trim();
+    }
+    if (code) {
+      recordCode(player.PlayerNameKO, code);
+      recordCode(player.PlayerNameEN, code);
+      recordCode(player.PlayerNameENShort, code);
+    }
   }
 }
 
@@ -63,7 +77,9 @@ for (const tour of tours.list ?? []) {
 }
 
 await writeFile(join(OUT, "player-names.json"), JSON.stringify(playerNames));
+await writeFile(join(OUT, "player-codes.json"), JSON.stringify(playerCodes));
 await writeFile(join(OUT, "tour-titles.json"), JSON.stringify(tourTitles));
 
 console.log(`player-names.json  ${Object.keys(playerNames).length} entries`);
+console.log(`player-codes.json  ${Object.keys(playerCodes).length} entries`);
 console.log(`tour-titles.json   ${Object.keys(tourTitles).length} entries`);

@@ -335,7 +335,10 @@ export function normalizePlayerStat(raw: RawPlayerStat | null | undefined): Play
     ranks: {
       average: int(raw.에버리지순위),
       highRun: int(raw.하이런순위),
-      winRate: int(raw.승률순위),
+      // The service answers 1 for 승률순위 and 승부치기승률순위 for every player
+      // (verified Nov 2026 from 0% to 89% win rates), so both are dropped rather
+      // than shown as a circuit lead nobody holds. 0 renders as "no rank".
+      winRate: 0,
       bankShotRate: int(raw.뱅크샷비율순위),
       longRunRate: int(raw.장타율순위),
       firstShotRate: int(raw.초구성공률순위),
@@ -343,7 +346,7 @@ export function normalizePlayerStat(raw: RawPlayerStat | null | undefined): Play
       points: int(raw.총점순위),
       prize: int(raw.상금순위),
       rankingPoints: int(raw.랭킹포인트순위),
-      shootoutRate: int(raw.승부치기승률순위),
+      shootoutRate: 0,
     },
   };
 }

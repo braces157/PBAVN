@@ -7,6 +7,7 @@
 import { cache } from "react";
 import {
   getLeagues,
+  getPeriodStats,
   getPlayers,
   getPlayer,
   getRanking,
@@ -22,6 +23,12 @@ import {
   type RankingKind,
 } from "./api";
 import { byStart, eventStatus, normalizeEvent, normalizeTeam, type Event } from "../normalize";
+import {
+  computePeriodRanks,
+  normalizePeriodStat,
+  tourSeasonWindow,
+  type ComputedCircuitRanks,
+} from "../period";
 import { cleanDisplayText, cleanPlayerName, hasHangul, isPlaceholder, romanizeKoreanName } from "../format";
 import { getPlayerSeasonMatches, searchNameOf, type TourMatch } from "./match-search";
 import { FIXTURES_ARCHIVE_TTL, FIXTURES_IN_PLAY_TTL, getRoundFixtures } from "./team-matches";
@@ -232,6 +239,25 @@ export const getLeaders = cache(async (season: string, pbaType: string) => {
   return getSeasonLeaders({ seasonCode: season, pbaType });
 });
 
+/**
+ * Circuit-wide ranks computed from `/stats/service/period` across the season's
+ * tour date span, filling in the three rank fields that `/stats/service/season`
+ * breaks (`승률순위`, `승부치기승률순위`) or omits (`총점순위`).
+ */
+export const getSeasonCircuitRanks = cache(
+  async (seasonCode: string, pbaType: string): Promise<Map<string, ComputedCircuitRanks>> => {
+    const tours = await getTourHistory();
+    const window = tourSeasonWindow(tours, seasonCode);
+    const period = await getPeriodStats({
+      startDate: window.startDate,
+      endDate: window.endDate,
+      pbaType,
+    });
+    if (period.length === 0) return new Map();
+    return computePeriodRanks(period.map(normalizePeriodStat));
+  },
+);
+
 /* ------------------------------------------------------------------ labels */
 
 export function seasonLabel(season: RawSeason | null | undefined): string {
@@ -368,6 +394,7 @@ export interface TourTitleEntry {
  */
 import tourTitles from "./data/tour-titles.json";
 import playerNames from "./data/player-names.json";
+import playerCodes from "./data/player-codes.json";
 
 /** Tour code → English title. */
 let tourTitleIndex: Map<string, TourTitleEntry> | null = null;
@@ -393,6 +420,35 @@ export function getPlayerNameIndex(): Map<string, string> {
     playerNameIndex = new Map(Object.entries(playerNames as Record<string, string>));
   }
   return playerNameIndex;
+}
+
+/** Normalized player name (KO, EN full, or EN short) → `MemCode`. */
+let playerCodeIndex: Map<string, string> | null = null;
+
+export function getPlayerCodeIndex(): Map<string, string> {
+  if (!playerCodeIndex) {
+    playerCodeIndex = new Map(Object.entries(playerCodes as Record<string, string>));
+  }
+  return playerCodeIndex;
+}
+
+export function resolvePlayerCode(name: string | null | undefined): string | null {
+  const cleaned = cleanDisplayText(name);
+  if (!cleaned || isPlaceholder(cleaned)) return null;
+  const codes = getPlayerCodeIndex();
+  const key = cleaned.toLowerCase().replace(/\s+/g, " ");
+  const direct = codes.get(key);
+  if (direct) return direct;
+
+  // Handle abbreviated Korean names like "Q.응우옌" by resolving to official EN name first.
+  if (hasHangul(cleaned)) {
+    const en = lookupKoreanName(cleaned, getPlayerNameIndex());
+    if (en) {
+      const byEn = codes.get(en.toLowerCase().replace(/\s+/g, " "));
+      if (byEn) return byEn;
+    }
+  }
+  return null;
 }
 
 /**
@@ -464,15 +520,18 @@ export function resolveTourLabels(rows: {
   title: string;
   champion: string;
   code: string | number;
-}[]): { title: string; champion: string }[] {
+}[]): { title: string; champion: string; championCode: string | null }[] {
   const titles = getTourTitleIndex();
   const names = getPlayerNameIndex();
   return rows.map((row) => {
     const entry = titles.get(String(row.code));
     const title = cleanDisplayText(entry?.titleEn) || translateKoreanTourTitle(row.title);
+    const champion = resolveKoreanName(row.champion, names);
+    const championCode = resolvePlayerCode(row.champion) ?? resolvePlayerCode(champion);
     return {
       title,
-      champion: resolveKoreanName(row.champion, names),
+      champion,
+      championCode,
     };
   });
 }
