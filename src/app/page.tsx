@@ -39,6 +39,7 @@ import {
 import { photoUrl } from "@/lib/photo";
 import { SafeImage } from "@/components/ui/safe-image";
 import { clubBadge, flagClass, leagueTagClass } from "@/components/ui/media";
+import { matchTeamByNameOrLogo } from "@/lib/team-links";
 import { translateArticleTitles } from "@/lib/translate";
 import { cn } from "@/components/ui/primitives";
 import type { RawRankingRow, RawTop5Row } from "@/lib/pba/types";
@@ -263,6 +264,19 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     return null;
   };
 
+  const clubLogoFor = (code?: string | null, name?: string | null, directLogo?: string | null): string | null => {
+    if (directLogo) return directLogo;
+    if (code) {
+      const byCode = standingMap.get(code);
+      if (byCode?.logo) return byCode.logo;
+    }
+    if (name) {
+      const matched = matchTeamByNameOrLogo(standings, name, null);
+      if (matched?.logo) return matched.logo;
+    }
+    return null;
+  };
+
   return (
     <>
       {/* ============================================================ EVENT STRIP */}
@@ -342,13 +356,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                     {feed.matches[0]?.venue && <span className="r">{feed.matches[0].venue}</span>}
                   </div>
                   {feed.matches.map((match) => (
-                    <LiveSidebarRow key={match.key} match={match} nationFor={nationFor} />
+                    <LiveSidebarRow key={match.key} match={match} nationFor={nationFor} clubLogoFor={clubLogoFor} />
                   ))}
                   {upcomingFixtures.length > 0 && (
                     <>
                       <div className="sub">Later today · Round {liveRound?.라운드}</div>
                       {upcomingFixtures.slice(0, 4).map((fix) => (
-                        <TeamSidebarRow key={`${fix.home.name}-${fix.away.name}-${fix.playedAt}`} fixture={fix} round={liveRound?.라운드} seasonCode={teamSeason?.season.시즌코드} roundCode={liveRound ? String(liveRound.라운드코드) : undefined} />
+                        <TeamSidebarRow key={`${fix.home.name}-${fix.away.name}-${fix.playedAt}`} fixture={fix} round={liveRound?.라운드} seasonCode={teamSeason?.season.시즌코드} roundCode={liveRound ? String(liveRound.라운드코드) : undefined} clubLogoFor={clubLogoFor} />
                       ))}
                     </>
                   )}
@@ -375,7 +389,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                     <span className="tag t-team">Team</span>Round {liveRound?.라운드}
                   </div>
                   {upcomingFixtures.slice(0, 5).map((fix) => (
-                    <TeamSidebarRow key={`${fix.home.name}-${fix.away.name}-${fix.playedAt}`} fixture={fix} round={liveRound?.라운드} seasonCode={teamSeason?.season.시즌코드} roundCode={liveRound ? String(liveRound.라운드코드) : undefined} />
+                    <TeamSidebarRow key={`${fix.home.name}-${fix.away.name}-${fix.playedAt}`} fixture={fix} round={liveRound?.라운드} seasonCode={teamSeason?.season.시즌코드} roundCode={liveRound ? String(liveRound.라운드코드) : undefined} clubLogoFor={clubLogoFor} />
                   ))}
                 </>
               ) : (
@@ -389,7 +403,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   <span className="tag t-team">Team</span>Next fixtures · Round {liveRound?.라운드}
                 </div>
                 {upcomingFixtures.slice(0, 5).map((fix) => (
-                  <TeamSidebarRow key={`${fix.home.name}-${fix.away.name}-${fix.playedAt}`} fixture={fix} round={liveRound?.라운드} seasonCode={teamSeason?.season.시즌코드} roundCode={liveRound ? String(liveRound.라운드코드) : undefined} />
+                  <TeamSidebarRow key={`${fix.home.name}-${fix.away.name}-${fix.playedAt}`} fixture={fix} round={liveRound?.라운드} seasonCode={teamSeason?.season.시즌코드} roundCode={liveRound ? String(liveRound.라운드코드) : undefined} clubLogoFor={clubLogoFor} />
                 ))}
               </>
             ) : upcomingEvents.length > 0 ? (
@@ -455,6 +469,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                     round={liveRound?.라운드}
                     seasonCode={teamSeason?.season.시즌코드}
                     roundCode={liveRound ? String(liveRound.라운드코드) : undefined}
+                    clubLogoFor={clubLogoFor}
                   />
                 ))}
               </>
@@ -485,6 +500,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             dayMatch={dayBoard.matches[0] ?? recentDayBoard?.matches[0] ?? null}
             featuredEvent={featuredEvent}
             nationFor={nationFor}
+            clubLogoFor={clubLogoFor}
           />
 
           <section className="p" aria-label="Fixtures">
@@ -534,6 +550,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                       fixture={fix}
                       roundCode={liveRound ? String(liveRound.라운드코드) : undefined}
                       seasonCode={teamSeason?.season.시즌코드}
+                      clubLogoFor={clubLogoFor}
                     />
                   ))}
                 </div>
@@ -706,17 +723,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {clubTableRows.map((team, index) => {
-                    const badge = clubBadge(team.name, index);
-                    return (
+                  {clubTableRows.map((team, index) => (
                       <tr key={team.code}>
                         <td className="pos">{team.rank || index + 1}</td>
                         <td className="nm">
                           <Link href={`/teams/${encodeURIComponent(team.code)}`}>
                             <span>
-                              <i className={cn("cr", badge.cls)} aria-hidden="true">
-                                {badge.code}
-                              </i>
+                              <ClubCrest name={team.name} logo={team.logo} fallbackIndex={index} />
                               <span className="min-w-0 truncate">{shortClubName(team.name)}</span>
                             </span>
                           </Link>
@@ -726,8 +739,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                         </td>
                         <td className="v">{team.points}</td>
                       </tr>
-                    );
-                  })}
+                  ))}
                 </tbody>
               </table>
             </section>
@@ -881,12 +893,57 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
 /* ---------------------------------------------------------------- helpers */
 
+type ClubLogoLookup = (code?: string | null, name?: string | null, directLogo?: string | null) => string | null;
+
+function ClubCrest({
+  name,
+  logo,
+  fallbackIndex = 0,
+  large = false,
+}: {
+  name: string;
+  logo?: string | null;
+  fallbackIndex?: number;
+  large?: boolean;
+}) {
+  const badge = clubBadge(name, fallbackIndex);
+  if (!logo) {
+    return (
+      <i className={cn("cr", large && "lg", badge.cls)} aria-hidden="true">
+        {badge.code}
+      </i>
+    );
+  }
+  return (
+    <span
+      className={cn(
+        "cr overflow-hidden border border-[var(--line)] bg-white p-[1px]",
+        large && "lg p-[2px]",
+      )}
+      aria-hidden="true"
+    >
+      <SafeImage
+        src={logo}
+        alt=""
+        className="h-full w-full object-contain"
+        fallback={
+          <span className={cn("grid h-full w-full place-items-center text-white", badge.cls)}>
+            {badge.code}
+          </span>
+        }
+      />
+    </span>
+  );
+}
+
 function LiveSidebarRow({
   match,
   nationFor,
+  clubLogoFor,
 }: {
   match: LiveMatch;
   nationFor: (code?: string | null, name?: string | null) => string | null;
+  clubLogoFor: ClubLogoLookup;
 }) {
   const [a, b] = match.sides;
   const sa = match.fixtureScore ? match.fixtureScore[0] : a?.setsWon ?? 0;
@@ -902,7 +959,7 @@ function LiveSidebarRow({
       <span className="pl">
         <span>
           {match.competition ? (
-            <i className={cn("cr", clubBadge(a?.name ?? "", 0).cls)}>{clubBadge(a?.name ?? "", 0).code}</i>
+            <ClubCrest name={a?.name ?? ""} logo={clubLogoFor(null, a?.name)} fallbackIndex={0} />
           ) : (
             <i className={flagClass(nationFor(null, a?.name))} />
           )}
@@ -910,7 +967,7 @@ function LiveSidebarRow({
         </span>
         <span>
           {match.competition ? (
-            <i className={cn("cr", clubBadge(b?.name ?? "", 1).cls)}>{clubBadge(b?.name ?? "", 1).code}</i>
+            <ClubCrest name={b?.name ?? ""} logo={clubLogoFor(null, b?.name)} fallbackIndex={1} />
           ) : (
             <i className={flagClass(nationFor(null, b?.name))} />
           )}
@@ -971,14 +1028,14 @@ function TeamSidebarRow({
   round,
   seasonCode,
   roundCode,
+  clubLogoFor,
 }: {
   fixture: TeamFixture;
   round?: number;
   seasonCode?: string;
   roundCode?: string;
+  clubLogoFor: ClubLogoLookup;
 }) {
-  const b1 = clubBadge(fixture.home.name, 0);
-  const b2 = clubBadge(fixture.away.name, 1);
   const href =
     fixture.gameNo && roundCode && seasonCode
       ? `/teams/matches/${fixture.gameNo}?season=${seasonCode}&round=${roundCode}`
@@ -992,15 +1049,19 @@ function TeamSidebarRow({
       </span>
       <span className="pl">
         <span className={fixture.played ? (fixture.home.won ? "won" : "lost") : undefined}>
-          <i className={cn("cr", b1.cls)} aria-hidden="true">
-            {b1.code}
-          </i>
+          <ClubCrest
+            name={fixture.home.name}
+            logo={clubLogoFor(fixture.home.clubCode, fixture.home.name)}
+            fallbackIndex={0}
+          />
           {shortClubName(fixture.home.name)}
         </span>
         <span className={fixture.played ? (fixture.away.won ? "won" : "lost") : undefined}>
-          <i className={cn("cr", b2.cls)} aria-hidden="true">
-            {b2.code}
-          </i>
+          <ClubCrest
+            name={fixture.away.name}
+            logo={clubLogoFor(fixture.away.clubCode, fixture.away.name)}
+            fallbackIndex={1}
+          />
           {shortClubName(fixture.away.name)}
         </span>
       </span>
@@ -1062,13 +1123,13 @@ function CenterTeamRow({
   fixture,
   roundCode,
   seasonCode,
+  clubLogoFor,
 }: {
   fixture: TeamFixture;
   roundCode?: string;
   seasonCode?: string;
+  clubLogoFor: ClubLogoLookup;
 }) {
-  const b1 = clubBadge(fixture.home.name, 0);
-  const b2 = clubBadge(fixture.away.name, 1);
   const href =
     fixture.gameNo && roundCode && seasonCode
       ? `/teams/matches/${fixture.gameNo}?season=${seasonCode}&round=${roundCode}`
@@ -1081,17 +1142,21 @@ function CenterTeamRow({
       </span>
       <span className={cn("a", fixture.played && !fixture.home.won && "lost")}>
         <span className={fixture.home.won ? "font-bold" : undefined}>{shortClubName(fixture.home.name)}</span>
-        <i className={cn("cr", b1.cls)} aria-hidden="true">
-          {b1.code}
-        </i>
+        <ClubCrest
+          name={fixture.home.name}
+          logo={clubLogoFor(fixture.home.clubCode, fixture.home.name)}
+          fallbackIndex={0}
+        />
       </span>
       <span className={cn("sc n", !fixture.played && "up")}>
         {fixture.played ? `${fixture.home.sets ?? 0} – ${fixture.away.sets ?? 0}` : "vs"}
       </span>
       <span className={cn("b", fixture.played && !fixture.away.won && "lost")}>
-        <i className={cn("cr", b2.cls)} aria-hidden="true">
-          {b2.code}
-        </i>
+        <ClubCrest
+          name={fixture.away.name}
+          logo={clubLogoFor(fixture.away.clubCode, fixture.away.name)}
+          fallbackIndex={1}
+        />
         <span className={fixture.away.won ? "font-bold" : undefined}>{shortClubName(fixture.away.name)}</span>
       </span>
       <span className="sets n">
@@ -1113,6 +1178,7 @@ function FeaturedMatchPanel({
   dayMatch,
   featuredEvent,
   nationFor,
+  clubLogoFor,
 }: {
   liveMatch: LiveMatch | null;
   teamFixture: TeamFixture | null;
@@ -1124,14 +1190,13 @@ function FeaturedMatchPanel({
   dayMatch: DayMatch | null;
   featuredEvent: CalendarEvent | null;
   nationFor: (code?: string | null, name?: string | null) => string | null;
+  clubLogoFor: ClubLogoLookup;
 }) {
   if (liveMatch) {
     const [a, b] = liveMatch.sides;
     const scoreA = liveMatch.fixtureScore ? liveMatch.fixtureScore[0] : a?.setsWon ?? 0;
     const scoreB = liveMatch.fixtureScore ? liveMatch.fixtureScore[1] : b?.setsWon ?? 0;
     const isTeam = Boolean(liveMatch.competition);
-    const badgeA = clubBadge(a?.name ?? "Home", 0);
-    const badgeB = clubBadge(b?.name ?? "Away", 1);
 
     return (
       <section className="p" aria-label="Featured live match">
@@ -1151,7 +1216,7 @@ function FeaturedMatchPanel({
         <div className="feat">
           <div className="side a">
             {isTeam ? (
-              <i className={cn("cr lg", badgeA.cls)}>{badgeA.code}</i>
+              <ClubCrest name={a?.name ?? "Home"} logo={clubLogoFor(null, a?.name)} fallbackIndex={0} large />
             ) : (
               <i className={flagClass(nationFor(null, a?.name))} />
             )}
@@ -1167,7 +1232,7 @@ function FeaturedMatchPanel({
           </div>
           <div className="side b">
             {isTeam ? (
-              <i className={cn("cr lg", badgeB.cls)}>{badgeB.code}</i>
+              <ClubCrest name={b?.name ?? "Away"} logo={clubLogoFor(null, b?.name)} fallbackIndex={1} large />
             ) : (
               <i className={flagClass(nationFor(null, b?.name))} />
             )}
@@ -1233,12 +1298,18 @@ function FeaturedMatchPanel({
   if (teamFixture && bouts) {
     const hStand = teamFixture.home.clubCode ? standingsMap.get(teamFixture.home.clubCode) : undefined;
     const aStand = teamFixture.away.clubCode ? standingsMap.get(teamFixture.away.clubCode) : undefined;
-    const b1 = clubBadge(teamFixture.home.name, 0);
-    const b2 = clubBadge(teamFixture.away.name, 1);
+    const homeLogo = clubLogoFor(teamFixture.home.clubCode, teamFixture.home.name, bouts.homeLogo);
+    const awayLogo = clubLogoFor(teamFixture.away.clubCode, teamFixture.away.name, bouts.awayLogo);
     const detailHref =
       teamFixture.gameNo && seasonCode && roundCode
         ? `/teams/matches/${teamFixture.gameNo}?season=${seasonCode}&round=${roundCode}`
         : "/teams/matches";
+    const homeHref = hStand
+      ? `/teams/${encodeURIComponent(hStand.code)}${seasonCode && roundCode ? `?season=${encodeURIComponent(seasonCode)}&round=${encodeURIComponent(roundCode)}` : ""}`
+      : detailHref;
+    const awayHref = aStand
+      ? `/teams/${encodeURIComponent(aStand.code)}${seasonCode && roundCode ? `?season=${encodeURIComponent(seasonCode)}&round=${encodeURIComponent(roundCode)}` : ""}`
+      : detailHref;
 
     const boutRows = bouts.bouts.slice(0, 7);
 
@@ -1258,10 +1329,10 @@ function FeaturedMatchPanel({
 
         <div className="feat">
           <div className="side a">
-            <i className={cn("cr lg", b1.cls)}>{b1.code}</i>
+            <ClubCrest name={teamFixture.home.name} logo={homeLogo} fallbackIndex={0} large />
             <div className="min-w-0">
               <div className="nm truncate">
-                <Link href={detailHref}>{teamFixture.home.name}</Link>
+                <Link href={homeHref}>{teamFixture.home.name}</Link>
               </div>
               {hStand && (
                 <div className="sm">
@@ -1276,10 +1347,10 @@ function FeaturedMatchPanel({
             <span className={!teamFixture.away.won ? "lose" : undefined}>{teamFixture.away.sets ?? 0}</span>
           </div>
           <div className="side b">
-            <i className={cn("cr lg", b2.cls)}>{b2.code}</i>
+            <ClubCrest name={teamFixture.away.name} logo={awayLogo} fallbackIndex={1} large />
             <div className="min-w-0">
               <div className="nm truncate">
-                <Link href={detailHref}>{teamFixture.away.name}</Link>
+                <Link href={awayHref}>{teamFixture.away.name}</Link>
               </div>
               {aStand && (
                 <div className="sm">
