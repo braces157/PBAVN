@@ -1,19 +1,14 @@
 /**
- * Player photo proxy.
+ * Image proxy for pbatour.org uploads (player portraits, tournament/sponsor
+ * artwork, team logos, and press/gallery photos).
  *
- * Three upstream facts shape this route:
- *
- *  1. Photos live on the asset host, whose TLS chain is missing its intermediate
- *     certificate — so they go through the same `node:https` path as the JSON.
- *  2. Every surface is handed the `small` (~160px) path, but a `big` (~640px)
- *     copy usually exists at the sibling folder, sometimes with a different
- *     cache-busting suffix. We try the upgrade first and fall back to the exact
- *     path we were given.
- *  3. The originals are ~110 KB of JPEG. Sharp resizes to the width the layout
- *     asked for and re-encodes as WebP, which also gives us a resizable edge
- *     instead of a browser-side downscale.
- *
- * An unavailable image returns a non-cached error so a later request can retry.
+ * Reasons this route exists:
+ *  1. `pbatour.org`'s TLS chain omits its intermediate certificate, causing
+ *     intermittent client load failures on direct `<img>` requests.
+ *  2. Player portraits are handed out as `small` (~160px) paths when a `big`
+ *     (~640px) sibling usually exists; this route upgrades and resizes via Sharp.
+ *  3. Magic-byte verified raster responses only; HTML/SVG/undecodable payloads
+ *     are rejected so upstream errors can never be reflected or cached.
  */
 
 import { NextResponse } from "next/server";
@@ -21,13 +16,17 @@ import { fetchBinary } from "@/lib/pba/http";
 
 export const runtime = "nodejs";
 
-const SRC = /^\/players\/[\w-]+\/(?:small|big)\/[\w.\-]+\.(?:jpe?g|png|webp)$/i;
-/** Tournament and sponsor artwork; a flat PNG plate, resized on the way out. */
-const TOURNAMENT_SRC = /^\/(?:resources\/upload\/)?tournament\/[\w./-]+\.(?:png|jpe?g|webp)$/i;
+const PLAYER_SRC = /^\/players\/[\w-]+\/(?:small|big)\/[\w.\-]+\.(?:jpe?g|png|webp|gif)$/i;
+const UPLOAD_SRC =
+  /^\/(?:resources\/upload\/)?(?:tournament|board|sponsor|team|banner|media)\/[\w./-]+\.(?:png|jpe?g|webp|gif)$/i;
 
-/** Roughly 400 thumbs at ~20 KB — small enough to keep resident. */
+/** Snap requested widths to a small allowlist to prevent cache-key explosion. */
+const ALLOWED_WIDTHS = [64, 128, 256, 384, 512, 768, 1200] as const;
+
 const RESULT_CACHE_LIMIT = 400;
 const RESULT_TTL_MS = 6 * 60 * 60 * 1000;
+const NEGATIVE_TTL_MS = 60 * 1000;
+const MAX_INPUT_PIXELS = 25_000_000;
 
 interface Rendered {
   expires: number;
@@ -36,13 +35,9 @@ interface Rendered {
 }
 
 const rendered = new Map<string, Rendered>();
+const negativeCache = new Map<string, number>();
+const inFlight = new Map<string, Promise<Rendered | null>>();
 
-/**
- * Expired entries leave first, then the least recently used one pays for the
- * newcomer. The old wholesale `clear()` wiped every hot thumb at the limit, and
- * a page full of faces then re-rendered them all from upstream. Map iteration
- * is insertion order and hits re-insert, so the oldest key is the coldest.
- */
 function storeRendered(key: string, entry: Rendered): void {
   const now = Date.now();
   for (const [k, v] of rendered) {
@@ -56,32 +51,44 @@ function storeRendered(key: string, entry: Rendered): void {
   rendered.set(key, entry);
 }
 
+function storeNegative(key: string): void {
+  const now = Date.now();
+  for (const [k, exp] of negativeCache) {
+    if (exp <= now) negativeCache.delete(k);
+  }
+  while (negativeCache.size >= 400) {
+    const oldest = negativeCache.keys().next().value;
+    if (oldest === undefined) break;
+    negativeCache.delete(oldest);
+  }
+  negativeCache.set(key, now + NEGATIVE_TTL_MS);
+}
+
+const SAFE_IMAGE_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "Content-Security-Policy": "default-src 'none'; sandbox",
+};
+
 const HIT_HEADERS = {
+  ...SAFE_IMAGE_HEADERS,
   "Cache-Control": "public, max-age=604800, stale-while-revalidate=2592000",
 };
 
-function clampWidth(raw: string | null): number {
+function snapWidth(raw: string | null): number {
   const value = Number(raw);
-  if (!Number.isFinite(value) || value <= 0) return 320;
-  return Math.min(768, Math.max(48, Math.round(value)));
+  if (!Number.isFinite(value) || value <= 0) return 384;
+  for (const candidate of ALLOWED_WIDTHS) {
+    if (value <= candidate) return candidate;
+  }
+  return ALLOWED_WIDTHS[ALLOWED_WIDTHS.length - 1];
 }
 
-/**
- * Tournament artwork is one file with no sibling size, so the only candidate
- * is the path itself. It is also the only artwork served with transparency
- * kept: a sponsor crest sits on the dark header, not on a plate.
- */
-function isTournamentArt(src: string): boolean {
-  return TOURNAMENT_SRC.test(src);
+function hasUnsafeSegments(src: string): boolean {
+  if (src.includes("\\") || src.includes("//")) return true;
+  const segments = src.split("/");
+  return segments.includes("..") || segments.includes(".");
 }
 
-/**
- * Upstream names the two sizes inconsistently. Most members have
- * `/players/PBA/small/M0017191.jpg` beside `/players/PBA/big/M0017191.jpg`, but a
- * few newer uploads carry a size marker and timestamp —
- * `_S_2025…` on the small copy, `_B_2025…` on the big one — so the folder swap
- * alone points at a file that was never written. Try the marker swap too.
- */
 function ancestorsOf(path: string): string[] {
   const isSmall = path.includes("/small/");
   const otherFolder = isSmall ? path.replace("/small/", "/big/") : path.replace("/big/", "/small/");
@@ -90,11 +97,11 @@ function ancestorsOf(path: string): string[] {
 
   return [
     ...new Set([
-      otherFolder.replace(/_[SB]_\d+(?=\.\w+$)/, ""), // plain big/small, no suffix
-      otherFolderMarkerSwapped, // same suffix, other size
-      markerSwapped, // same folder, other size marker
-      otherFolder, // folder swap, suffix untouched
-      path, // exactly what the feed gave us
+      otherFolder.replace(/_[SB]_\d+(?=\.\w+$)/, ""),
+      otherFolderMarkerSwapped,
+      markerSwapped,
+      otherFolder,
+      path,
     ]),
   ];
 }
@@ -102,14 +109,12 @@ function ancestorsOf(path: string): string[] {
 async function toWebp(input: Buffer, width: number, keepAlpha = false): Promise<Buffer | null> {
   try {
     const { default: sharp } = await import("sharp");
-    return await sharp(input)
-      .rotate() // honour EXIF orientation before measuring
+    return await sharp(input, { limitInputPixels: MAX_INPUT_PIXELS })
+      .rotate()
       .resize({ width, withoutEnlargement: true, fit: "inside", kernel: "lanczos3" })
       .webp({ quality: 82, effort: 4, ...(keepAlpha ? { alphaQuality: 100 } : {}) })
       .toBuffer();
   } catch {
-    // Sharp is optional at runtime (it ships with Next as an optional
-    // dependency). Serving the 640px original still beats a blurred 160px one.
     return null;
   }
 }
@@ -117,21 +122,22 @@ async function toWebp(input: Buffer, width: number, keepAlpha = false): Promise<
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const src = params.get("src") ?? "";
-  const tournament = isTournamentArt(src);
-  if (!tournament && !SRC.test(src)) {
-    return new NextResponse(null, { status: 400, headers: { "Cache-Control": "public, max-age=3600" } });
-  }
-  // The patterns allow `.` and `/`, so a `..` segment would walk out of the
-  // artwork subtree once the URL resolver collapses it.
-  if (src.split("/").includes("..")) {
-    return new NextResponse(null, { status: 400, headers: { "Cache-Control": "public, max-age=3600" } });
+  const isPlayer = PLAYER_SRC.test(src);
+  const isUpload = !isPlayer && UPLOAD_SRC.test(src);
+
+  if ((!isPlayer && !isUpload) || hasUnsafeSegments(src)) {
+    return new NextResponse(null, {
+      status: 400,
+      headers: { ...SAFE_IMAGE_HEADERS, "Cache-Control": "public, max-age=3600" },
+    });
   }
 
-  const width = clampWidth(params.get("w"));
+  const width = snapWidth(params.get("w"));
   const key = `${src}@${width}`;
+  const now = Date.now();
 
   const cached = rendered.get(key);
-  if (cached && cached.expires > Date.now()) {
+  if (cached && cached.expires > now) {
     rendered.delete(key);
     rendered.set(key, cached);
     return new NextResponse(new Uint8Array(cached.body), {
@@ -139,26 +145,54 @@ export async function GET(request: Request) {
     });
   }
 
-  // Tournament art may arrive with the upload prefix already on it; fetchBinary
-  // prepends it again, so strip it here first.
-  const candidates = tournament ? [src.replace(/^\/resources\/upload(?=\/)/, "")] : ancestorsOf(src);
-  for (const candidate of candidates) {
-    const asset = await fetchBinary(`https://pbatour.org/resources/upload${candidate}`);
-    if (!asset) continue;
-
-    const webp = await toWebp(asset.body, width, tournament);
-    const body = webp ?? asset.body;
-    const contentType = webp ? "image/webp" : asset.contentType || "image/jpeg";
-
-    storeRendered(key, { expires: Date.now() + RESULT_TTL_MS, body, contentType });
-
-    return new NextResponse(new Uint8Array(body), {
-      headers: { ...HIT_HEADERS, "Content-Type": contentType },
+  const negExp = negativeCache.get(key);
+  if (negExp && negExp > now) {
+    return new NextResponse(null, {
+      status: 404,
+      headers: { ...SAFE_IMAGE_HEADERS, "Cache-Control": "public, max-age=60" },
     });
   }
 
-  return new NextResponse(null, {
-    status: 503,
-    headers: { "Cache-Control": "no-store" },
+  let pending = inFlight.get(key);
+  if (!pending) {
+    pending = (async (): Promise<Rendered | null> => {
+      const keepAlpha = isUpload && /\/(?:tournament|sponsor|team)\//i.test(src);
+      const candidates = isPlayer
+        ? ancestorsOf(src)
+        : [src.replace(/^\/resources\/upload(?=\/)/, "")];
+
+      for (const candidate of candidates) {
+        const asset = await fetchBinary(`https://pbatour.org/resources/upload${candidate}`);
+        if (!asset) continue;
+
+        const webp = await toWebp(asset.body, width, keepAlpha);
+        if (!webp) continue;
+
+        const entry: Rendered = {
+          expires: Date.now() + RESULT_TTL_MS,
+          body: webp,
+          contentType: "image/webp",
+        };
+        storeRendered(key, entry);
+        return entry;
+      }
+      storeNegative(key);
+      return null;
+    })().finally(() => {
+      inFlight.delete(key);
+    });
+    inFlight.set(key, pending);
+  }
+
+  const result = await pending;
+  if (!result) {
+    return new NextResponse(null, {
+      status: 503,
+      headers: { ...SAFE_IMAGE_HEADERS, "Cache-Control": "no-store" },
+    });
+  }
+
+  return new NextResponse(new Uint8Array(result.body), {
+    headers: { ...HIT_HEADERS, "Content-Type": result.contentType },
   });
 }

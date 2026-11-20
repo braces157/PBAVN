@@ -10,7 +10,7 @@
  * they are normalised once, here, into names the UI can use.
  */
 
-import { cleanPlayerName, hasHangul, romanizeKoreanName } from "./format";
+import { cleanPlayerName, hasHangul, kstDay, romanizeKoreanName } from "./format";
 import type { RawPeriodStat } from "./pba/types";
 export {
   computePeriodRanks,
@@ -294,14 +294,12 @@ export function periodWindow(startDate: string, endDate: string): string {
   return `${format(startDate)} – ${format(endDate)}`;
 }
 
-/** Season code to the calendar window the association's stats service accepts. */
+/** Season code to the calendar window the association's stats service accepts (KST). */
 export function seasonWindow(seasonCode: string, today = new Date()): { startDate: string; endDate: string } {
-  const year = /^\d{4}$/.test(seasonCode) ? Number(seasonCode) : today.getFullYear();
-  const pad = (value: number) => String(value).padStart(2, "0");
-  // Local date parts, not `toISOString`: a page rendered in the morning east of
-  // Greenwich would otherwise ask for yesterday.
-  const day = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
-  if (year === today.getFullYear()) {
+  const day = kstDay(today);
+  const currentYear = Number(day.slice(0, 4));
+  const year = /^\d{4}$/.test(seasonCode) ? Number(seasonCode) : currentYear;
+  if (year === currentYear) {
     return { startDate: `${year}-01-01`, endDate: day };
   }
   return { startDate: `${year}-01-01`, endDate: `${year}-12-31` };

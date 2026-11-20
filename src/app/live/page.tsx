@@ -58,22 +58,24 @@ function LiveWireSkeleton() {
 }
 
 export default async function LivePage() {
-  const season = await getCurrentSeason();
-  const [snapshot, teamSeason, tours] = await Promise.all([
-    getSeasonSnapshot(season.SeasonCode),
+  const [season, teamSeason, tours] = await Promise.all([
+    getCurrentSeason(),
     getActiveTeamSeason(),
     getTourHistory(),
   ]);
 
-  const standings = teamSeason
-    ? (
-        await getTeamStandings({
+  const [snapshot, rawStandings] = await Promise.all([
+    getSeasonSnapshot(season.SeasonCode),
+    teamSeason
+      ? getTeamStandings({
           seasonCode: teamSeason.season.시즌코드,
           leagueCode: String(teamSeason.season.리그코드),
           roundCode: teamSeason.liveRound ? String(teamSeason.liveRound.라운드코드) : "0",
         })
-      ).map(normalizeTeam)
-    : [];
+      : Promise.resolve([]),
+  ]);
+
+  const standings = rawStandings.map(normalizeTeam);
 
   const finished = tours
     .filter((tour) => tour.우승자 && tour.투어종료일자)
@@ -113,7 +115,9 @@ export default async function LivePage() {
               <ScoringNowBadge />
             </Suspense>
             {snapshot.live.length > 0 && (
-              <Chip tone="live">{snapshot.live.length} event in progress</Chip>
+              <Chip tone="live">
+                {snapshot.live.length} {snapshot.live.length === 1 ? "event" : "events"} in progress
+              </Chip>
             )}
             <Chip tone="neutral">{grouped(snapshot.upcoming.length)} upcoming</Chip>
           </div>
@@ -124,9 +128,7 @@ export default async function LivePage() {
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_316px]">
           <div className="min-w-0 space-y-5">
             <Suspense fallback={<LiveWireSkeleton />}>
-              <LiveWireSection
-                tourCode={teamSeason?.liveRound ? String(teamSeason.liveRound.라운드코드) : undefined}
-              />
+              <LiveWireSection />
             </Suspense>
 
             <Panel
@@ -141,7 +143,7 @@ export default async function LivePage() {
                       <Link href={`/schedule/${event.id}`} className="row-hover flex items-center gap-3 px-3.5 py-2.5">
                         <span className="w-[46px] shrink-0">
                           <span className="inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-[0.06em] text-live-400">
-                            <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
+                            <span aria-hidden="true" className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
                             Live
                           </span>
                         </span>
@@ -205,7 +207,7 @@ export default async function LivePage() {
                         )}{" "}
                         won
                         <span className="mx-1.5 text-ink-600">·</span>
-                        {tour.circuit}
+                        {leagueShort(tour.circuit)}
                       </span>
                     </span>
                   </li>

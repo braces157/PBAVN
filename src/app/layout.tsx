@@ -4,6 +4,7 @@ import "flag-icons/css/flag-icons.min.css";
 import "./globals.css";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
+import { siteUrl } from "@/lib/site";
 
 const ibmPlexSans = localFont({
   src: "./fonts/ibm-plex-sans-latin.woff2",
@@ -22,10 +23,10 @@ const ibmPlexCondensed = localFont({
   display: "swap",
 });
 
-const THEME_INIT = `(function(){try{var t=localStorage.getItem("pba-theme");if(t==="dark"||t==="light"){document.documentElement.dataset.theme=t;}}catch(e){}})();`;
+const THEME_INIT = `(function(){try{var t=localStorage.getItem("pba-theme");if(t!=="dark"&&t!=="light"){t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t;}catch(e){}})();`;
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://pba-3c.vercel.app"),
+  metadataBase: new URL(siteUrl()),
   title: {
     default: "PBA Hub — 3-Cushion Scores, Stats & Standings",
     template: "%s · PBA Hub",

@@ -29,7 +29,7 @@ import {
   tourSeasonWindow,
   type ComputedCircuitRanks,
 } from "../period";
-import { cleanDisplayText, cleanPlayerName, hasHangul, isPlaceholder, romanizeKoreanName } from "../format";
+import { cleanDisplayText, cleanPlayerName, daysUntil, hasHangul, isPlaceholder, romanizeKoreanName } from "../format";
 import { getPlayerSeasonMatches, searchNameOf, type TourMatch } from "./match-search";
 import { FIXTURES_ARCHIVE_TTL, FIXTURES_IN_PLAY_TTL, getRoundFixtures } from "./team-matches";
 import type { RawLeague, RawSeason } from "./types";
@@ -268,11 +268,8 @@ export function seasonLabel(season: RawSeason | null | undefined): string {
 
 export function nextEventCountdown(event: Event | null): string {
   if (!event?.start) return "";
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(event.start);
-  start.setHours(0, 0, 0, 0);
-  const days = Math.round((start.getTime() - today.getTime()) / 86_400_000);
+  const days = daysUntil(event.start);
+  if (days === null) return "";
   if (days <= 0) return "Starts today";
   if (days === 1) return "Starts tomorrow";
   if (days < 7) return `In ${days} days`;

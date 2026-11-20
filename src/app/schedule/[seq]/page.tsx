@@ -1,15 +1,28 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { getTournamentDetail } from "@/lib/pba/api";
 import { getEventMatches, type BracketMatch } from "@/lib/pba/bracket";
-import { getEventTeamFixtures } from "@/lib/pba/service";
+import { getEventTeamFixtures, getPlayerNameIndex, resolveKoreanName } from "@/lib/pba/service";
 import type { TeamFixture } from "@/lib/pba/team-matches";
 import { calendarEvent, calendarEvents, type CalendarEvent } from "@/lib/pba/calendar";
 import { getLiveFeed, type LiveMatch } from "@/lib/pba/live";
 import { leagueByCode, normalizeEvent, type EventStatus } from "@/lib/normalize";
 import type { RawTournamentDetail } from "@/lib/pba/types";
-import { clockLabel, dayCount, dayKeys, dayOfEvent, fmtRange, isPlaceholder, kstDay, stampDay } from "@/lib/format";
+import {
+  cleanDisplayText,
+  clockLabel,
+  dayCount,
+  dayKeys,
+  dayOfEvent,
+  fmtRange,
+  hasHangul,
+  isPlaceholder,
+  kstDay,
+  romanizeKoreanName,
+  stampDay,
+} from "@/lib/format";
 import { EventCrest } from "@/components/ui/media";
 import { Chip, EmptyState, LiveChip, Panel, TabStrip, TextLink, cn } from "@/components/ui/primitives";
 import { BracketView } from "@/components/domain/bracket-view";
@@ -28,6 +41,8 @@ type Tab = (typeof TABS)[number];
 
 const ROUND_PREVIEW = 5;
 
+const loadDetail = cache((seq: string) => getTournamentDetail(seq));
+
 function detailCalendarEntry(detail: RawTournamentDetail, seq: string): CalendarEvent {
   const { raw: _raw, ...event } = normalizeEvent(detail);
   return { ...event, id: seq, top: detail.TOP_YN === 1 };
@@ -37,25 +52,38 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { seq } = await params;
   const entry = calendarEvent(seq);
   if (!entry) {
-    const detail = await getTournamentDetail(seq);
+    const detail = await loadDetail(seq);
     if (!detail) return { title: "Event not found" };
-    const title = detail.TITLE_EN || detail.TITLE || seq;
+    const normalized = detailCalendarEntry(detail, seq);
+    const title = normalized.title || seq;
+    const description = `${title}${normalized.venue !== "—" ? ` — ${normalized.venue}` : ""}. Dates, results, bracket and match cards for the event.`;
     return {
       title,
-      description: `${title} — ${detail.PLACE_EN || detail.PLACE}. Dates, results, bracket and match cards for the event.`,
+      description,
+      alternates: { canonical: `/schedule/${encodeURIComponent(seq)}` },
+      openGraph: { title, description, type: "website" },
+      twitter: { card: "summary_large_image", title, description },
     };
   }
+  const description = `${entry.title} — ${entry.venue}. Dates, results, bracket and match cards for the event.`;
   return {
     title: entry.title,
-    description: `${entry.title} — ${entry.venue}. Dates, results, bracket and match cards for the event.`,
+    description,
+    alternates: { canonical: `/schedule/${encodeURIComponent(seq)}` },
+    openGraph: { title: entry.title, description, type: "website" },
+    twitter: { card: "summary_large_image", title: entry.title, description },
   };
 }
 
 export default async function EventPage({ params, searchParams }: PageProps) {
   const [{ seq }, search] = await Promise.all([params, searchParams]);
 
-  const detail = await getTournamentDetail(seq);
-  const entry = calendarEvent(seq) ?? (detail ? detailCalendarEntry(detail, seq) : null);
+  const calendarMatch = calendarEvent(seq);
+  const [detail, liveFeedMaybe] = await Promise.all([
+    loadDetail(seq),
+    calendarMatch?.status === "live" ? getLiveFeed() : Promise.resolve(null),
+  ]);
+  const entry = calendarMatch ?? (detail ? detailCalendarEntry(detail, seq) : null);
   if (!entry) notFound();
 
   const showAll = search.all === "1";
@@ -64,16 +92,22 @@ export default async function EventPage({ params, searchParams }: PageProps) {
 
   const matchCode = detail && /^\d+$/.test(detail.MATCH_CODE ?? "") ? detail.MATCH_CODE : "";
 
-  const teamEvent =
+  const [teamEvent, matches, feed] = await Promise.all([
     isTeamLeague && matchCode
-      ? await getEventTeamFixtures({ matchCode, seasonCode: entry.season })
-      : null;
+      ? getEventTeamFixtures({ matchCode, seasonCode: entry.season })
+      : Promise.resolve(null),
+    !isTeamLeague && matchCode
+      ? getEventMatches(matchCode, { settled: entry.status === "completed" })
+      : Promise.resolve([] as BracketMatch[]),
+    liveFeedMaybe
+      ? Promise.resolve(liveFeedMaybe)
+      : entry.status === "live"
+        ? getLiveFeed()
+        : Promise.resolve(null),
+  ]);
 
-  const matches = !isTeamLeague && matchCode ? await getEventMatches(matchCode) : [];
-
-  const feed = entry.status === "live" ? await getLiveFeed() : null;
   const liveMatch =
-    feed?.matches.find((match) => (isTeamLeague ? match.competition : !match.competition)) ?? null;
+    feed?.matches.find((match) => (isTeamLeague ? Boolean(match.competition) : !match.competition)) ?? null;
 
   const fixtures = teamEvent?.fixtures ?? [];
   const days = dayCount(entry.start, entry.end);
@@ -175,7 +209,7 @@ function EventHeader({
           </Link>
           <Separator />
           <Link
-            href={`/schedule?league=${entry.league}&season=${entry.season}`}
+            href={`/schedule?league=${entry.league}`}
             className="transition-colors hover:text-carom-300"
           >
             {league.name}
@@ -569,13 +603,21 @@ function LiveBlock({ match }: { match: LiveMatch }) {
 
 function buildFacts(detail: Awaited<ReturnType<typeof getTournamentDetail>>) {
   if (!detail) return [];
+  const nameIndex = getPlayerNameIndex();
+  const rawWinner = cleanDisplayText(detail.PREV_WINNER_NAME_EN || detail.PREV_WINNER_NAME);
+  const winner =
+    rawWinner && !isPlaceholder(rawWinner)
+      ? hasHangul(rawWinner)
+        ? resolveKoreanName(rawWinner, nameIndex) || romanizeKoreanName(rawWinner)
+        : rawWinner
+      : "";
   return [
-    { label: "Table", value: detail.TABLE_MODEL ?? "" },
-    { label: "Ball", value: detail.BALL_MODEL ?? "" },
-    { label: "Cloth", value: detail.CLOTH_MODEL ?? "" },
-    { label: "Broadcast", value: detail.BROADCAST_EN || detail.BROADCAST || "" },
-    { label: "Champion prize", value: detail.WINNING_PRIZE_EN || detail.WINNING_PRIZE || "" },
-    { label: "Defending champion", value: detail.PREV_WINNER_NAME_EN || detail.PREV_WINNER_NAME || "" },
+    { label: "Table", value: cleanDisplayText(detail.TABLE_MODEL) },
+    { label: "Ball", value: cleanDisplayText(detail.BALL_MODEL) },
+    { label: "Cloth", value: cleanDisplayText(detail.CLOTH_MODEL) },
+    { label: "Broadcast", value: cleanDisplayText(detail.BROADCAST_EN || detail.BROADCAST) },
+    { label: "Champion prize", value: cleanDisplayText(detail.WINNING_PRIZE_EN || detail.WINNING_PRIZE) },
+    { label: "Defending champion", value: winner },
   ].filter((row) => row.value && !isPlaceholder(row.value));
 }
 

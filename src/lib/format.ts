@@ -64,10 +64,20 @@ export function dayCount(start: DateLike, end: DateLike): number | null {
   return Math.round((atMidnight(b).getTime() - atMidnight(a).getTime()) / 86_400_000) + 1;
 }
 
-export function daysUntil(value: DateLike): number | null {
-  const date = toDate(value);
-  if (!date) return null;
-  return Math.round((atMidnight(date).getTime() - atMidnight(new Date()).getTime()) / 86_400_000);
+/** Whole-day difference between two YYYY-MM-DD keys (positive when `b` is later). */
+function diffIsoDays(aKey: string, bKey: string): number | null {
+  const a = parseIsoDay(aKey);
+  const b = parseIsoDay(bKey);
+  if (!a || !b) return null;
+  const aUtc = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const bUtc = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((bUtc - aUtc) / 86_400_000);
+}
+
+export function daysUntil(value: DateLike, now = new Date()): number | null {
+  const key = typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : isoDay(value);
+  if (!key) return null;
+  return diffIsoDays(kstDay(now), key);
 }
 
 /* ------------------------------------------------------------ calendar rails */
@@ -111,11 +121,20 @@ export function isoDay(value: DateLike): string | null {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-/** A `YYYY-MM-DD` string read back as local midnight, or null. */
+/** A `YYYY-MM-DD` string read back as local noon (DST-safe), rejecting rolled-over dates. */
 export function parseIsoDay(value: string | null | undefined): Date | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day, 12, 0, 0);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const parsed = new Date(year, month - 1, day, 12, 0, 0);
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+  return parsed;
 }
 
 /** Midnight today — the anchor every "today" test uses. */
@@ -196,11 +215,14 @@ export function dayOfEvent(day: string, start: DateLike, end: DateLike): number 
   return Math.round((at - from) / 86_400_000) + 1;
 }
 
-/** "18:30", from a local `YYYY-MM-DD HH:MM` stamp or a Date. */
+/** "18:30", from a local `YYYY-MM-DD HH:MM(:SS)` stamp or a Date. */
 export function clockLabel(value: string | Date | null | undefined): string | null {
   if (!value) return null;
-  const match = typeof value === "string" ? value.match(/(\d{1,2}):(\d{2})\s*$/) : null;
-  if (match) return `${match[1].padStart(2, "0")}:${match[2]}`;
+  if (typeof value === "string") {
+    const match = value.match(/(?:^|\s|T)(\d{1,2}):(\d{2})(?::\d{2})?\s*$/);
+    if (match) return `${match[1].padStart(2, "0")}:${match[2]}`;
+    return null;
+  }
   if (value instanceof Date) {
     return `${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")}`;
   }
@@ -484,23 +506,65 @@ export function excerpt(html: string | null | undefined, length = 180): string {
   return `${text.slice(0, length).replace(/\s+\S*$/, "")}…`;
 }
 
-/** YouTube watch/short/embed URLs → embed URL, or null when it is not YouTube. */
-export function youtubeEmbed(url: string | null | undefined): string | null {
+const YOUTUBE_HOSTS = new Set([
+  "youtube.com",
+  "www.youtube.com",
+  "m.youtube.com",
+  "youtu.be",
+  "www.youtu.be",
+  "youtube-nocookie.com",
+  "www.youtube-nocookie.com",
+]);
+
+const YOUTUBE_ID = /^[\w-]{6,20}$/;
+
+/** Safe `http:`/`https:` URL validator for untrusted/upstream links. */
+export function safeHttpUrl(url: string | null | undefined): string | null {
   if (!url) return null;
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=)([\w-]{6,})/,
-    /(?:youtu\.be\/)([\w-]{6,})/,
-    /(?:youtube\.com\/embed\/)([\w-]{6,})/,
-    /(?:youtube\.com\/shorts\/)([\w-]{6,})/,
-  ];
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return `https://www.youtube.com/embed/${match[1]}`;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+    return parsed.toString();
+  } catch {
+    return null;
   }
-  return null;
 }
 
 export function youtubeId(url: string | null | undefined): string | null {
-  const embed = youtubeEmbed(url);
-  return embed ? embed.split("/").pop() ?? null : null;
+  const safe = safeHttpUrl(url);
+  if (!safe) return null;
+  try {
+    const parsed = new URL(safe);
+    const host = parsed.hostname.toLowerCase();
+    if (!YOUTUBE_HOSTS.has(host)) return null;
+
+    let candidate: string | null = null;
+    if (host === "youtu.be" || host === "www.youtu.be") {
+      candidate = parsed.pathname.split("/").filter(Boolean)[0] ?? null;
+    } else if (parsed.pathname === "/watch") {
+      candidate = parsed.searchParams.get("v");
+    } else {
+      const parts = parsed.pathname.split("/").filter(Boolean);
+      if (parts[0] === "embed" || parts[0] === "shorts" || parts[0] === "live") {
+        candidate = parts[1] ?? null;
+      }
+    }
+    return candidate && YOUTUBE_ID.test(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
+}
+
+/** YouTube watch/short/embed URLs → canonical embed URL, or null when not YouTube. */
+export function youtubeEmbed(url: string | null | undefined): string | null {
+  const id = youtubeId(url);
+  return id ? `https://www.youtube.com/embed/${id}` : null;
+}
+
+/** YouTube URL → canonical watch URL, safe to render in `<a href>`. */
+export function youtubeWatchUrl(url: string | null | undefined): string | null {
+  const id = youtubeId(url);
+  return id ? `https://www.youtube.com/watch?v=${id}` : null;
 }

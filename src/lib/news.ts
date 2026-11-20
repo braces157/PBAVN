@@ -1,6 +1,6 @@
 export function detectNewsCategory(title: string): { label: string; cls: string } {
   const lower = title.toLowerCase();
-  if (lower.includes("팀리그") || lower.includes("team league") || lower.includes("team")) {
+  if (lower.includes("팀리그") || lower.includes("team league")) {
     return { label: "Team League", cls: "t-team" };
   }
   if (lower.includes("lpba")) {

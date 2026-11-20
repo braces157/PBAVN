@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { cache } from "react";
 import { IN_PLAY, getScorecard, getSetInnings } from "@/lib/pba/scoreboard";
 import { getTourTitleIndex, resolvePlayerCode } from "@/lib/pba/service";
@@ -9,7 +10,7 @@ import {
   summariseMatch,
   type AnalysedSet,
 } from "@/lib/match";
-import { youtubeId } from "@/lib/format";
+import { youtubeWatchUrl } from "@/lib/format";
 import { MatchHeader, MatchTotals } from "@/components/domain/match/match-summary";
 import { SetNav, SetPanel } from "@/components/domain/match/set-panel";
 import { EmptyState, TextLink } from "@/components/ui/primitives";
@@ -28,13 +29,14 @@ interface LoadedMatch {
 }
 
 const ROUND = /^[A-Za-z0-9 -]{1,24}$/;
+const PST_CODE = /^\d{1,12}$/;
 
 function readContext(search: Search) {
   const tourCode = /^\d{1,6}$/.test(search.tour ?? "") ? search.tour! : null;
   const title = tourCode ? getTourTitleIndex().get(tourCode)?.titleEn ?? null : null;
-  const eventSeq = /^\d{1,6}$/.test(search.seq ?? "") ? search.seq! : null;
+  const eventSeq = /^[A-Za-z0-9_-]{1,32}$/.test(search.seq ?? "") ? search.seq! : null;
   const round = search.round && ROUND.test(search.round) ? search.round.trim() : null;
-  const watch = search.watch && youtubeId(search.watch) ? search.watch : null;
+  const watch = youtubeWatchUrl(search.watch);
   const live = search.live === "1";
   return { tourCode, title, eventSeq, round, watch, live };
 }
@@ -59,22 +61,31 @@ export async function generateMetadata({
   searchParams: Promise<Search>;
 }): Promise<Metadata> {
   const [{ pstCode }, search] = await Promise.all([params, searchParams]);
+  if (!PST_CODE.test(pstCode)) {
+    return { title: "Match not found" };
+  }
   const context = readContext(search);
-  const { analysed } = await loadMatch(pstCode, readContext(search).live);
+  const { analysed } = await loadMatch(pstCode, context.live);
 
   if (analysed.length === 0) {
     return {
       title: "Match card",
       description: "Per-set and turn-by-turn scoring from the PBA scoring terminal.",
+      alternates: { canonical: `/matches/${pstCode}` },
     };
   }
 
   const names = analysed[0].sides.map((side) => side.name).filter(Boolean);
   const summary = summariseMatch(analysed);
+  const title = `${names.join(" vs ")} (${summary.setsWon.join("–")}) — Match Scorecard`;
+  const description = `Set-by-set scorecard and turn-by-turn scoring${context.title ? ` from ${context.title}` : ""}. ${analysed.length} sets.`;
 
   return {
-    title: `${names.join(" vs ")} (${summary.setsWon.join("–")}) — Match Scorecard`,
-    description: `Set-by-set scorecard and turn-by-turn scoring${context.title ? ` from ${context.title}` : ""}. ${analysed.length} sets.`,
+    title,
+    description,
+    alternates: { canonical: `/matches/${pstCode}` },
+    openGraph: { title, description, type: "website" },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
@@ -86,12 +97,14 @@ export default async function MatchPage({
   searchParams: Promise<Search>;
 }) {
   const [{ pstCode }, search] = await Promise.all([params, searchParams]);
+  if (!PST_CODE.test(pstCode)) notFound();
   const context = readContext(search);
   const { analysed, totals } = await loadMatch(pstCode, context.live);
 
   if (analysed.length === 0) {
     return (
       <div className="mx-auto max-w-[1300px] px-3 py-6">
+        <h1 className="sr-only">Match #{pstCode} Scorecard</h1>
         <nav className="mb-4 flex items-center gap-1.5 text-[11.5px] text-fog-500" aria-label="Breadcrumb">
           <Link href="/schedule" className="hover:text-carom-300">
             Schedule

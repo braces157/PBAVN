@@ -46,9 +46,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const raw = await getPlayerCached(memCode);
   if (!raw) return { title: "Player not found" };
   const player = normalizePlayer(raw);
+  const title = `${player.name} — Stats & Profile`;
+  const description = `${player.name} — 3-cushion season averages, high runs, win rates, bank-shot accuracy, tour results and prize money.`;
   return {
-    title: `${player.name} — Stats & Profile`,
-    description: `${player.name} — 3-cushion season averages, high runs, win rates, bank-shot accuracy, tour results and prize money.`,
+    title,
+    description,
+    alternates: { canonical: `/players/${encodeURIComponent(player.code)}` },
+    openGraph: { title, description, type: "profile" },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
@@ -221,12 +226,12 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                 <HeroStat
                   label="Career prize"
                   value={wonCompact(player.prize)}
-                  hint={player.prizeRank ? `Rank #${player.prizeRank}` : undefined}
+                  hint={player.prizeRank > 0 ? `Rank #${player.prizeRank}` : undefined}
                 />
                 <HeroStat
                   label="Ranking pts"
                   value={grouped(player.points)}
-                  hint={player.pointsRank ? `Rank #${player.pointsRank}` : undefined}
+                  hint={player.pointsRank > 0 ? `Rank #${player.pointsRank}` : undefined}
                 />
               </dl>
             </div>

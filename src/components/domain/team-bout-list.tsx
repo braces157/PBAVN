@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { average, percent } from "@/lib/format";
 import { Chip, cn } from "@/components/ui/primitives";
 import type { Bout, BoutInnings } from "@/lib/pba/team-matches-parse";
@@ -40,45 +40,66 @@ export function TeamBoutList({
   const initialBout = initialSet !== null ? bouts.find((b) => b.setNo === initialSet) : undefined;
   const [expandedSet, setExpandedSet] = useState<number | null>(initialSet);
   const [cache, setCache] = useState<Record<string, BoutInnings | null>>(() =>
-    initialBout?.tgCode ? { [initialBout.tgCode]: initialInnings } : {},
+    initialBout?.tgCode && initialInnings !== null ? { [initialBout.tgCode]: initialInnings } : {},
   );
-  const [loadingTgCode, setLoadingTgCode] = useState<string | null>(null);
+  const [failedCodes, setFailedCodes] = useState<Record<string, boolean>>({});
+  const [loadingCodes, setLoadingCodes] = useState<Record<string, boolean>>({});
+  const cacheRef = useRef(cache);
+  cacheRef.current = cache;
   const inFlight = useRef<Map<string, Promise<BoutInnings | null>>>(new Map());
+  const mounted = useRef(true);
 
-  const loadInnings = useCallback(
-    async (tgCode: string): Promise<BoutInnings | null> => {
-      if (Object.prototype.hasOwnProperty.call(cache, tgCode)) {
-        return cache[tgCode] ?? null;
-      }
-      const existing = inFlight.current.get(tgCode);
-      if (existing) return existing;
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
-      const promise = fetch(`/api/team-innings?tgCode=${encodeURIComponent(tgCode)}`)
-        .then(async (res) => {
-          if (!res.ok) return null;
-          const data = (await res.json()) as { innings?: BoutInnings | null };
-          return data.innings ?? null;
-        })
-        .catch(() => null)
-        .then((innings) => {
+  const loadInnings = useCallback(async (tgCode: string): Promise<BoutInnings | null> => {
+    if (Object.prototype.hasOwnProperty.call(cacheRef.current, tgCode)) {
+      return cacheRef.current[tgCode] ?? null;
+    }
+    const existing = inFlight.current.get(tgCode);
+    if (existing) return existing;
+
+    const promise = fetch(`/api/team-innings?tgCode=${encodeURIComponent(tgCode)}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP_${res.status}`);
+        const data = (await res.json()) as { innings?: BoutInnings | null };
+        const innings = data.innings ?? null;
+        if (mounted.current) {
           setCache((prev) => ({ ...prev, [tgCode]: innings }));
-          inFlight.current.delete(tgCode);
-          return innings;
-        });
+          setFailedCodes((prev) => {
+            if (!prev[tgCode]) return prev;
+            const next = { ...prev };
+            delete next[tgCode];
+            return next;
+          });
+        }
+        return innings;
+      })
+      .catch(() => {
+        if (mounted.current) {
+          setFailedCodes((prev) => ({ ...prev, [tgCode]: true }));
+        }
+        return null;
+      })
+      .finally(() => {
+        inFlight.current.delete(tgCode);
+      });
 
-      inFlight.current.set(tgCode, promise);
-      return promise;
-    },
-    [cache],
-  );
+    inFlight.current.set(tgCode, promise);
+    return promise;
+  }, []);
 
   const prefetch = useCallback(
     (tgCode: string | null) => {
       if (!tgCode) return;
-      if (Object.prototype.hasOwnProperty.call(cache, tgCode)) return;
+      if (Object.prototype.hasOwnProperty.call(cacheRef.current, tgCode)) return;
       void loadInnings(tgCode);
     },
-    [cache, loadInnings],
+    [loadInnings],
   );
 
   const syncUrl = useCallback(
@@ -108,24 +129,21 @@ export function TeamBoutList({
       setExpandedSet(bout.setNo);
       syncUrl(bout.setNo);
 
-      if (!Object.prototype.hasOwnProperty.call(cache, bout.tgCode)) {
-        setLoadingTgCode(bout.tgCode);
-        await loadInnings(bout.tgCode);
-        setLoadingTgCode((current) => (current === bout.tgCode ? null : current));
+      if (!Object.prototype.hasOwnProperty.call(cacheRef.current, bout.tgCode)) {
+        const code = bout.tgCode;
+        setLoadingCodes((prev) => ({ ...prev, [code]: true }));
+        await loadInnings(code);
+        if (mounted.current) {
+          setLoadingCodes((prev) => {
+            if (!prev[code]) return prev;
+            const next = { ...prev };
+            delete next[code];
+            return next;
+          });
+        }
       }
     },
-    [cache, expandedSet, loadInnings, syncUrl],
-  );
-
-  const handleToggleLink = useCallback(
-    async (e: React.MouseEvent<HTMLAnchorElement>, bout: Bout) => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-      if (!bout.tgCode) return;
-      e.preventDefault();
-      e.stopPropagation();
-      await toggleBout(bout);
-    },
-    [toggleBout],
+    [expandedSet, loadInnings, syncUrl],
   );
 
   const handleCardClick = useCallback(
@@ -146,8 +164,9 @@ export function TeamBoutList({
         const tgCode = bout.tgCode;
         const hasLoaded = tgCode ? Object.prototype.hasOwnProperty.call(cache, tgCode) : false;
         const innings = tgCode ? (cache[tgCode] ?? null) : null;
-        const loading = expanded && Boolean(tgCode) && !hasLoaded && loadingTgCode === tgCode;
-        const href = `/teams/matches/${gameNo}?season=${encodeURIComponent(seasonCode)}&round=${encodeURIComponent(roundCode)}&set=${bout.setNo}`;
+        const failed = tgCode ? Boolean(failedCodes[tgCode]) : false;
+        const loading = expanded && Boolean(tgCode && loadingCodes[tgCode]);
+        const panelId = `set-${bout.setNo}-innings`;
 
         const isSingles =
           bout.sides.length === 2 &&
@@ -206,18 +225,20 @@ export function TeamBoutList({
                   </Link>
                 )}
                 {tgCode ? (
-                  <a
-                    href={href}
-                    onClick={(e) => void handleToggleLink(e, bout)}
+                  <button
+                    type="button"
+                    onClick={() => void toggleBout(bout)}
+                    onMouseEnter={() => prefetch(tgCode)}
                     onFocus={() => prefetch(tgCode)}
                     aria-expanded={expanded}
+                    aria-controls={panelId}
                     className={cn(
-                      "text-[11.5px] font-semibold underline-offset-2 hover:underline",
+                      "cursor-pointer text-[11.5px] font-semibold underline-offset-2 hover:underline",
                       expanded ? "text-carom-300" : "text-carom-400",
                     )}
                   >
                     {expanded ? "Hide innings ↑" : "Innings breakdown →"}
-                  </a>
+                  </button>
                 ) : (
                   <span className="text-[11px] text-fog-550">In play</span>
                 )}
@@ -290,71 +311,101 @@ export function TeamBoutList({
                 })}
               </div>
 
-              {expanded &&
-                (loading || !hasLoaded ? (
-                  <div className="border-t border-ink-800 px-4 py-3 text-[12px] text-fog-450">
-                    Loading innings…
-                  </div>
-                ) : innings && innings.rows.length > 0 ? (
-                  <div className="border-t border-ink-800">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-800 bg-ink-850/60 px-4 py-2 text-[11px] text-fog-450">
-                      <span className="tnum">
-                        <strong className="text-fog-200">{innings.rows.length}</strong> innings recorded
-                      </span>
-                      <span className="tnum">
-                        Bank shots (2P):{" "}
-                        <strong className="text-carom-300">{homeTwoPoints}</strong> –{" "}
-                        <strong className="text-gold-300">{awayTwoPoints}</strong>
-                      </span>
+              {expanded && (
+                <div id={panelId}>
+                  {loading ? (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className="border-t border-ink-800 px-4 py-3 text-[12px] text-fog-450"
+                    >
+                      Loading innings…
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="stat-table">
-                        <thead>
-                          <tr>
-                            <th>Inn</th>
-                            <th className="!text-left">{homeLabel} (1P/2P)</th>
-                            <th>Score</th>
-                            <th>Total</th>
-                            <th className="!text-left">{awayLabel} (1P/2P)</th>
-                            <th>Score</th>
-                            <th>Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {innings.rows.map((row) => {
-                            const [home, away] = row.sides;
-                            return (
-                              <tr key={row.inning}>
-                                <td className="tnum font-semibold text-fog-100">{row.inning}</td>
-                                <td className="!text-left tnum text-fog-300">
-                                  {home ? `${home.onePoint}/${home.twoPoint}` : "—"}
-                                </td>
-                                <td className="tnum text-fog-300">{home?.score ?? "—"}</td>
-                                <td className="tnum font-bold text-carom-300">
-                                  {home?.total ?? "—"}
-                                </td>
-                                <td className="!text-left tnum text-fog-300">
-                                  {away ? `${away.onePoint}/${away.twoPoint}` : "—"}
-                                </td>
-                                <td className="tnum text-fog-300">{away?.score ?? "—"}</td>
-                                <td className="tnum font-bold text-gold-300">
-                                  {away?.total ?? "—"}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                  ) : failed && !hasLoaded ? (
+                    <div className="flex items-center justify-between gap-3 border-t border-ink-800 px-4 py-3 text-[12px] text-fog-450">
+                      <span>Could not load per-inning detail.</span>
+                      {tgCode && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setLoadingCodes((prev) => ({ ...prev, [tgCode]: true }));
+                            await loadInnings(tgCode);
+                            if (mounted.current) {
+                              setLoadingCodes((prev) => {
+                                const next = { ...prev };
+                                delete next[tgCode];
+                                return next;
+                              });
+                            }
+                          }}
+                          className="rounded border border-ink-700 bg-ink-850 px-2 py-0.5 text-[11px] font-semibold text-fog-200 hover:text-carom-300"
+                        >
+                          Retry
+                        </button>
+                      )}
                     </div>
-                    <p className="border-t border-ink-800 px-4 py-2 text-[11px] text-fog-550">
-                      1P/2P = single-point / bank-shot conversions; Score = points in inning; Total = cumulative score.
+                  ) : innings && innings.rows.length > 0 ? (
+                    <div className="border-t border-ink-800">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-800 bg-ink-850/60 px-4 py-2 text-[11px] text-fog-450">
+                        <span className="tnum">
+                          <strong className="text-fog-200">{innings.rows.length}</strong> innings recorded
+                        </span>
+                        <span className="tnum">
+                          Bank shots (2P):{" "}
+                          <strong className="text-carom-300">{homeTwoPoints}</strong> –{" "}
+                          <strong className="text-gold-300">{awayTwoPoints}</strong>
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="stat-table">
+                          <thead>
+                            <tr>
+                              <th scope="col">Inn</th>
+                              <th scope="col" className="!text-left">{homeLabel} (1P/2P)</th>
+                              <th scope="col">Score</th>
+                              <th scope="col">Total</th>
+                              <th scope="col" className="!text-left">{awayLabel} (1P/2P)</th>
+                              <th scope="col">Score</th>
+                              <th scope="col">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {innings.rows.map((row) => {
+                              const [home, away] = row.sides;
+                              return (
+                                <tr key={row.inning}>
+                                  <td className="tnum font-semibold text-fog-100">{row.inning}</td>
+                                  <td className="!text-left tnum text-fog-300">
+                                    {home ? `${home.onePoint}/${home.twoPoint}` : "—"}
+                                  </td>
+                                  <td className="tnum text-fog-300">{home?.score ?? "—"}</td>
+                                  <td className="tnum font-bold text-carom-300">
+                                    {home?.total ?? "—"}
+                                  </td>
+                                  <td className="!text-left tnum text-fog-300">
+                                    {away ? `${away.onePoint}/${away.twoPoint}` : "—"}
+                                  </td>
+                                  <td className="tnum text-fog-300">{away?.score ?? "—"}</td>
+                                  <td className="tnum font-bold text-gold-300">
+                                    {away?.total ?? "—"}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="border-t border-ink-800 px-4 py-2 text-[11px] text-fog-550">
+                        1P/2P = single-point / bank-shot conversions; Score = points in inning; Total = cumulative score.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="border-t border-ink-800 px-4 py-3 text-[12px] text-fog-450">
+                      Per-inning detail publishes once the bout completes.
                     </p>
-                  </div>
-                ) : (
-                  <p className="border-t border-ink-800 px-4 py-3 text-[12px] text-fog-450">
-                    Per-inning detail publishes once the bout completes.
-                  </p>
-                ))}
+                  )}
+                </div>
+              )}
             </div>
           </li>
         );

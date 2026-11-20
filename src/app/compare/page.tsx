@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getHeadToHead, getPlayer, getPlayerSeasonStats, getPlayers } from "@/lib/pba/api";
-import { getCurrentSeason, getSeasonList, getRankingBoard } from "@/lib/pba/service";
+import { getHeadToHead, getPlayerSeasonStats, getPlayers } from "@/lib/pba/api";
+import { getRequestFailures, trackFailures } from "@/lib/pba/failures";
+import { getCurrentSeason, getPlayerCached, getSeasonList, getRankingBoard } from "@/lib/pba/service";
 import {
   hasStatData,
   leagueByCode,
   normalizePlayer,
   normalizePlayerStat,
+  statLeagueCode,
   winRate,
   type Player,
 } from "@/lib/normalize";
@@ -14,7 +16,7 @@ import { average, cleanPlayerName, grouped, percent, pick } from "@/lib/format";
 import { asset, isRealAsset } from "@/lib/pba/http";
 import { PlayerAvatar, NationPlate } from "@/components/ui/media";
 import { Chip, EmptyState, SectionHeading, cn } from "@/components/ui/primitives";
-import { PageHeader } from "@/components/domain/filter-bar";
+import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
 
 export const revalidate = 900;
 
@@ -38,83 +40,138 @@ async function resolveCode(code?: string, query?: string): Promise<string | null
 
 export default async function ComparePage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const seasons = await getSeasonList();
-  const current = await getCurrentSeason();
-  const seasonCode =
-    params.season && seasons.some((s) => s.SeasonCode === params.season) ? params.season : current.SeasonCode;
+  const q1 = (params.q1 ?? "").trim();
+  const q2 = (params.q2 ?? "").trim();
 
-  const [codeA, codeB] = await Promise.all([
-    resolveCode(params.a, params.q1),
-    resolveCode(params.b, params.q2),
-  ]);
+  const data = await trackFailures(async () => {
+    const [seasons, current, codeA, codeB] = await Promise.all([
+      getSeasonList(),
+      getCurrentSeason(),
+      resolveCode(params.a, q1),
+      resolveCode(params.b, q2),
+    ]);
+    const seasonCode =
+      params.season && seasons.some((s) => s.SeasonCode === params.season) ? params.season : current.SeasonCode;
 
-  const [rawA, rawB] = await Promise.all([
-    codeA ? getPlayer(codeA) : null,
-    codeB ? getPlayer(codeB) : null,
-  ]);
+    const [rawA, rawB] = await Promise.all([
+      codeA ? getPlayerCached(codeA) : null,
+      codeB ? getPlayerCached(codeB) : null,
+    ]);
 
-  const playerA = rawA ? normalizePlayer(rawA) : null;
-  const playerB = rawB ? normalizePlayer(rawB) : null;
+    const playerA = rawA ? normalizePlayer(rawA) : null;
+    const playerB = rawB ? normalizePlayer(rawB) : null;
 
-  const pbaTypeA = playerA?.league || "PBA1";
-  const pbaTypeB = playerB?.league || "PBA1";
-  const sharedType = pbaTypeA === pbaTypeB ? pbaTypeA : null;
+    const pbaTypeA = statLeagueCode(playerA?.league ?? "PBA1");
+    const pbaTypeB = statLeagueCode(playerB?.league ?? "PBA1");
+    const sharedType = pbaTypeA === pbaTypeB ? pbaTypeA : null;
 
-  const [statA, statB, h2h] = await Promise.all([
-    codeA ? getPlayerSeasonStats({ memCode: codeA, seasonCode, pbaType: pbaTypeA }) : null,
-    codeB ? getPlayerSeasonStats({ memCode: codeB, seasonCode, pbaType: pbaTypeB }) : null,
-    codeA && codeB && sharedType
-      ? getHeadToHead({ memberCode1: codeA, memberCode2: codeB, seasonCode, pbaType: sharedType })
-      : null,
-  ]);
+    const [statA, statB, h2h, suggestions] = await Promise.all([
+      codeA ? getPlayerSeasonStats({ memCode: codeA, seasonCode, pbaType: pbaTypeA }) : null,
+      codeB ? getPlayerSeasonStats({ memCode: codeB, seasonCode, pbaType: pbaTypeB }) : null,
+      codeA && codeB && sharedType
+        ? getHeadToHead({ memberCode1: codeA, memberCode2: codeB, seasonCode, pbaType: sharedType })
+        : null,
+      !playerA && !playerB
+        ? getRankingBoard({ kind: "prize", leagueCode: "PBA1", season: seasonCode }).then((r) => r.slice(0, 4))
+        : Promise.resolve([]),
+    ]);
 
-  const lineA = normalizePlayerStat(statA);
-  const lineB = normalizePlayerStat(statB);
+    return {
+      seasons,
+      seasonCode,
+      codeA,
+      codeB,
+      playerA,
+      playerB,
+      sharedType,
+      lineA: normalizePlayerStat(statA),
+      lineB: normalizePlayerStat(statB),
+      h2h,
+      suggestions,
+      failures: getRequestFailures(),
+    };
+  });
 
-  const suggestions =
-    !playerA && !playerB
-      ? (await getRankingBoard({ kind: "prize", leagueCode: "PBA1", season: seasonCode })).slice(0, 4)
-      : [];
+  const {
+    seasons,
+    seasonCode,
+    codeA,
+    codeB,
+    playerA,
+    playerB,
+    sharedType,
+    lineA,
+    lineB,
+    h2h,
+    suggestions,
+    failures,
+  } = data;
+  const seasonTitle = seasons.find((s) => s.SeasonCode === seasonCode)?.SeasonTitle ?? seasonCode;
+  const missedSearch = Boolean((q1 && !playerA) || (q2 && !playerB));
 
   return (
     <>
       <PageHeader
+        failures={failures}
         eyebrow="Comparison"
         title="Head-to-Head"
         description="Compare career averages, season statistics, and direct head-to-head records."
       >
-        <form action="/compare" className="grid max-w-2xl gap-2 sm:grid-cols-[1fr_1fr_auto]">
-          <input
-            type="search"
-            name="q1"
-            defaultValue={params.q1 ?? (playerA ? playerA.name : "")}
-            placeholder="Player one — name"
-            aria-label="First player"
-            className="field"
-          />
-          <input
-            type="search"
-            name="q2"
-            defaultValue={params.q2 ?? (playerB ? playerB.name : "")}
-            placeholder="Player two — name"
-            aria-label="Second player"
-            className="field"
-          />
-          <button
-            type="submit"
-            className="press rounded-[3px] bg-[var(--nav)] px-4 py-1.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-[var(--link)]"
-          >
-            Compare
-          </button>
-        </form>
+        <div className="flex flex-col gap-2.5">
+          <form action="/compare" className="grid max-w-2xl gap-2 sm:grid-cols-[1fr_1fr_auto]">
+            {params.season && <input type="hidden" name="season" value={seasonCode} />}
+            <input
+              type="search"
+              name="q1"
+              defaultValue={q1 || (playerA ? playerA.name : "")}
+              placeholder="Player one — name"
+              aria-label="First player"
+              className="field"
+            />
+            <input
+              type="search"
+              name="q2"
+              defaultValue={q2 || (playerB ? playerB.name : "")}
+              placeholder="Player two — name"
+              aria-label="Second player"
+              className="field"
+            />
+            <button
+              type="submit"
+              className="press rounded-[3px] bg-[var(--nav)] px-4 py-1.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-[var(--link)]"
+            >
+              Compare
+            </button>
+          </form>
+
+          {(playerA || playerB) && seasons.length > 0 && (
+            <FilterRow
+              label="Season"
+              basePath="/compare"
+              paramKey="season"
+              active={seasonCode}
+              params={{
+                a: playerA?.code ?? params.a,
+                b: playerB?.code ?? params.b,
+                q1: !playerA && q1 ? q1 : undefined,
+                q2: !playerB && q2 ? q2 : undefined,
+              }}
+              options={seasons.map((s) => ({ value: s.SeasonCode, label: s.SeasonTitle || s.SeasonCode }))}
+            />
+          )}
+        </div>
       </PageHeader>
 
       <div className="mx-auto max-w-[1300px] px-3 py-5">
         {!playerA && !playerB ? (
           <div>
             <EmptyState
-              title="Pick two players"
-              description="Search by name above — English or Korean — or launch a comparison from any player profile."
+              title={missedSearch ? "No matching players found" : "Pick two players"}
+              description={
+                missedSearch
+                  ? `Could not find player matches for ${[q1 && `“${q1}”`, q2 && `“${q2}”`].filter(Boolean).join(" and ")}. Try another spelling or browse the directory.`
+                  : "Search by name above — English or Korean — or launch a comparison from any player profile."
+              }
               action={
                 <Link
                   href="/players"
@@ -173,8 +230,8 @@ export default async function ComparePage({ searchParams }: PageProps) {
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
-              <CompareCard player={playerA} code={codeA} label="Player one" tone="carom" />
-              <CompareCard player={playerB} code={codeB} label="Player two" tone="gold" />
+              <CompareCard player={playerA} code={codeA} query={q1} label="Player one" tone="carom" />
+              <CompareCard player={playerB} code={codeB} query={q2} label="Player two" tone="gold" />
             </div>
 
             {h2h && playerA && playerB ? (
@@ -182,7 +239,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
                 <SectionHeading
                   eyebrow="Head-to-Head Record"
                   title="Direct Meetings"
-                  description={`${h2h.total_matches} recorded meetings in the ${seasons.find((s) => s.SeasonCode === seasonCode)?.SeasonTitle ?? seasonCode} season.`}
+                  description={`${h2h.total_matches} recorded meetings in the ${seasonTitle} season.`}
                 />
 
                 <div className="surface mt-4 overflow-hidden">
@@ -211,7 +268,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
                     </div>
                   </div>
 
-                  <dl className="divide-y divide-ink-800">
+                  <ul className="divide-y divide-ink-800">
                     {(
                       [
                         ["Average", h2h.player1_average, h2h.player2_average, "avg"],
@@ -231,10 +288,11 @@ export default async function ComparePage({ searchParams }: PageProps) {
                     ).map(([label, left, right, unit]) => {
                       const l = Number(left) || 0;
                       const r = Number(right) || 0;
-                      const total = l + r || 1;
-                      const leftPct = (l / total) * 100;
+                      const sum = l + r;
+                      const leftPct = sum > 0 ? (l / sum) * 100 : 0;
+                      const rightPct = sum > 0 ? 100 - leftPct : 0;
                       return (
-                        <div key={label} className="px-5 py-2.5">
+                        <li key={label} className="px-5 py-2.5">
                           <div className="flex items-center justify-between gap-4">
                             <span
                               className={cn(
@@ -256,14 +314,18 @@ export default async function ComparePage({ searchParams }: PageProps) {
                               {formatH2H(unit, right)}
                             </span>
                           </div>
-                          <div className="mt-1.5 flex h-1 overflow-hidden rounded-full bg-ink-800">
-                            <span className="bg-carom-400/80" style={{ width: `${leftPct}%` }} />
-                            <span className="bg-gold-400/80" style={{ width: `${100 - leftPct}%` }} />
+                          <div className="mt-1.5 flex h-1 overflow-hidden rounded-full bg-ink-800" aria-hidden="true">
+                            {sum > 0 && (
+                              <>
+                                <span className="bg-carom-400/80" style={{ width: `${leftPct}%` }} />
+                                <span className="bg-gold-400/80" style={{ width: `${rightPct}%` }} />
+                              </>
+                            )}
                           </div>
-                        </div>
+                        </li>
                       );
                     })}
-                  </dl>
+                  </ul>
                 </div>
               </section>
             ) : (
@@ -271,60 +333,61 @@ export default async function ComparePage({ searchParams }: PageProps) {
               playerB && (
                 <EmptyState
                   className="mt-8"
-                  title="No recorded meetings"
-                  description={`${playerA.name} and ${playerB.name} have not met in the ${seasonCode} season.`}
+                  title={sharedType ? "No recorded meetings" : "Different circuits"}
+                  description={
+                    sharedType
+                      ? `${playerA.name} and ${playerB.name} have not met in the ${seasonTitle} season.`
+                      : `${playerA.name} (${leagueByCode(playerA.league).name}) and ${playerB.name} (${leagueByCode(playerB.league).name}) compete on different tours, so direct head-to-head records do not apply.`
+                  }
                 />
               )
             )}
 
             {hasStatData(lineA) || hasStatData(lineB) ? (
               <section className="mt-8">
-                <SectionHeading eyebrow="Season Comparison" title="Season Statistics" />
+                <SectionHeading eyebrow="Season Comparison" title={`Season Statistics · ${seasonTitle}`} />
                 <div className="mt-4 overflow-x-auto rounded-[8px] border border-ink-750 bg-ink-900">
                   <table className="stat-table">
                     <thead>
                       <tr>
-                        <th className="!text-left">Metric</th>
-                        <th className="!text-carom-300">{playerA?.shortName ?? "—"}</th>
-                        <th className="!text-gold-300">{playerB?.shortName ?? "—"}</th>
+                        <th scope="col" className="!text-left">Metric</th>
+                        <th scope="col" className="!text-carom-300">{playerA?.shortName ?? "—"}</th>
+                        <th scope="col" className="!text-gold-300">{playerB?.shortName ?? "—"}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {(
                         [
-                          ["Matches", lineA.matches, lineB.matches, "int"],
-                          ["Wins", lineA.wins, lineB.wins, "int"],
-                          ["Losses", lineA.losses, lineB.losses, "int"],
-                          ["Average", lineA.average, lineB.average, "avg"],
-                          ["High run", lineA.highRun, lineB.highRun, "int"],
-                          ["Innings", lineA.innings, lineB.innings, "int"],
-                          ["Points", lineA.points, lineB.points, "int"],
-                          ["Bank shot", lineA.bankShotRate, lineB.bankShotRate, "pct"],
-                          ["First shot", lineA.firstShotRate, lineB.firstShotRate, "pct"],
-                          ["Attack success", lineA.attackRate, lineB.attackRate, "pct"],
-                          ["Long run", lineA.longRunRate, lineB.longRunRate, "pct"],
-                        ] as [string, number, number, "avg" | "int" | "pct"][]
-                      ).map(([label, left, right, unit]) => (
-                        <tr key={label}>
-                          <td className="!text-left text-fog-400">{label}</td>
-                          <td
-                            className={cn(
-                              "font-bold",
-                              Number(left) > Number(right) ? "text-carom-300" : "text-fog-200",
-                            )}
-                          >
-                            {formatH2H(unit, left)}
-                          </td>
-                          <td
-                            className={cn(
-                              "font-bold",
-                              Number(right) > Number(left) ? "text-gold-300" : "text-fog-200",
-                            )}
-                          >
-                            {formatH2H(unit, right)}
-                          </td>
-                        </tr>
-                      ))}
+                          ["Matches", lineA.matches, lineB.matches, "int", false],
+                          ["Wins", lineA.wins, lineB.wins, "int", false],
+                          ["Losses", lineA.losses, lineB.losses, "int", true],
+                          ["Average", lineA.average, lineB.average, "avg", false],
+                          ["High run", lineA.highRun, lineB.highRun, "int", false],
+                          ["Innings", lineA.innings, lineB.innings, "int", false],
+                          ["Points", lineA.points, lineB.points, "int", false],
+                          ["Bank shot", lineA.bankShotRate, lineB.bankShotRate, "pct", false],
+                          ["First shot", lineA.firstShotRate, lineB.firstShotRate, "pct", false],
+                          ["Attack success", lineA.attackRate, lineB.attackRate, "pct", false],
+                          ["Long run", lineA.longRunRate, lineB.longRunRate, "pct", false],
+                        ] as [string, number, number, "avg" | "int" | "pct", boolean][]
+                      ).map(([label, left, right, unit, lowerIsBetter]) => {
+                        const l = Number(left) || 0;
+                        const r = Number(right) || 0;
+                        const bothPlayed = hasStatData(lineA) && hasStatData(lineB);
+                        const leftWins = bothPlayed && (lowerIsBetter ? l < r : l > r);
+                        const rightWins = bothPlayed && (lowerIsBetter ? r < l : r > l);
+                        return (
+                          <tr key={label}>
+                            <td className="!text-left text-fog-400">{label}</td>
+                            <td className={cn("font-bold", leftWins ? "text-carom-300" : "text-fog-200")}>
+                              {hasStatData(lineA) ? formatH2H(unit, left) : "—"}
+                            </td>
+                            <td className={cn("font-bold", rightWins ? "text-gold-300" : "text-fog-200")}>
+                              {hasStatData(lineB) ? formatH2H(unit, right) : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -338,8 +401,9 @@ export default async function ComparePage({ searchParams }: PageProps) {
 }
 
 function formatH2H(unit: "avg" | "int" | "pct", value: number | null | undefined): string {
-  const n = Number(value) || 0;
-  if (!n) return "—";
+  if (value === null || value === undefined) return "—";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
   if (unit === "avg") return n.toFixed(3);
   if (unit === "pct") return `${n.toFixed(1)}%`;
   return grouped(n);
@@ -348,11 +412,13 @@ function formatH2H(unit: "avg" | "int" | "pct", value: number | null | undefined
 function CompareCard({
   player,
   code,
+  query,
   label,
   tone,
 }: {
   player: Player | null;
   code: string | null;
+  query?: string;
   label: string;
   tone: "carom" | "gold";
 }) {
@@ -360,7 +426,11 @@ function CompareCard({
     return (
       <div className="surface flex min-h-[108px] items-center justify-center p-4">
         <p className="text-[12.5px] text-fog-450">
-          {code ? `No player found for ${code}` : `${label} — search a name above`}
+          {code
+            ? `No player found for ${code}`
+            : query
+              ? `No player matched “${query}”`
+              : `${label} — search a name above`}
         </p>
       </div>
     );

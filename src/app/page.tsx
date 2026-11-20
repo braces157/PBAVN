@@ -31,6 +31,7 @@ import {
   hasHangul,
   isoDay,
   kstDay,
+  parseIsoDay,
   percent,
   relativeDay,
   shiftIsoDay,
@@ -42,7 +43,7 @@ import { clubBadge, flagClass, leagueTagClass } from "@/components/ui/media";
 import { matchTeamByNameOrLogo } from "@/lib/team-links";
 import { translateArticleTitles } from "@/lib/translate";
 import { cn } from "@/components/ui/primitives";
-import type { RawRankingRow, RawTop5Row } from "@/lib/pba/types";
+import type { RawTop5Row } from "@/lib/pba/types";
 
 export const revalidate = 300;
 
@@ -74,9 +75,14 @@ function shortDayLabel(value: string | null | undefined): string {
   return parts.day !== "—" ? `${Number(parts.day)} ${parts.month.slice(0, 1)}${parts.month.slice(1).toLowerCase()}` : value.slice(5, 10);
 }
 
-function parseSetsList(value: string | null | undefined): string[] {
-  if (!value) return [];
-  return value.split(/\s+/).filter(Boolean).slice(0, 4);
+function shortTourTitle(title: string): string {
+  const cleaned = cleanDisplayText(title)
+    .replace(/\b20\d{2}(?:[-–]20?\d{2})?\b/g, "")
+    .replace(/\b(?:PBA|LPBA)\s+Championship\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const label = cleaned || cleanDisplayText(title);
+  return label.length > 22 ? `${label.slice(0, 21).trimEnd()}…` : label;
 }
 
 function shortClubName(name: string): string {
@@ -97,7 +103,7 @@ function shortClubName(name: string): string {
 
 function detectPressTag(title: string): { label: string; cls: string } {
   const lower = title.toLowerCase();
-  if (lower.includes("팀리그") || lower.includes("team")) return { label: "Team", cls: "t-team" };
+  if (lower.includes("팀리그") || lower.includes("team league")) return { label: "Team", cls: "t-team" };
   if (lower.includes("lpba")) return { label: "LPBA", cls: "t-lpba" };
   if (lower.includes("드림") || lower.includes("dream")) return { label: "Dream", cls: "t-dream" };
   return { label: "PBA", cls: "t-pba" };
@@ -106,12 +112,9 @@ function detectPressTag(title: string): { label: string; cls: string } {
 export default async function HomePage({ searchParams }: HomePageProps) {
   const params = searchParams ? await searchParams : {};
   const today = kstDay();
-  const focusDay = params.day && /^\d{4}-\d{2}-\d{2}$/.test(params.day) ? params.day : today;
+  const focusDay = params.day && parseIsoDay(params.day) ? params.day : today;
 
   const rtab: RTab = VALID_RTAB.includes(params.rtab as RTab) ? (params.rtab as RTab) : "pba";
-
-  const season = await getCurrentSeason();
-  const seasonCode = season.SeasonCode;
 
   const events = calendarEvents();
   const liveEvents = events.filter((event) => event.status === "live");
@@ -126,42 +129,71 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   );
   const lastDay = previousActiveDay(focusDay, events);
 
-  const [feed, dayBoard, recentDayBoard, press, pbaPointsRank, lpbaPointsRank, prizeRank, teamSeason, leaders] =
-    await Promise.all([
-      getLiveFeed(),
-      getDayBoard(focusDay),
-      lastDay ? getDayBoard(lastDay) : Promise.resolve(null),
-      getPressList(1, 9),
-      getRankingBoard({ kind: "point", leagueCode: "PBA1", season: seasonCode }),
-      getRankingBoard({ kind: "point", leagueCode: "LPBA1", season: seasonCode }),
+  const seasonPromise = getCurrentSeason();
+  const pressPromise = getPressList(1, 9);
+  const teamSeasonPromise = getActiveTeamSeason();
+
+  const seasonBundlePromise = seasonPromise.then((s) =>
+    Promise.all([
+      getRankingBoard({ kind: "point", leagueCode: "PBA1", season: s.SeasonCode }),
+      getRankingBoard({ kind: "point", leagueCode: "LPBA1", season: s.SeasonCode }),
       rtab === "money"
-        ? getRankingBoard({ kind: "prize", leagueCode: "PBA1", season: seasonCode })
+        ? getRankingBoard({ kind: "prize", leagueCode: "PBA1", season: s.SeasonCode })
         : Promise.resolve(null),
-      getActiveTeamSeason(),
-      getLeaders(seasonCode, "PBA1"),
+      getLeaders(s.SeasonCode, "PBA1"),
+    ]),
+  );
+  const spotlightRawPromise = seasonBundlePromise.then(([pba, lpba]) => {
+    const row = pba[0] ?? lpba[0] ?? null;
+    return row ? getPlayerCached(row.MemCode).catch(() => null) : null;
+  });
+  const articlesPromise = pressPromise.then((p) =>
+    translateArticleTitles(p.list.map(normalizeArticle), { budgetMs: 1_500 }),
+  );
+  const teamBundlePromise = teamSeasonPromise.then((ts) => {
+    const lr = ts?.liveRound ?? null;
+    return Promise.all([
+      ts
+        ? getTeamStandings({
+            seasonCode: ts.season.시즌코드,
+            leagueCode: String(ts.season.리그코드),
+            roundCode: lr ? String(lr.라운드코드) : "0",
+          }).then((rows) => rows.map(normalizeTeam))
+        : Promise.resolve([]),
+      ts && lr
+        ? getRoundFixtures(
+            String(lr.라운드코드),
+            lr.라운드,
+            lr.진행상황 === "진행중" ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
+          )
+        : Promise.resolve([] as TeamFixture[]),
     ]);
+  });
+
+  const [
+    season,
+    feed,
+    dayBoard,
+    recentDayBoard,
+    [pbaPointsRank, lpbaPointsRank, prizeRank, leaders],
+    spotlightRaw,
+    articles,
+    teamSeason,
+    [standings, roundFixtures],
+  ] = await Promise.all([
+    seasonPromise,
+    getLiveFeed(),
+    getDayBoard(focusDay),
+    lastDay ? getDayBoard(lastDay) : Promise.resolve(null),
+    seasonBundlePromise,
+    spotlightRawPromise,
+    articlesPromise,
+    teamSeasonPromise,
+    teamBundlePromise,
+  ]);
 
   const activeRank = rtab === "money" ? (prizeRank ?? []) : rtab === "lpba" ? lpbaPointsRank : pbaPointsRank;
-  const spotlightRow = pbaPointsRank[0] ?? lpbaPointsRank[0] ?? null;
-
   const liveRound = teamSeason?.liveRound ?? null;
-  const [standings, roundFixtures, spotlightRaw] = await Promise.all([
-    teamSeason
-      ? getTeamStandings({
-          seasonCode: teamSeason.season.시즌코드,
-          leagueCode: String(teamSeason.season.리그코드),
-          roundCode: liveRound ? String(liveRound.라운드코드) : "0",
-        }).then((rows) => rows.map(normalizeTeam))
-      : Promise.resolve([]),
-    teamSeason && liveRound
-      ? getRoundFixtures(
-          String(liveRound.라운드코드),
-          liveRound.라운드,
-          liveRound.진행상황 === "진행중" ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
-        )
-      : Promise.resolve([] as TeamFixture[]),
-    spotlightRow ? getPlayerCached(spotlightRow.MemCode).catch(() => null) : Promise.resolve(null),
-  ]);
 
   const defaultMTab: MTab = feed.matches.length > 0 ? "live" : dayBoard.matches.length > 0 ? "today" : "upcoming";
   const mtab: MTab = VALID_MTAB.includes(params.mtab as MTab) ? (params.mtab as MTab) : defaultMTab;
@@ -189,12 +221,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const playedFixtures = [...roundFixtures].filter((f) => f.played).reverse();
   const upcomingFixtures = roundFixtures.filter((f) => !f.played);
   const featuredTeamFixture = !liveLead && playedFixtures[0]?.gameNo && liveRound ? playedFixtures[0] : null;
-  const [featuredBouts, articles] = await Promise.all([
+  const featuredBouts =
     featuredTeamFixture?.gameNo && liveRound
-      ? getFixtureBouts(String(liveRound.라운드코드), liveRound.라운드, featuredTeamFixture.gameNo).catch(() => null)
-      : Promise.resolve(null),
-    translateArticleTitles(press.list.map(normalizeArticle), { budgetMs: 1_500 }),
-  ]);
+      ? await getFixtureBouts(String(liveRound.라운드코드), liveRound.라운드, featuredTeamFixture.gameNo).catch(
+          () => null,
+        )
+      : null;
   const nameIndex = getPlayerNameIndex();
 
   const resolveLeaderName = (row: RawTop5Row) => {
@@ -316,6 +348,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       </div>
 
       {/* ============================================================ 3-COL GRID */}
+      <h1 className="sr-only">PBA Hub — 3-Cushion Live Scores, Rankings &amp; Team League</h1>
       <div className="wrap info-grid">
         {/* -------------------------------------------------------- LEFT COL */}
         <aside className="col left">
@@ -326,26 +359,29 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 All matches
               </Link>
             </div>
-            <div className="tabs" role="tablist" aria-label="Match filter">
+            <nav className="tabs" aria-label="Match filter">
               <Link
                 href={buildHomeHref({ mtab: "live" })}
                 className={mtab === "live" ? "on" : undefined}
+                aria-current={mtab === "live" ? "page" : undefined}
               >
                 Live{feed.matches.length > 0 && <span className="c">{feed.matches.length}</span>}
               </Link>
               <Link
                 href={buildHomeHref({ mtab: "today" })}
                 className={mtab === "today" ? "on" : undefined}
+                aria-current={mtab === "today" ? "page" : undefined}
               >
                 Today
               </Link>
               <Link
                 href={buildHomeHref({ mtab: "upcoming" })}
                 className={mtab === "upcoming" ? "on" : undefined}
+                aria-current={mtab === "upcoming" ? "page" : undefined}
               >
                 Upcoming
               </Link>
-            </div>
+            </nav>
 
             {mtab === "live" ? (
               feed.matches.length > 0 ? (
@@ -445,7 +481,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   <span className={cn("tag", leagueTagClass(tourResults[0].event?.league))}>
                     {leagueShort(tourResults[0].event?.league ?? "") || "Tour"}
                   </span>
-                  {tourResults[0].event?.title ? shortClubName(tourResults[0].event.title) : "Recent finals"}
+                  <span className="truncate">
+                    {tourResults[0].event?.title ? shortTourTitle(tourResults[0].event.title) : "Recent finals"}
+                  </span>
                   {tourResults[0].at && <span className="r">{shortDayLabel(isoDay(tourResults[0].at))}</span>}
                 </div>
                 {tourResults.map((match) => (
@@ -589,56 +627,62 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               </Link>
             </div>
 
-            {articles.length >= 2 && (
-              <div className="newsfeat">
-                {articles.slice(0, 2).map((article, index) => {
-                  const tag = detectPressTag(article.title);
-                  return (
-                    <Link key={article.seq} href={`/news/${article.seq}`} className="nf">
-                      <div className={cn("img", index === 1 && "b", !article.image && "ph-ball")}>
-                        {article.image && (
-                          <SafeImage
-                            src={article.image}
-                            alt=""
-                            className="h-full w-full object-cover"
-                            fallback={<span className="block h-full w-full" />}
-                          />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <span className={cn("tag", tag.cls)}>{tag.label}</span>
-                        <h3 className="line-clamp-2">{article.title}</h3>
-                        <p>
-                          {fmtDate(article.date)}
-                          {article.views > 0 ? ` · ${grouped(article.views)} views` : ""}
-                        </p>
-                      </div>
-                    </Link>
-                  );
-                })}
+            {articles.length === 0 ? (
+              <div className="px-3 py-5 text-[12px] text-[var(--muted)]">
+                No press releases available right now.
               </div>
-            )}
-
-            {articles.length > 2 && (
+            ) : (
               <>
-                <div className="sub">Latest press</div>
-                <div>
-                  {articles.slice(2, 9).map((article) => {
+                <div className={cn("newsfeat", articles.length === 1 && "!grid-cols-1")}>
+                  {articles.slice(0, 2).map((article, index) => {
                     const tag = detectPressTag(article.title);
                     return (
-                      <Link key={article.seq} href={`/news/${article.seq}`} className="nw">
-                        <span className="ic">
+                      <Link key={article.seq} href={`/news/${article.seq}`} className="nf">
+                        <div className={cn("img", index === 1 && "b", !article.image && "ph-ball")}>
+                          {article.image && (
+                            <SafeImage
+                              src={article.image}
+                              alt=""
+                              className="h-full w-full object-cover"
+                              fallback={<span className="block h-full w-full" />}
+                            />
+                          )}
+                        </div>
+                        <div className="min-w-0">
                           <span className={cn("tag", tag.cls)}>{tag.label}</span>
-                        </span>
-                        <span className="tt">{article.title}</span>
-                        <span className="ago">{shortDayLabel(isoDay(article.date))}</span>
-                        <span className="cm n">
-                          {article.views > 0 ? grouped(article.views) : "—"}
-                        </span>
+                          <h3 className="line-clamp-2">{article.title}</h3>
+                          <p>
+                            {fmtDate(article.date)}
+                            {article.views > 0 ? ` · ${grouped(article.views)} views` : ""}
+                          </p>
+                        </div>
                       </Link>
                     );
                   })}
                 </div>
+
+                {articles.length > 2 && (
+                  <>
+                    <div className="sub">Latest press</div>
+                    <div>
+                      {articles.slice(2, 9).map((article) => {
+                        const tag = detectPressTag(article.title);
+                        return (
+                          <Link key={article.seq} href={`/news/${article.seq}`} className="nw">
+                            <span className="ic">
+                              <span className={cn("tag", tag.cls)}>{tag.label}</span>
+                            </span>
+                            <span className="tt">{article.title}</span>
+                            <span className="ago">{shortDayLabel(isoDay(article.date))}</span>
+                            <span className="cm n">
+                              {article.views > 0 ? grouped(article.views) : "—"}
+                            </span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </>
             )}
 
@@ -657,17 +701,29 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 Full ranking
               </Link>
             </div>
-            <div className="tabs" role="tablist" aria-label="Ranking circuit">
-              <Link href={buildHomeHref({ rtab: "pba" })} className={rtab === "pba" ? "on" : undefined}>
+            <nav className="tabs" aria-label="Ranking circuit">
+              <Link
+                href={buildHomeHref({ rtab: "pba" })}
+                className={rtab === "pba" ? "on" : undefined}
+                aria-current={rtab === "pba" ? "page" : undefined}
+              >
                 PBA
               </Link>
-              <Link href={buildHomeHref({ rtab: "lpba" })} className={rtab === "lpba" ? "on" : undefined}>
+              <Link
+                href={buildHomeHref({ rtab: "lpba" })}
+                className={rtab === "lpba" ? "on" : undefined}
+                aria-current={rtab === "lpba" ? "page" : undefined}
+              >
                 LPBA
               </Link>
-              <Link href={buildHomeHref({ rtab: "money" })} className={rtab === "money" ? "on" : undefined}>
+              <Link
+                href={buildHomeHref({ rtab: "money" })}
+                className={rtab === "money" ? "on" : undefined}
+                aria-current={rtab === "money" ? "page" : undefined}
+              >
                 Money
               </Link>
-            </div>
+            </nav>
 
             <table className="rk n">
               <thead>
@@ -1462,8 +1518,6 @@ function FeaturedMatchPanel({
   }
 
   if (dayMatch) {
-    const setsText = parseSetsList(dayMatch.at);
-    void setsText;
     return (
       <section className="p" aria-label="Featured match">
         <div className="feat-h">

@@ -23,6 +23,7 @@ import { IN_PLAY, getLiveBoard, getScorecard } from "./scoreboard";
 import { fetchTeamFragment } from "./http";
 import { parseLiveTeamFixtures, type LiveBout, type LiveTeamFixture } from "./team-live-parse";
 import { getPlayerNameIndex, resolveKoreanName } from "./service";
+import { hasHangul } from "../format";
 import { analyseSet } from "../match";
 import type { AnalysedSet } from "../match";
 
@@ -261,9 +262,13 @@ function sharedTeamSeasons() {
   return teamSeasonsFlight;
 }
 
+let cachedTeamNames: { map: Map<string, string>; expires: number } | null = null;
+
 async function teamPlayerNames(): Promise<Map<string, string>> {
-  // A copy: the shared index is a process-wide singleton, and the roster
-  // additions below must not leak into every other consumer of it.
+  const now = Date.now();
+  if (cachedTeamNames && cachedTeamNames.expires > now) {
+    return cachedTeamNames.map;
+  }
   const index = new Map(getPlayerNameIndex());
   try {
     const { getTeamPlayerStats } = await import("./api");
@@ -276,10 +281,13 @@ async function teamPlayerNames(): Promise<Map<string, string>> {
       roundCode: "0",
     });
     for (const row of rows) {
-      const korean = (row.외국이름 ?? "").trim();
-      const english = (row.이름 ?? "").trim();
+      const a = (row.이름 ?? "").trim();
+      const b = (row.외국이름 ?? "").trim();
+      const korean = hasHangul(a) ? a : hasHangul(b) ? b : "";
+      const english = a && !hasHangul(a) ? a : b && !hasHangul(b) ? b : "";
       if (korean && english && !index.has(korean)) index.set(korean, english);
     }
+    cachedTeamNames = { map: index, expires: now + 10 * 60 * 1000 };
   } catch {
     // A missing roster leaves the names as published.
   }

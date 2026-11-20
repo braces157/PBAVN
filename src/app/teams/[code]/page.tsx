@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import {
   getTeamLeagueRounds,
   getTeamLeagueSeasons,
@@ -37,7 +38,14 @@ interface PageProps {
   searchParams: Promise<{ season?: string; round?: string }>;
 }
 
-async function resolveTeam(code: string, seasonParam?: string, roundParam?: string) {
+const resolveTeam = cache(async (code: string, seasonParam?: string, roundParam?: string) => {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(code);
+  } catch {
+    return null;
+  }
+
   const seasons = await getTeamLeagueSeasons();
   const season = seasons.find((s) => s.시즌코드 === seasonParam) ?? seasons[0] ?? null;
   if (!season) return null;
@@ -49,7 +57,6 @@ async function resolveTeam(code: string, seasonParam?: string, roundParam?: stri
     rounds[0] ??
     null;
   const roundCode = round ? String(round.라운드코드) : "0";
-  const decoded = decodeURIComponent(code);
 
   const { rosterRaw, standingsRaw, playersRaw, matrixRaw, fixtures, failures } = await trackFailures(
     async () => {
@@ -137,15 +144,20 @@ async function resolveTeam(code: string, seasonParam?: string, roundParam?: stri
     ),
     profileIndex: profileMap,
   };
-}
+});
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { code } = await params;
-  const resolved = await resolveTeam(code);
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+  const [{ code }, search] = await Promise.all([params, searchParams]);
+  const resolved = await resolveTeam(code, search.season, search.round);
   if (!resolved) return { title: "Team not found" };
+  const title = `${resolved.profile.name} — Roster & Stats`;
+  const description = `${resolved.profile.name} — roster, coaching staff, team statistics and head-to-head record in the PBA Team League.`;
   return {
-    title: `${resolved.profile.name} — Roster & Stats`,
-    description: `${resolved.profile.name} — roster, coaching staff, team statistics and head-to-head record in the PBA Team League.`,
+    title,
+    description,
+    alternates: { canonical: `/teams/${encodeURIComponent(resolved.profile.code)}` },
+    openGraph: { title, description, type: "website" },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 

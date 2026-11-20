@@ -161,14 +161,15 @@ export function analyseSet(set: MatchSet, innings: SetInnings | null): AnalysedS
 
 /** Sets won, from the set list, independent of whether innings were published. */
 export function setsWon(sets: MatchSet[]): number[] {
-  const totals = new Map<number, number>();
+  const sideCount = sets.reduce((widest, set) => Math.max(widest, set.players.length), 0);
+  if (sideCount === 0) return [];
+  const totals = Array.from({ length: sideCount }, () => 0);
   for (const set of sets) {
     set.players.forEach((player, index) => {
-      if (!player.won) return;
-      totals.set(index, (totals.get(index) ?? 0) + 1);
+      if (player.won) totals[index] += 1;
     });
   }
-  return [...totals.entries()].sort((a, b) => a[0] - b[0]).map(([, won]) => won);
+  return totals;
 }
 
 /**
@@ -269,8 +270,10 @@ export interface ComparisonRow {
 }
 
 function numeric(value: string): number | null {
-  const parsed = Number(value.replace(/[^0-9.\-]/g, ""));
-  return Number.isFinite(parsed) && value.trim() !== "" ? parsed : null;
+  const cleaned = value.replace(/[^0-9.\-]/g, "");
+  if (!cleaned || cleaned === "-" || cleaned === ".") return null;
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /** Turn the published totals into a comparison table with a winner per row. */

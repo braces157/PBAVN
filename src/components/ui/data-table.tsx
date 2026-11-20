@@ -161,13 +161,41 @@ export function DataTable({
 }) {
   const { columns, rows, ranks, initialSort, rankLabel = "#", maxHeight } = payload;
   const router = useRouter();
-  const [sort, setSort] = useState<{ id: string; direction: SortDirection } | null>(initialSort ?? null);
+  const initialSortKey = initialSort ? `${initialSort.id}:${initialSort.direction}` : "";
+  const [sortState, setSortState] = useState<{
+    seed: string;
+    value: { id: string; direction: SortDirection } | null;
+  }>({
+    seed: initialSortKey,
+    value: initialSort ?? null,
+  });
+
+  // Commit the new default seed whenever server-supplied `initialSort` changes.
+  if (sortState.seed !== initialSortKey) {
+    setSortState({
+      seed: initialSortKey,
+      value: initialSort ?? null,
+    });
+  }
+  const sort = sortState.seed === initialSortKey ? sortState.value : (initialSort ?? null);
+  const setSort = (
+    updater:
+      | ({ id: string; direction: SortDirection } | null)
+      | ((
+          current: { id: string; direction: SortDirection } | null,
+        ) => { id: string; direction: SortDirection } | null),
+  ) => {
+    setSortState((prev) => {
+      const current = prev.seed === initialSortKey ? prev.value : (initialSort ?? null);
+      const next = typeof updater === "function" ? updater(current) : updater;
+      return { seed: initialSortKey, value: next };
+    });
+  };
 
   const ordered = useMemo(() => {
     if (!sort) return rows;
-    const index = new Map<number, number>(rows.map((row, position) => [position, position]));
     const factor = sort.direction === "asc" ? 1 : -1;
-    return [...rows]
+    return rows
       .map((row, position) => ({ row, position }))
       .sort(
         (a, b) =>
@@ -175,8 +203,7 @@ export function DataTable({
             compareValues(
               sortKey(a.row.sortValues?.[sort.id] ?? a.row.cells[sort.id]),
               sortKey(b.row.sortValues?.[sort.id] ?? b.row.cells[sort.id]),
-            ) ||
-          (index.get(a.position) ?? 0) - (index.get(b.position) ?? 0),
+            ) || a.position - b.position,
       )
       .map((entry) => entry.row);
   }, [rows, sort]);
@@ -184,7 +211,10 @@ export function DataTable({
   const toggle = (column: TableColumn) => {
     setSort((current) => {
       if (current?.id !== column.id) {
-        return { id: column.id, direction: column.numeric ? "desc" : "asc" };
+        return {
+          id: column.id,
+          direction: column.defaultDirection ?? (column.numeric ? "desc" : "asc"),
+        };
       }
       return { id: column.id, direction: current.direction === "desc" ? "asc" : "desc" };
     });
@@ -192,6 +222,8 @@ export function DataTable({
 
   const showSourceRank = !sort && ranks;
   const hiddenSortable = columns.filter((col) => Boolean(col.hideBelow) && col.id !== "note");
+  const hasXlHidden = hiddenSortable.some((col) => col.hideBelow === "xl");
+  const mobileSortHideClass = hasXlHidden ? "xl:hidden" : "lg:hidden";
   const showReset = sort !== null;
 
   return (
@@ -200,11 +232,11 @@ export function DataTable({
         <div
           className={cn(
             "flex flex-wrap items-center gap-2 border-b border-[var(--line)] bg-[var(--bar)] px-2.5 py-1.5 text-[11.5px]",
-            !showReset && "lg:hidden",
+            !showReset && mobileSortHideClass,
           )}
         >
           {hiddenSortable.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1 lg:hidden">
+            <div className={cn("flex flex-wrap items-center gap-1", mobileSortHideClass)}>
               <span className="mr-1 font-display text-[10.5px] font-bold uppercase tracking-[0.05em] text-[var(--muted)]">
                 Sort
               </span>
@@ -254,13 +286,14 @@ export function DataTable({
           <table className="stat-table">
             <thead>
               <tr>
-                <th className="!w-10">{rankLabel}</th>
+                <th scope="col" className="!w-10">{rankLabel}</th>
                 {columns.map((column) => {
                   const active = sort?.id === column.id;
                   const alignRight = column.align === "right" || (column.align === undefined && column.numeric);
                   return (
                     <th
                       key={column.id}
+                      scope="col"
                       className={cn(
                         column.hideBelow && HIDE_CLASS[column.hideBelow],
                         !alignRight && "!text-left",
@@ -290,6 +323,14 @@ export function DataTable({
             <tbody>
               {ordered.map((row, position) => {
                 const rankNumber = showSourceRank ? ranks[row.key] ?? position + 1 : position + 1;
+                const hasInlineLink = Object.values(row.cells).some(
+                  (cell) =>
+                    typeof cell === "object" &&
+                    cell !== null &&
+                    "kind" in cell &&
+                    cell.kind === "person" &&
+                    Boolean(cell.href),
+                );
                 return (
                   <tr
                     key={row.key}
@@ -298,12 +339,13 @@ export function DataTable({
                     onClick={(event) => {
                       if (!row.href) return;
                       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-                      if ((event.target as HTMLElement).closest("a")) return;
+                      if ((event.target as HTMLElement).closest("a, button, input, select, textarea")) return;
+                      if (typeof window !== "undefined" && window.getSelection()?.toString()) return;
                       router.push(row.href);
                     }}
                   >
                     <td>
-                      {row.href ? (
+                      {row.href && !hasInlineLink ? (
                         <Link
                           href={row.href}
                           aria-label={row.linkLabel ?? "Open details"}

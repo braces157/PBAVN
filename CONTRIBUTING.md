@@ -7,7 +7,7 @@ npm ci
 npm run dev          # http://localhost:3100
 ```
 
-Node 20.9 or newer. No API key, account or environment variable is needed: the data
+Node 22.12 or newer. No API key, account or environment variable is needed: the data
 comes from the association's public service.
 
 ## Before you open a pull request

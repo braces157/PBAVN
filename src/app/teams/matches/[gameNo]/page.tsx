@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { getTeamLeagueRounds, getTeamLeagueSeasons, trackFailures } from "@/lib/pba/api";
 import { getRequestFailures } from "@/lib/pba/failures";
 import {
@@ -40,29 +41,18 @@ interface PageProps {
 const GAME_NO = /^\d{1,4}$/;
 const SET = /^\d{1,2}$/;
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { gameNo } = await params;
-  if (!GAME_NO.test(gameNo)) return { title: "Fixture" };
-  return {
-    title: `Fixture No ${gameNo}`,
-    description: "Set-by-set bouts of one PBA Team League fixture, with per-inning records.",
-  };
-}
-
-export default async function FixturePage({ params, searchParams }: PageProps) {
-  const [{ gameNo }, search] = await Promise.all([params, searchParams]);
-  const setParam = SET.test(search.set ?? "") ? Number(search.set) : null;
-
-  const loaded = await trackFailures(async () => {
+const loadFixture = cache(async (gameNo: string, seasonParam?: string, roundParam?: string, setRaw?: string) => {
+  const setParam = SET.test(setRaw ?? "") ? Number(setRaw) : null;
+  return trackFailures(async () => {
     if (!GAME_NO.test(gameNo)) return null;
 
     const seasons = await getTeamLeagueSeasons();
-    const season = seasons.find((s) => s.시즌코드 === search.season) ?? seasons[0] ?? null;
+    const season = seasons.find((s) => s.시즌코드 === seasonParam) ?? seasons[0] ?? null;
     if (!season) return null;
 
     const rounds = await getTeamLeagueRounds(season.리그코드);
     const selectedRound =
-      rounds.find((r) => String(r.라운드코드) === search.round) ??
+      rounds.find((r) => String(r.라운드코드) === roundParam) ??
       rounds.find((r) => r.진행상황 === "진행중") ??
       rounds[0] ??
       null;
@@ -98,6 +88,34 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
       failures: getRequestFailures(),
     };
   });
+});
+
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+  const [{ gameNo }, search] = await Promise.all([params, searchParams]);
+  if (!GAME_NO.test(gameNo)) return { title: "Fixture not found" };
+  const loaded = await loadFixture(gameNo, search.season, search.round, search.set);
+  const bouts = loaded?.bouts;
+  const title = bouts
+    ? `${bouts.homeName} vs ${bouts.awayName}${bouts.homeSets !== null && bouts.awaySets !== null ? ` (${bouts.homeSets}–${bouts.awaySets})` : ""} — Team League`
+    : `Fixture No ${gameNo}`;
+  const description = bouts
+    ? `Set-by-set bouts and per-inning records for ${bouts.homeName} vs ${bouts.awayName} in the PBA Team League.`
+    : "Set-by-set bouts of one PBA Team League fixture, with per-inning records.";
+  const canonical = loaded
+    ? `/teams/matches/${gameNo}?season=${encodeURIComponent(loaded.season.시즌코드)}&round=${encodeURIComponent(loaded.roundCode)}`
+    : `/teams/matches/${gameNo}`;
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: { title, description, type: "website" },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
+
+export default async function FixturePage({ params, searchParams }: PageProps) {
+  const [{ gameNo }, search] = await Promise.all([params, searchParams]);
+  const loaded = await loadFixture(gameNo, search.season, search.round, search.set);
 
   if (!loaded) notFound();
   const {
@@ -125,6 +143,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
   if (!bouts) {
     return (
       <div className="mx-auto max-w-[1300px] px-3 py-5">
+        <h1 className="sr-only">Fixture No {gameNo}</h1>
         <nav className="mb-3 flex items-center gap-1.5 text-[11.5px] text-fog-500" aria-label="Breadcrumb">
           <Link href="/teams" className="hover:text-carom-300">Team League</Link>
           <span>/</span>
@@ -134,8 +153,16 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
           <span>/</span>
           <span className="text-fog-300">No {gameNo}</span>
         </nav>
-        {season && roundChips.length > 0 && (
-          <div className="mb-5">
+        <div className="mb-5 flex flex-col gap-2">
+          <FilterRow
+            label="Season"
+            basePath={`/teams/matches/${gameNo}`}
+            paramKey="season"
+            active={season.시즌코드}
+            params={{}}
+            options={seasons.map((s) => ({ value: s.시즌코드, label: s.시즌명 }))}
+          />
+          {roundChips.length > 0 && (
             <FilterRow
               label="Round"
               basePath={`/teams/matches/${gameNo}`}
@@ -144,8 +171,8 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
               params={{ season: season.시즌코드 }}
               options={roundChips}
             />
-          </div>
-        )}
+          )}
+        </div>
         <DataStatus failures={failures} />
         <EmptyState
           className="mt-4"
@@ -240,6 +267,9 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
     <>
       <header className="border-b border-ink-800 bg-ink-900">
         <div className="mx-auto max-w-[1300px] px-3 py-3.5">
+          <h1 className="sr-only">
+            {bouts.homeName} vs {bouts.awayName} — Round {selectedRound.라운드} Fixture #{gameNo}
+          </h1>
           <div className="flex flex-wrap items-center justify-between gap-2 text-[11.5px] text-fog-500">
             <nav className="flex flex-wrap items-center gap-1.5" aria-label="Breadcrumb">
               <Link href="/teams" className="hover:text-carom-300">Team League</Link>
@@ -260,28 +290,26 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
             </span>
           </div>
 
-          {season && (
-            <div className="mt-3 flex flex-col gap-2">
+          <div className="mt-3 flex flex-col gap-2">
+            <FilterRow
+              label="Season"
+              basePath={`/teams/matches/${gameNo}`}
+              paramKey="season"
+              active={season.시즌코드}
+              params={{}}
+              options={seasons.map((s) => ({ value: s.시즌코드, label: s.시즌명 }))}
+            />
+            {roundChips.length > 0 && (
               <FilterRow
-                label="Season"
+                label="Round"
                 basePath={`/teams/matches/${gameNo}`}
-                paramKey="season"
-                active={season.시즌코드}
-                params={{ round: search.round }}
-                options={seasons.map((s) => ({ value: s.시즌코드, label: s.시즌명 }))}
+                paramKey="round"
+                active={roundCode}
+                params={{ season: season.시즌코드 }}
+                options={roundChips}
               />
-              {roundChips.length > 0 && (
-                <FilterRow
-                  label="Round"
-                  basePath={`/teams/matches/${gameNo}`}
-                  paramKey="round"
-                  active={roundCode}
-                  params={{ season: season.시즌코드 }}
-                  options={roundChips}
-                />
-              )}
-            </div>
-          )}
+            )}
+          </div>
           <DataStatus failures={failures} />
         </div>
       </header>

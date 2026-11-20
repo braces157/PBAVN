@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getGalleries, getPressList, getVideos } from "@/lib/pba/api";
+import { getRequestFailures, trackFailures } from "@/lib/pba/failures";
 import { normalizeArticle } from "@/lib/normalize";
 import { translateArticleSummaries, translatePlainTitles } from "@/lib/translate";
 import { asset, isRealAsset } from "@/lib/pba/http";
-import { fmtDate, grouped, youtubeId } from "@/lib/format";
+import { eventArtUrl } from "@/lib/event-art";
+import { fmtDate, grouped, safeHttpUrl, youtubeId } from "@/lib/format";
 import { PageHeader } from "@/components/domain/filter-bar";
 import { splitNewsHeadline } from "@/lib/news";
 import {
@@ -40,46 +42,69 @@ export default async function NewsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const tab: Tab = params.tab === "videos" ? "videos" : params.tab === "gallery" ? "gallery" : "news";
   const rawPage = Number(params.page ?? 1);
-  const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
+  const requestedPage = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
   const pageSize = 12;
 
-  const [press, videos, galleries] = await Promise.all([
-    getPressList(page, pageSize),
-    getVideos(1, 12),
-    getGalleries(1, 12),
-  ]);
+  const data = await trackFailures(async () => {
+    const [press, videos, galleries] = await Promise.all([
+      tab === "news" ? getPressList(requestedPage, pageSize) : Promise.resolve({ list: [], total: 0 }),
+      tab === "videos" ? getVideos(1, 24) : Promise.resolve([]),
+      tab === "gallery" ? getGalleries(1, 24) : Promise.resolve([]),
+    ]);
 
-  const [articles, videoTitles, galleryTitles] = await Promise.all([
-    tab === "news" ? translateArticleSummaries(press.list.map(normalizeArticle), 160) : Promise.resolve([]),
-    tab === "videos"
-      ? translatePlainTitles(videos.map((v) => v.TITLE || v.VIDEO_NAME_EN || v.VIDEO_NAME || ""))
-      : Promise.resolve([]),
-    tab === "gallery"
-      ? translatePlainTitles(galleries.map((g) => g.TITLE || ""))
-      : Promise.resolve([]),
-  ]);
-  const pageCount = Math.max(1, Math.ceil(press.total / pageSize));
+    const initialPageCount = Math.max(1, Math.ceil(press.total / pageSize));
+    const page = tab === "news" ? Math.min(requestedPage, initialPageCount) : 1;
+    const effectivePress =
+      tab === "news" && page !== requestedPage ? await getPressList(page, pageSize) : press;
+    const pageCount = Math.max(1, Math.ceil(effectivePress.total / pageSize));
+
+    const [articles, videoTitles, galleryTitles] = await Promise.all([
+      tab === "news" ? translateArticleSummaries(effectivePress.list.map(normalizeArticle), 160) : Promise.resolve([]),
+      tab === "videos"
+        ? translatePlainTitles(videos.map((v) => v.TITLE || v.VIDEO_NAME_EN || v.VIDEO_NAME || ""))
+        : Promise.resolve([]),
+      tab === "gallery"
+        ? translatePlainTitles(galleries.map((g) => g.TITLE || ""))
+        : Promise.resolve([]),
+    ]);
+
+    return {
+      press: effectivePress,
+      videos,
+      galleries,
+      articles,
+      videoTitles,
+      galleryTitles,
+      page,
+      pageCount,
+      failures: getRequestFailures(),
+    };
+  });
+
+  const { press, videos, galleries, articles, videoTitles, galleryTitles, page, pageCount, failures } = data;
 
   const videoItems: VideoCardItem[] = videos.map((video, index) => {
     const title = videoTitles[index] || video.TITLE || video.VIDEO_NAME_EN || video.VIDEO_NAME || "PBA TV";
     const id = youtubeId(video.VIDEO_URL);
+    const rawThumb = isRealAsset(video.IMAGE_FILE_PATH) ? asset(video.IMAGE_FILE_PATH) : null;
     return {
       seq: video.SEQ,
       title,
       alt: safeAlt(video.IMAGE_ALT, title),
-      thumb: isRealAsset(video.IMAGE_FILE_PATH) ? asset(video.IMAGE_FILE_PATH) : null,
+      thumb: rawThumb ? (eventArtUrl(rawThumb, 768) ?? rawThumb) : null,
       youtubeId: id,
-      url: video.VIDEO_URL,
+      url: safeHttpUrl(video.VIDEO_URL) ?? "",
     };
   });
 
   const galleryItems: GalleryCardItem[] = galleries.map((gallery, index) => {
     const title = galleryTitles[index] || gallery.TITLE || "PBA Gallery";
+    const rawImg = isRealAsset(gallery.IMAGE_FULL_PATH) ? asset(gallery.IMAGE_FULL_PATH) : null;
     return {
       seq: gallery.SEQ,
       title,
       alt: safeAlt(gallery.ALT, title.replace(/_/g, " ")),
-      image: isRealAsset(gallery.IMAGE_FULL_PATH) ? asset(gallery.IMAGE_FULL_PATH) : null,
+      image: rawImg ? (eventArtUrl(rawImg, 1200) ?? rawImg) : null,
       dateLabel: fmtDate(gallery.VIEW_DATE),
     };
   });
@@ -95,13 +120,14 @@ export default async function NewsPage({ searchParams }: PageProps) {
         eyebrow="Media"
         title="Newsroom"
         description="Official announcements, PBA TV highlights, and tour photography."
+        failures={failures}
       >
         <TabLinks
           active={tab === "news" ? "/news" : `/news?tab=${tab}`}
           items={[
-            { href: "/news", label: "Press", count: press.total },
-            { href: "/news?tab=videos", label: "PBA TV", count: videos.length },
-            { href: "/news?tab=gallery", label: "Galleries", count: galleries.length },
+            { href: "/news", label: "Press", count: tab === "news" && press.total > 0 ? press.total : undefined },
+            { href: "/news?tab=videos", label: "PBA TV" },
+            { href: "/news?tab=gallery", label: "Galleries" },
           ]}
         />
       </PageHeader>

@@ -1,64 +1,123 @@
+import sanitizeHtml from "sanitize-html";
+
 /**
- * The press room stores article bodies as CMS HTML. We render them, so the body
- * is reduced to a conservative allow-list of structure and formatting: scripts,
- * frames, form controls, event handlers and `javascript:` URLs are removed, and
- * relative asset paths are rewritten to the association's media origin.
+ * The press room stores article bodies as CMS HTML. We parse and rebuild them
+ * with a strict allowlist (htmlparser2 via `sanitize-html`), rewrite relative
+ * asset paths to the association's media origin, and force outbound links to
+ * open safely.
  */
 
 const ASSET_HOST = "https://pbatour.org";
+const PROXYABLE_UPLOAD =
+  /^https:\/\/(?:www\.)?pbatour\.org\/resources\/upload\/((?:tournament|board|sponsor|team|banner|media)\/[\w./-]+\.(?:png|jpe?g|webp|gif))$/i;
 
-const BLOCKED_TAGS = [
-  "script",
-  "style",
-  "iframe",
-  "object",
-  "embed",
-  "form",
-  "input",
-  "button",
-  "textarea",
-  "select",
-  "link",
-  "meta",
-  "base",
-  "noscript",
-];
+function toAbsoluteAsset(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.startsWith("/api/photo?")) return trimmed;
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+    return `${ASSET_HOST}${trimmed}`;
+  }
+  return trimmed;
+}
+
+function hasUnsafeSegments(path: string): boolean {
+  if (path.includes("\\") || path.includes("//")) return true;
+  return path.split("/").some((segment) => segment === "." || segment === "..");
+}
+
+function toProxiedImage(url: string): string {
+  const match = url.match(PROXYABLE_UPLOAD);
+  if (!match) return url;
+  const rel = `/${match[1]}`;
+  if (hasUnsafeSegments(rel)) return url;
+  return `/api/photo?src=${encodeURIComponent(rel)}&w=1200`;
+}
 
 export function sanitizeCmsHtml(input: string | null | undefined): string {
   if (!input) return "";
 
-  let html = input;
-
-  // Remove blocked elements including their contents.
-  for (const tag of BLOCKED_TAGS) {
-    html = html.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>`, "gi"), "");
-    html = html.replace(new RegExp(`<${tag}\\b[^>]*\\/?>`, "gi"), "");
-  }
-
-  // Strip event handlers and inline styles that could hide or overlay content.
-  html = html.replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-  html = html.replace(/\sstyle\s*=\s*("[^"]*"|'[^']*')/gi, "");
-
-  // Neutralise script-bearing URLs.
-  html = html.replace(/(href|src)\s*=\s*("|')\s*javascript:[^"']*\2/gi, '$1="#"');
-
-  // Rewrite relative media to the association's origin.
-  html = html.replace(
-    /(src|href)\s*=\s*("|')\/(?!\/)([^"']*)\2/gi,
-    (_match, attr, quote, path) => `${attr}=${quote}${ASSET_HOST}/${path}${quote}`,
-  );
-
-  // Force outbound links to open safely.
-  html = html.replace(/<a\b([^>]*)>/gi, (_match: string, attrs: string) => {
-    let next = attrs.replace(/\starget\s*=\s*("[^"]*"|'[^']*')/gi, "");
-    next = next.replace(/\srel\s*=\s*("[^"]*"|'[^']*')/gi, "");
-    return `<a${next} target="_blank" rel="noreferrer noopener">`;
+  const cleaned = sanitizeHtml(input, {
+    allowedTags: [
+      "p",
+      "br",
+      "hr",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "blockquote",
+      "ul",
+      "ol",
+      "li",
+      "strong",
+      "b",
+      "em",
+      "i",
+      "u",
+      "s",
+      "sub",
+      "sup",
+      "span",
+      "div",
+      "figure",
+      "figcaption",
+      "img",
+      "a",
+      "table",
+      "thead",
+      "tbody",
+      "tfoot",
+      "tr",
+      "th",
+      "td",
+      "caption",
+    ],
+    allowedAttributes: {
+      a: ["href", "title", "target", "rel"],
+      img: ["src", "alt", "title", "width", "height", "loading"],
+      th: ["colspan", "rowspan", "scope"],
+      td: ["colspan", "rowspan"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    allowedSchemesByTag: {
+      img: ["http", "https"],
+    },
+    allowProtocolRelative: false,
+    disallowedTagsMode: "discard",
+    nonTextTags: ["style", "script", "textarea", "option", "noscript", "iframe", "object", "embed", "svg", "math", "template"],
+    transformTags: {
+      a: (_tagName, attribs) => {
+        const href = attribs.href ? toAbsoluteAsset(attribs.href) : "";
+        return {
+          tagName: "a",
+          attribs: {
+            ...(href ? { href } : {}),
+            ...(attribs.title ? { title: attribs.title } : {}),
+            target: "_blank",
+            rel: "noreferrer noopener",
+          },
+        };
+      },
+      img: (_tagName, attribs) => {
+        const absolute = attribs.src ? toAbsoluteAsset(attribs.src) : "";
+        const src = absolute ? toProxiedImage(absolute) : "";
+        return {
+          tagName: "img",
+          attribs: {
+            ...(src ? { src } : {}),
+            alt: attribs.alt ?? "",
+            ...(attribs.title ? { title: attribs.title } : {}),
+            loading: "lazy",
+          },
+        };
+      },
+    },
+    exclusiveFilter: (frame) => frame.tag === "img" && !frame.attribs.src,
   });
 
-  // Drop empty spacer paragraphs (`<p>&nbsp;</p>`) common in CMS exports.
-  html = html.replace(/<p\b[^>]*>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, "");
-
-  return html.trim();
+  // Drop empty spacer paragraphs (`<p>&nbsp;</p>`) after allowlist filtering.
+  return cleaned.replace(/<p\b[^>]*>(?:\s|&nbsp;|&#160;|<br\s*\/?>)*<\/p>/gi, "").trim();
 }
 
 /** Plain-text length, used to decide whether a body is worth rendering. */
