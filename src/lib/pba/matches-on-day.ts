@@ -41,9 +41,15 @@ import { fetchDatedHtmlFragment, fetchHtmlFragment } from "./http";
 import { getTournamentDetail } from "./api";
 import { parseBracketRows, type BracketMatch } from "./bracket-parse";
 import { parseDatedBracketRows, type DatedMatch } from "./bracket-dated-parse";
+import {
+  parseLiveTourCards,
+  parseUpcomingTourCards,
+  type LiveTourCard,
+  type UpcomingTourCard,
+} from "./day-cards-parse";
 import { calendarEvents, type CalendarEvent } from "./calendar";
 import { getEventTeamFixtures, getPlayerNameIndex, resolveKoreanName } from "./service";
-import { clockLabel, isoDay, stampDay } from "../format";
+import { cleanPlayerName, clockLabel, isoDay, stampDay } from "../format";
 import type { TeamFixture } from "./team-matches";
 
 /** A day that is over does not change; today is re-read within the minute. */
@@ -208,7 +214,7 @@ async function englishNames(tourCode: string, depth: number, revalidate: number,
         Array.from({ length: maxPage }, (_, index) =>
           fetchHtmlFragment(
             `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(code)}&iBLCode=${bracketDepth}&iPage=${index + 1}&txt_Search=&LangCode=en`,
-            { revalidate: ttl, timeoutMs: 12_000 },
+            { revalidate: ttl, timeoutMs: 12_000, allowEmpty: true },
           ),
         ),
       );
@@ -255,7 +261,7 @@ async function datedRows(tourCode: string, depth: number, revalidate: number, da
       for (let page = 1; page <= 8; page++) {
         const html = await fetchDatedHtmlFragment(
           `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(code)}&iBLCode=${bracketDepth}&iPage=${page}&txt_Search=`,
-          { revalidate: ttl, timeoutMs: 12_000 },
+          { revalidate: ttl, timeoutMs: 12_000, allowEmpty: true },
         );
         if (html === null) throw new Error("UNREACHABLE");
         pagesRead = page;
@@ -332,40 +338,178 @@ function datedToDayMatch(
   };
 }
 
+function liveCardToDayMatch(card: LiveTourCard, event: CalendarEvent, now: string): DayMatch {
+  const [a, b] = card.sides;
+  return {
+    key: `match-${card.pstCode}`,
+    pstCode: card.pstCode,
+    state: "live",
+    home: cleanPlayerName(a?.name) || "—",
+    away: cleanPlayerName(b?.name) || "—",
+    homeMemCode: a?.memCode ?? null,
+    awayMemCode: b?.memCode ?? null,
+    homeSets: a?.sets ?? null,
+    awaySets: b?.sets ?? null,
+    homeWon: false,
+    awayWon: false,
+    homeAverage: a?.average ?? null,
+    awayAverage: b?.average ?? null,
+    homeHighRun: a?.highRun ?? null,
+    awayHighRun: b?.highRun ?? null,
+    at: now,
+    clock: null,
+    round: card.round || "Live",
+    matchNo: card.matchNo,
+    href: `/matches/${card.pstCode}?live=1`,
+    event,
+  };
+}
+
+function upcomingCardToDayMatch(
+  card: UpcomingTourCard,
+  tourCode: string,
+  event: CalendarEvent,
+  day: string,
+): DayMatch {
+  const [a, b] = card.sides;
+  const homeMem = a?.memCode ?? null;
+  const awayMem = b?.memCode ?? null;
+  const href =
+    homeMem && awayMem
+      ? `/compare?a=${encodeURIComponent(homeMem)}&b=${encodeURIComponent(awayMem)}`
+      : `/schedule/${event.id}`;
+  return {
+    key: `next-${tourCode}-${card.matchNo}-${homeMem ?? a?.name ?? "a"}-${awayMem ?? b?.name ?? "b"}`,
+    pstCode: "",
+    state: "next",
+    home: cleanPlayerName(a?.name) || "—",
+    away: cleanPlayerName(b?.name) || "—",
+    homeMemCode: homeMem,
+    awayMemCode: awayMem,
+    homeSets: null,
+    awaySets: null,
+    homeWon: false,
+    awayWon: false,
+    homeAverage: null,
+    awayAverage: null,
+    homeHighRun: null,
+    awayHighRun: null,
+    at: card.clock ? `${day} ${card.clock}` : null,
+    clock: card.clock,
+    round: card.round || "Scheduled",
+    matchNo: card.matchNo,
+    href,
+    event,
+  };
+}
+
+async function liveTourMatches(
+  tourCode: string,
+  event: CalendarEvent,
+  now: string,
+): Promise<EventMatches> {
+  const html = await fetchHtmlFragment(
+    `/mob/contest_new/code_behind/live_info.asp?TourCode=${encodeURIComponent(tourCode)}&LangCode=en`,
+    { revalidate: 15, timeoutMs: 8_000, allowEmpty: true },
+  );
+  if (html === null) return { matches: [], failed: true };
+  const cards = parseLiveTourCards(html).filter((card) => !card.tourCode || card.tourCode === tourCode);
+  return {
+    matches: cards.map((card) => liveCardToDayMatch(card, event, now)),
+    failed: false,
+  };
+}
+
+async function upcomingTourMatches(
+  tourCode: string,
+  event: CalendarEvent,
+  day: string,
+  revalidate: number,
+): Promise<EventMatches> {
+  const html = await fetchHtmlFragment(
+    `/mob/contest_new/code_behind/next_game_new2.asp?txt_Search=&TourCode=${encodeURIComponent(tourCode)}&LangCode=en`,
+    { revalidate, timeoutMs: 12_000, allowEmpty: true },
+  );
+  if (html === null) return { matches: [], failed: true };
+  const targetMonthDay = day.slice(5, 10);
+  const cards = parseUpcomingTourCards(html).filter(
+    (card) => card.monthDay === targetMonthDay && (!card.tourCode || card.tourCode === tourCode),
+  );
+  return {
+    matches: cards.map((card) => upcomingCardToDayMatch(card, tourCode, event, day)),
+    failed: false,
+  };
+}
+
+function matchPairKey(match: DayMatch): string {
+  const pair =
+    match.homeMemCode && match.awayMemCode
+      ? [match.homeMemCode, match.awayMemCode]
+      : [match.home.trim().toLowerCase(), match.away.trim().toLowerCase()];
+  return pair.sort().join("::");
+}
+
 async function tourMatches(event: CalendarEvent, day: string, now: string): Promise<EventMatches> {
   const tour = await eventTourCode(event.id);
   if (tour.failed) return { matches: [], failed: true };
   if (!tour.code) return { matches: [], failed: false };
   const tourCode = tour.code;
 
-  const revalidate = ttlFor(day, now.slice(0, 10));
+  const today = now.slice(0, 10);
+  const revalidate = ttlFor(day, today);
 
-  // The depths fan out rather than queue: each one already walks its own pages
-  // in order (a page only says whether the next is needed once it is parsed), so
-  // the parallelism between depths is free, and serially this loop can cost a
-  // dozen-plus round trips before the first row of the day renders.
-  const perDepth = await Promise.all(
-    SHALLOW_DEPTHS.map(async (depth) => {
-      const dated = await datedRows(tourCode, depth, revalidate, day);
-      if (!dated.reachable) return { matches: [] as DayMatch[], failed: true };
-      if (dated.rows.length === 0) return { matches: [] as DayMatch[], failed: false };
+  // Read all three terminal surfaces in parallel:
+  //   1. ended bracket rows (`contest_result_sur.asp`) for recorded results
+  //   2. live tables (`live_info.asp`) when looking at today
+  //   3. scheduled fixtures (`next_game_new2.asp`) for today and upcoming days
+  const [perDepth, liveResult, upcomingResult] = await Promise.all([
+    Promise.all(
+      SHALLOW_DEPTHS.map(async (depth) => {
+        const dated = await datedRows(tourCode, depth, revalidate, day);
+        if (!dated.reachable) return { matches: [] as DayMatch[], failed: true };
+        if (dated.rows.length === 0) return { matches: [] as DayMatch[], failed: false };
 
-      const onDay = dated.rows.filter((row) => row.day === day);
-      if (onDay.length === 0) return { matches: [] as DayMatch[], failed: false };
+        const onDay = dated.rows.filter((row) => row.day === day);
+        if (onDay.length === 0) return { matches: [] as DayMatch[], failed: false };
 
-      const english = await englishNames(tourCode, depth, revalidate, dated.pagesRead);
-      return {
-        matches: onDay.map((row) =>
-          datedToDayMatch(row, english.names.get(row.pstCode), event, now),
-        ),
-        failed: !english.reachable,
-      };
-    }),
-  );
+        const english = await englishNames(tourCode, depth, revalidate, dated.pagesRead);
+        return {
+          matches: onDay.map((row) =>
+            datedToDayMatch(row, english.names.get(row.pstCode), event, now),
+          ),
+          failed: !english.reachable,
+        };
+      }),
+    ),
+    day === today
+      ? liveTourMatches(tourCode, event, now)
+      : Promise.resolve<EventMatches>({ matches: [], failed: false }),
+    day >= today
+      ? upcomingTourMatches(tourCode, event, day, revalidate)
+      : Promise.resolve<EventMatches>({ matches: [], failed: false }),
+  ]);
+
+  const ended = perDepth.flatMap((depth) => depth.matches);
+  const seenPst = new Set(ended.map((match) => match.pstCode).filter(Boolean));
+  const seenPairs = new Set(ended.map(matchPairKey));
+
+  const live = liveResult.matches.filter((match) => {
+    if (match.pstCode && seenPst.has(match.pstCode)) return false;
+    seenPst.add(match.pstCode);
+    seenPairs.add(matchPairKey(match));
+    return true;
+  });
+
+  const upcoming = upcomingResult.matches.filter((match) => {
+    const key = matchPairKey(match);
+    if (seenPairs.has(key)) return false;
+    seenPairs.add(key);
+    return true;
+  });
 
   return {
-    matches: perDepth.flatMap((depth) => depth.matches),
-    failed: perDepth.some((depth) => depth.failed),
+    matches: [...live, ...upcoming, ...ended],
+    failed: perDepth.some((depth) => depth.failed) || liveResult.failed || upcomingResult.failed,
   };
 }
 

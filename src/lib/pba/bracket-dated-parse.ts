@@ -141,9 +141,12 @@ export function parseDatedBracketRows(html: string | null, bracketSize: number):
     const sides: DatedSide[] = [];
     for (const item of block.split(/<li\b/i).slice(1)) {
       // A real side row carries the result marker; the heading row does not.
-      if (!/class="t_(name|set)"/i.test(item) || !/class="t_order"/i.test(item)) continue;
+      if (!/class="t_name"/i.test(item) || !/class="t_order"/i.test(item)) continue;
       const nameKo = span(item, "name");
-      const sets = number(span(item, "set"));
+      // Set-format matches publish sets in `t_set`; LPBA early rounds (점수제 경기)
+      // omit `t_set` and publish `points/innings` (e.g. `23/23`) in an unclassed span.
+      const pointInn = item.match(/<span[^>]*>\s*(\d+)\s*\/\s*\d+\s*<\/span>/i);
+      const sets = number(span(item, "set")) ?? (pointInn ? number(pointInn[1]) : null);
       if (!nameKo || /^player$/i.test(nameKo) || sets === null) continue;
       sides.push({
         nameKo,

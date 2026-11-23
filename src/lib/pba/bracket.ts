@@ -41,9 +41,10 @@ async function fetchBracketPage(
 ): Promise<BracketMatch[]> {
   const html = await fetchHtmlFragment(
     // `LangCode=en` publishes player names in Latin script. `txt_Search` must be
-    // present even when empty or the service refuses the request.
+    // present even when empty or the service refuses the request. Unstarted rounds
+    // return HTTP 200 with an empty body, which is normal rather than an error.
     `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(tourCode)}&iBLCode=${bracketSize}&iPage=${page}&txt_Search=&LangCode=en`,
-    { revalidate, timeoutMs: 12_000 },
+    { revalidate, timeoutMs: 12_000, allowEmpty: true },
   );
   return parseBracketRows(html, bracketSize);
 }

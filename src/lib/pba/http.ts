@@ -634,7 +634,7 @@ export async function fetchHtmlFragment(
  */
 export async function fetchDatedHtmlFragment(
   path: string,
-  options: { revalidate?: number; timeoutMs?: number } = {},
+  options: { revalidate?: number; timeoutMs?: number; allowEmpty?: boolean } = {},
 ): Promise<string | null> {
   const url = path.startsWith("http") ? path : `${APP_ORIGIN}${path}`;
   return getText(url, {
@@ -642,6 +642,7 @@ export async function fetchDatedHtmlFragment(
     timeoutMs: options.timeoutMs ?? 8_000,
     accept: "text/html, */*",
     referer: `${APP_ORIGIN}/mob/contest_new/admin_en/live_info.asp`,
+    allowEmpty: options.allowEmpty,
   });
 }
 
