@@ -45,7 +45,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
     return (
       <>
         <PageHeader failures={seasonFailures} eyebrow="Team league" title="PBA Team League" />
-        <div className="mx-auto max-w-[1300px] px-3 py-10">
+        <div className="wrap py-10">
           <EmptyState title="No team league season published" description="The association has not opened a team league season yet." />
         </div>
       </>
@@ -149,9 +149,9 @@ export default async function TeamsPage({ searchParams }: PageProps) {
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1300px] px-3 py-5">
+      <div className="wrap py-6">
         {selectedRound && (
-          <div className="surface-raised mb-6 flex flex-wrap items-center justify-between gap-x-8 gap-y-3 px-4 py-3.5">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-x-8 gap-y-3 rounded-xl border border-border bg-card px-5 py-4">
             <div className="flex items-center gap-3">
               {selectedRound.진행상황 === "진행중" ? (
                 <LiveChip label="In progress" />
@@ -159,17 +159,17 @@ export default async function TeamsPage({ searchParams }: PageProps) {
                 <Chip tone="neutral">{englishRoundStatus(selectedRound.진행상황)}</Chip>
               )}
               <div>
-                <p className="font-display text-[15px] font-bold text-fog-100">
+                <p className="text-base font-semibold text-foreground">
                   Round {selectedRound.라운드}
                   {selectedRound.포스트여부 === "Y" ? " · Postseason" : ""}
                 </p>
-                <p className="tnum mt-0.5 text-[11px] text-fog-450">
+                <p className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground">
                   {selectedRound.시작일자} → {selectedRound.종료일자}
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-x-7 gap-y-2">
-              <Stat label="Venue" value={<span className="text-[14px]">{englishVenue(selectedRound.경기장소)}</span>} />
+              <Stat label="Venue" value={<span className="text-sm font-medium">{englishVenue(selectedRound.경기장소)}</span>} />
               <Stat label="Clubs" value={grouped(standings.length)} />
               <Stat label="Players" value={grouped(players.length)} />
             </div>
@@ -183,7 +183,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
               title="Club Standings"
               action={<TextLink href={teamPlayersHref}>Player statistics</TextLink>}
             />
-            <div className="surface mt-3 overflow-hidden">
+            <div className="mt-3 overflow-hidden rounded-xl border border-border bg-card">
               {standings.length > 0 ? (
                 <StandingsTable rows={standings} />
               ) : (
@@ -194,19 +194,24 @@ export default async function TeamsPage({ searchParams }: PageProps) {
 
           <section className="min-w-0">
             <SectionHeading eyebrow="Leaders" title="Best Averages" />
-            <div className="surface mt-3 p-1.5">
+            <div className="mt-3 overflow-hidden rounded-xl border border-border bg-card">
               {topScorers.length > 0 ? (
-                <ul className="divide-y divide-ink-800">
+                <ul className="divide-y divide-border/60">
                   {topScorers.map((player, index) => (
                     <li key={player.code}>
-                      <Link href={`/players/${player.code}`} className="row-hover flex items-center gap-2.5 px-2.5 py-2">
-                        <span className="tnum w-4 text-[11px] font-bold text-fog-550">{index + 1}</span>
+                      <Link
+                        href={`/players/${player.code}`}
+                        className="flex items-center gap-2.5 px-4 py-2.5 transition-colors hover:bg-accent/50 hover:no-underline"
+                      >
+                        <span className="w-4 font-mono text-xs font-semibold tabular-nums text-muted-foreground">
+                          {index + 1}
+                        </span>
                         <PlayerAvatar path={player.photoPath} src={player.photo} name={player.name} size="xs" />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[12.5px] font-semibold text-fog-100">{player.name}</p>
-                          <p className="truncate text-[10.5px] text-fog-500">{player.team}</p>
+                          <p className="truncate text-[13px] font-medium text-foreground">{player.name}</p>
+                          <p className="truncate text-[11px] text-muted-foreground">{player.team}</p>
                         </div>
-                        <span className="tnum shrink-0 font-display text-[13px] font-bold text-carom-300">
+                        <span className="shrink-0 font-mono text-xs font-semibold tabular-nums text-foreground">
                           {player.average.toFixed(3)}
                         </span>
                       </Link>
@@ -245,14 +250,11 @@ export default async function TeamsPage({ searchParams }: PageProps) {
         )}
 
         <section className="mt-10">
-          <SectionHeading
-            eyebrow="Clubs"
-            title="Clubs"
-          />
+          <SectionHeading eyebrow="Clubs" title="Clubs" />
           {standings.length === 0 ? (
             <EmptyState className="mt-4" title="No club rosters published" />
           ) : (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <div className="mt-4 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {standings.map((team) => {
                 const profile = profiles.get(team.code);
                 const displayName = profile?.name ?? team.name;
@@ -263,25 +265,25 @@ export default async function TeamsPage({ searchParams }: PageProps) {
                   <Link
                     key={team.code}
                     href={`/teams/${encodeURIComponent(team.code)}?season=${season.시즌코드}&round=${roundCode}`}
-                    className="surface card-hover group flex flex-col p-3.5"
+                    className="group flex flex-col rounded-xl border border-border bg-card p-4 transition-colors hover:bg-accent/40 hover:no-underline"
                   >
                     <div className="flex items-start justify-between">
                       <TeamLogo src={team.logo} name={team.name} size="md" />
-                      <span className="tnum rounded-[5px] border border-ink-700 bg-ink-850 px-2 py-0.5 font-display text-[11px] font-bold text-fog-200">
+                      <span className="rounded-md border border-border bg-secondary px-2 py-0.5 font-mono text-[11px] font-semibold tabular-nums text-foreground">
                         #{team.rank}
                       </span>
                     </div>
-                    <p className="mt-2.5 line-clamp-2 font-display text-[13.5px] font-bold leading-snug text-fog-100 group-hover:text-carom-300">
+                    <p className="mt-3 line-clamp-2 text-sm font-semibold leading-snug text-foreground group-hover:underline">
                       {displayName}
                     </p>
-                    <p className="mt-0.5 truncate text-[11px] text-fog-500">
-                      {subtitle}
-                    </p>
-                    <div className="mt-2.5 flex items-center justify-between border-t border-ink-800 pt-2">
-                      <span className="tnum text-[11px] text-fog-450">
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</p>
+                    <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2.5">
+                      <span className="font-mono text-xs tabular-nums text-muted-foreground">
                         {team.wins}W {team.losses}L
                       </span>
-                      <span className="tnum text-[11.5px] font-bold text-carom-300">{team.points} pts</span>
+                      <span className="font-mono text-xs font-semibold tabular-nums text-foreground">
+                        {team.points} pts
+                      </span>
                     </div>
                   </Link>
                 );
@@ -296,7 +298,7 @@ export default async function TeamsPage({ searchParams }: PageProps) {
             title="Player Leaders"
             action={<TextLink href={teamPlayersHref}>Full table</TextLink>}
           />
-          <div className="mt-4 overflow-x-auto rounded-[8px] border border-ink-750 bg-ink-900">
+          <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
             {playersByAverage.length === 0 ? (
               <EmptyState className="border-0" title="No player stats published" />
             ) : (
@@ -317,22 +319,22 @@ export default async function TeamsPage({ searchParams }: PageProps) {
                   {playersByAverage.slice(0, 12).map((player) => (
                     <tr key={player.code}>
                       <td className="!text-left">
-                        <Link href={`/players/${player.code}`} className="flex items-center gap-2 hover:text-carom-300">
+                        <Link href={`/players/${player.code}`} className="flex items-center gap-2 hover:underline">
                           <PlayerAvatar path={player.photoPath} src={player.photo} name={player.name} size="xs" />
-                          <span className="truncate text-[12.5px] font-semibold text-fog-100">{player.name}</span>
+                          <span className="truncate text-[13px] font-medium text-foreground">{player.name}</span>
                         </Link>
                       </td>
-                      <td className="!text-left hidden text-fog-400 sm:table-cell">{player.team}</td>
-                      <td className="font-bold text-carom-300">{player.average.toFixed(3)}</td>
-                      <td className="text-fog-300">{percent(player.winRate)}</td>
-                      <td className="hidden text-fog-300 sm:table-cell">{player.highRun}</td>
-                      <td className="hidden text-fog-400 md:table-cell">
+                      <td className="!text-left hidden text-muted-foreground sm:table-cell">{player.team}</td>
+                      <td className="font-mono font-semibold tabular-nums text-foreground">{player.average.toFixed(3)}</td>
+                      <td className="font-mono tabular-nums text-muted-foreground">{percent(player.winRate)}</td>
+                      <td className="hidden font-mono tabular-nums text-muted-foreground sm:table-cell">{player.highRun}</td>
+                      <td className="hidden font-mono tabular-nums text-muted-foreground md:table-cell">
                         {player.setWins}–{player.setLosses}
                       </td>
-                      <td className="hidden text-fog-400 md:table-cell">
+                      <td className="hidden font-mono tabular-nums text-muted-foreground md:table-cell">
                         {player.singlesWins}–{player.singlesLosses}
                       </td>
-                      <td className="hidden text-fog-400 lg:table-cell">
+                      <td className="hidden font-mono tabular-nums text-muted-foreground lg:table-cell">
                         {player.doublesWins}–{player.doublesLosses}
                       </td>
                     </tr>

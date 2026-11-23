@@ -125,7 +125,7 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
     return (
       <>
         <PageHeader failures={failures} eyebrow="Team league" title="Player Statistics" />
-        <div className="mx-auto max-w-[1300px] px-3 py-10">
+        <div className="wrap py-10">
           <EmptyState title="No team league season published" />
         </div>
       </>
@@ -197,25 +197,25 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1300px] px-3 py-5">
-        <div className="mb-3 flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-fog-500">
-            Rank by
-          </span>
-          {(Object.keys(SORT_ACCESSORS) as SortKey[]).map((key) => (
-            <Link
-              key={key}
-              href={buildSortHref(key)}
-              className={
-                sortKey === key
-                  ? "rounded-[6px] border border-carom-400/50 bg-carom-400/14 px-2.5 py-1 text-[11.5px] font-semibold text-carom-300"
-                  : "rounded-[6px] border border-ink-750 bg-ink-900 px-2.5 py-1 text-[11.5px] font-semibold text-fog-400 transition-colors hover:border-ink-600 hover:text-fog-100"
-              }
-            >
-              {SORT_LABELS[key]}
-            </Link>
-          ))}
-          <span className="ml-auto hidden text-[11.5px] text-fog-500 sm:block">
+      <div className="wrap py-6">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Rank by</span>
+          <div className="inline-flex flex-wrap items-center gap-0.5 rounded-lg bg-secondary p-1">
+            {(Object.keys(SORT_ACCESSORS) as SortKey[]).map((key) => (
+              <Link
+                key={key}
+                href={buildSortHref(key)}
+                className={
+                  sortKey === key
+                    ? "rounded-md bg-background px-2.5 py-1 text-xs font-medium text-foreground shadow-sm hover:no-underline"
+                    : "rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:no-underline"
+                }
+              >
+                {SORT_LABELS[key]}
+              </Link>
+            ))}
+          </div>
+          <span className="ml-auto hidden font-mono text-xs tabular-nums text-muted-foreground sm:block">
             {players.length} of {allPlayers.length} players
           </span>
         </div>
@@ -231,7 +231,7 @@ export default async function TeamPlayersPage({ searchParams }: PageProps) {
           empty="No players match these filters."
         />
 
-        <p className="mt-2.5 text-[11px] text-fog-550">
+        <p className="mt-3 text-xs text-muted-foreground">
           Averages combine singles, doubles and mixed-doubles sets for the selected round.
         </p>
       </div>

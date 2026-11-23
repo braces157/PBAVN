@@ -120,7 +120,7 @@ export default async function RecordsPage({ searchParams }: PageProps) {
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1300px] px-3 py-5">
+      <div className="wrap py-6">
         <SectionHeading
           eyebrow="Category leaders"
           title="Season Statistical Leaders"
@@ -134,39 +134,36 @@ export default async function RecordsPage({ searchParams }: PageProps) {
             description="No category leaders have been released for this season and circuit yet."
           />
         ) : (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="mt-4 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {categories.map((cat) => (
-              <div key={cat.key} className="surface overflow-hidden">
-                <div className="flex items-baseline justify-between border-b border-ink-750 bg-ink-850 px-3.5 py-2">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-fog-100">
-                    {cat.label}
-                  </p>
-                  <span className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-carom-300">
-                    {leagueShort(circuit)}
-                  </span>
+              <div key={cat.key} className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="flex items-baseline justify-between border-b border-border bg-secondary/40 px-4 py-2.5">
+                  <p className="text-sm font-semibold text-foreground">{cat.label}</p>
                 </div>
-                <ul className="divide-y divide-ink-800/70">
+                <ul className="divide-y divide-border/60">
                   {cat.rows.map((row) => (
                     <li key={`${cat.key}-${row.MemCode}-${row.Rank}`}>
                       <Link
                         href={`/players/${row.MemCode}`}
-                        className="row-hover group flex items-center gap-2.5 px-3.5 py-2"
+                        className="group flex items-center gap-2.5 px-4 py-2.5 transition-colors hover:bg-accent/50 hover:no-underline"
                       >
                         <span
                           className={cn(
-                            "tnum grid h-5 w-5 shrink-0 place-items-center rounded text-[10px] font-bold",
-                            row.Rank === 1 ? "bg-gold-400/15 text-gold-300" : "text-fog-550",
+                            "grid h-5 w-5 shrink-0 place-items-center rounded-md font-mono text-[11px] font-semibold tabular-nums",
+                            row.Rank === 1
+                              ? "bg-foreground text-background"
+                              : "text-muted-foreground",
                           )}
                         >
                           {row.Rank}
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-fog-200 group-hover:text-carom-300">
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground group-hover:underline">
                           {(() => {
                             const rawName = cleanPlayerName(row.MemNameEn || row.MemName);
                             return hasHangul(rawName) ? resolveKoreanName(rawName, nameIndex) : rawName;
                           })()}
                         </span>
-                        <span className="tnum shrink-0 font-display text-[12.5px] font-bold text-fog-100">
+                        <span className="shrink-0 font-mono text-xs font-semibold tabular-nums text-foreground">
                           {formatValue(cat.unit, row.Value)}
                         </span>
                       </Link>
@@ -194,7 +191,7 @@ export default async function RecordsPage({ searchParams }: PageProps) {
               options={PERIOD_CATEGORIES.map((item) => ({ value: item.key, label: item.label }))}
             />
           </div>
-          <div className="mt-3 overflow-x-auto rounded-[8px] border border-ink-750 bg-ink-900">
+          <div className="mt-3 overflow-x-auto rounded-xl border border-border bg-card">
             {ranked.length > 0 ? (
               <PeriodTable rows={ranked} category={category} />
             ) : (
@@ -207,14 +204,14 @@ export default async function RecordsPage({ searchParams }: PageProps) {
           </div>
         </section>
 
-        <div className="mt-10 grid gap-8 lg:grid-cols-2 lg:gap-10">
+        <div className="mt-10 grid gap-6 lg:grid-cols-2 lg:gap-8">
           <section className="min-w-0">
             <SectionHeading
               eyebrow="This season"
               title="Events & Champions"
               action={<TextLink href={`/schedule?season=${seasonCode}`}>Schedule</TextLink>}
             />
-            <div className="mt-4 overflow-x-auto rounded-[8px] border border-ink-750 bg-ink-900">
+            <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
               {seasonTours.length > 0 ? (
                 <table className="stat-table">
                   <thead>
@@ -229,7 +226,7 @@ export default async function RecordsPage({ searchParams }: PageProps) {
                     {seasonTours.map((tour, index) => (
                       <tr key={tour.투어코드}>
                         <td className="!text-left">
-                          <span className="block max-w-[240px] truncate text-[12.5px] font-medium text-fog-100">
+                          <span className="block max-w-[240px] truncate text-[13px] font-medium text-foreground">
                             {seasonLabels[index]?.title ?? tour.투어명}
                           </span>
                         </td>
@@ -237,18 +234,20 @@ export default async function RecordsPage({ searchParams }: PageProps) {
                           {seasonLabels[index]?.championCode ? (
                             <Link
                               href={`/players/${encodeURIComponent(seasonLabels[index].championCode!)}`}
-                              className="text-[12.5px] font-bold text-gold-300 underline-offset-2 transition-colors hover:text-carom-300 hover:underline"
+                              className="text-[13px] font-semibold text-foreground underline-offset-2 transition-colors hover:underline"
                             >
                               {seasonLabels[index]?.champion || "—"}
                             </Link>
                           ) : (
-                            <span className="text-[12.5px] font-bold text-gold-300">
+                            <span className="text-[13px] font-semibold text-foreground">
                               {seasonLabels[index]?.champion || "—"}
                             </span>
                           )}
                         </td>
-                        <td className="hidden text-[11.5px] text-fog-450 sm:table-cell">{leagueShort(tour.PBA타입)}</td>
-                        <td className="tnum hidden text-[11.5px] text-fog-500 md:table-cell">
+                        <td className="hidden font-mono text-xs text-muted-foreground sm:table-cell">
+                          {leagueShort(tour.PBA타입)}
+                        </td>
+                        <td className="hidden font-mono text-xs tabular-nums text-muted-foreground md:table-cell">
                           {tour.투어시작일자} → {tour.투어종료일자}
                         </td>
                       </tr>
@@ -263,7 +262,7 @@ export default async function RecordsPage({ searchParams }: PageProps) {
 
           <section className="min-w-0">
             <SectionHeading eyebrow="All time" title="Roll of Honour" />
-            <div className="mt-4 overflow-x-auto rounded-[8px] border border-ink-750 bg-ink-900">
+            <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
               {rollOfHonour.length > 0 ? (
                 <table className="stat-table">
                   <thead>
@@ -276,17 +275,19 @@ export default async function RecordsPage({ searchParams }: PageProps) {
                   <tbody>
                     {rollOfHonour.map((tour, index) => (
                       <tr key={`${tour.투어코드}-h`}>
-                        <td className="tnum !text-left text-[11.5px] text-fog-500">{tour.시즌코드}</td>
+                        <td className="!text-left font-mono text-xs tabular-nums text-muted-foreground">
+                          {tour.시즌코드}
+                        </td>
                         <td className="!text-left">
-                          <span className="block max-w-[220px] truncate text-[12px] text-fog-200">
+                          <span className="block max-w-[220px] truncate text-[13px] text-muted-foreground">
                             {honourLabels[index]?.title ?? tour.투어명}
                           </span>
                         </td>
-                        <td className="!text-left text-[12px] font-bold text-gold-300">
+                        <td className="!text-left text-[13px] font-semibold text-foreground">
                           {honourLabels[index]?.championCode ? (
                             <Link
                               href={`/players/${encodeURIComponent(honourLabels[index].championCode!)}`}
-                              className="underline-offset-2 transition-colors hover:text-carom-300 hover:underline"
+                              className="underline-offset-2 transition-colors hover:underline"
                             >
                               {honourLabels[index]?.champion || "—"}
                             </Link>

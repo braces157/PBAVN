@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { TeamLogo } from "@/components/ui/media";
 import { Chip, EmptyState, cn } from "@/components/ui/primitives";
 import type { TeamFixture } from "@/lib/pba/team-matches";
@@ -42,7 +43,7 @@ export function FixtureList({
   };
 
   return (
-    <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {fixtures.map((fixture, index) => {
         const home = club(fixture.home.clubCode, fixture.home.name);
         const away = club(fixture.away.clubCode, fixture.away.name);
@@ -51,18 +52,20 @@ export function FixtureList({
 
         const body = (
           <>
-            <div className="flex items-center justify-between gap-2 border-b border-ink-800 pb-2.5">
-              <span className="tnum text-[10.5px] font-bold uppercase tracking-[0.1em] text-fog-500">
+            <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2.5">
+              <span className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 {fixture.gameNo ? `Fixture #${fixture.gameNo}` : "Scheduled"}
               </span>
               {fixture.played ? (
-                <span className="tnum text-[10.5px] text-fog-450">{fixture.playedAt ?? ""}</span>
+                <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                  {fixture.playedAt ?? ""}
+                </span>
               ) : (
                 <Chip tone="neutral">Scheduled</Chip>
               )}
             </div>
 
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 space-y-2.5">
               {([home, away] as const).map((side, position) => {
                 const competitor = position === 0 ? fixture.home : fixture.away;
                 return (
@@ -70,23 +73,23 @@ export function FixtureList({
                     <TeamLogo src={side.logo} name={side.name} size="xs" />
                     <span
                       className={cn(
-                        "min-w-0 flex-1 truncate text-[13px]",
-                        competitor.won ? "font-bold text-fog-100" : "text-fog-300",
+                        "min-w-0 flex-1 truncate text-[13.5px]",
+                        competitor.won ? "font-semibold text-foreground" : "text-muted-foreground",
                       )}
                     >
                       {side.name}
                     </span>
                     {fixture.played ? (
-                      <span className="tnum shrink-0 text-right">
+                      <span className="shrink-0 text-right font-mono tabular-nums">
                         <span
                           className={cn(
-                            "font-display text-[16px] font-bold",
-                            competitor.won ? "text-carom-300" : "text-fog-500",
+                            "text-base font-semibold",
+                            competitor.won ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
                           )}
                         >
                           {competitor.sets ?? "–"}
                         </span>
-                        <span className="ml-2 hidden text-[10.5px] text-fog-550 sm:inline">
+                        <span className="ml-2 hidden text-[11px] text-muted-foreground sm:inline">
                           {competitor.average?.toFixed(3) ?? "—"} · HR {competitor.highRun ?? "—"}
                         </span>
                       </span>
@@ -97,22 +100,23 @@ export function FixtureList({
             </div>
 
             {link && (
-              <div className="mt-2.5 flex items-center justify-between border-t border-ink-800 pt-2 text-[10.5px]">
-                <span className="tnum text-fog-550">
+              <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2.5 text-xs">
+                <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
                   {fixture.played ? (fixture.playedAt ?? "") : fixture.playedAt ? `Kickoff ${fixture.playedAt}` : ""}
                 </span>
-                <span className="font-semibold text-carom-400">
-                  {fixture.played ? "Bouts & innings →" : "Fixture details →"}
+                <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                  {fixture.played ? "Bouts & innings" : "Fixture details"}
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                 </span>
               </div>
             )}
             {!link && fixture.playedAt && (
-              <p className="tnum mt-2.5 border-t border-ink-800 pt-2 text-[10.5px] text-fog-450">
+              <p className="mt-3 border-t border-border/60 pt-2.5 font-mono text-[11px] tabular-nums text-muted-foreground">
                 Kickoff {fixture.playedAt}
               </p>
             )}
             {!link && (
-              <p className="mt-2.5 text-[10.5px] text-fog-550">
+              <p className="mt-2.5 text-[11px] text-muted-foreground">
                 Bout scorecard not published yet.
               </p>
             )}
@@ -124,13 +128,15 @@ export function FixtureList({
             {link ? (
               <Link
                 href={link}
-                className="surface card-hover flex h-full min-w-0 flex-col p-4"
+                className="flex h-full min-w-0 flex-col rounded-xl border border-border bg-card p-4 transition-colors hover:bg-accent/40 hover:no-underline"
                 aria-label={`${home.name} against ${away.name}${fixture.played ? `, ${fixture.home.sets}–${fixture.away.sets}` : ", scheduled"}`}
               >
                 {body}
               </Link>
             ) : (
-              <div className="surface flex h-full min-w-0 flex-col p-4 opacity-90">{body}</div>
+              <div className="flex h-full min-w-0 flex-col rounded-xl border border-border bg-card p-4 opacity-90">
+                {body}
+              </div>
             )}
           </li>
         );

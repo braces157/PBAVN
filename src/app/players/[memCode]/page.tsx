@@ -27,8 +27,10 @@ import {
   winRate,
 } from "@/lib/normalize";
 import { average, cleanDisplayText, grouped, ordinal, percent, wonCompact, won } from "@/lib/format";
+import { Trophy } from "lucide-react";
 import { InitialsPlate, NationPlate } from "@/components/ui/media";
 import { SafeImage } from "@/components/ui/safe-image";
+import { FollowButton } from "@/components/ui/follow-button";
 import { EmptyState, KeyValue, Panel, TextLink, cn } from "@/components/ui/primitives";
 import { FilterRow } from "@/components/domain/filter-bar";
 import { ProfileMatchHistory, ProfileMatchHistorySkeleton } from "@/components/domain/player-match-history";
@@ -145,36 +147,32 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
       {/* ------------------------------------------------------------ hero */}
       <section
         id="overview"
-        className="relative scroll-mt-24 overflow-hidden bg-[var(--nav)] text-white"
+        className="relative scroll-mt-24 border-b border-zinc-800/80 bg-zinc-950 text-zinc-50"
       >
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_140%_at_100%_0%,rgba(58,117,196,0.38)_0%,rgba(58,117,196,0)_55%),radial-gradient(80%_120%_at_0%_100%,rgba(227,178,60,0.12)_0%,rgba(227,178,60,0)_60%)]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-24 -top-24 h-[340px] w-[340px] rounded-full border border-white/[0.06]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-6 top-10 h-[200px] w-[200px] rounded-full border border-white/[0.05]"
-        />
-
-        <div className="relative mx-auto max-w-[1300px] px-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
-            <nav className="flex items-center gap-1.5 text-[11.5px] text-white/55" aria-label="Breadcrumb">
-              <Link href="/players" className="transition-colors hover:text-white">
+        <div className="wrap relative">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-5">
+            <nav className="flex items-center gap-1.5 text-xs text-zinc-400" aria-label="Breadcrumb">
+              <Link href="/players" className="transition-colors hover:text-zinc-100">
                 Players
               </Link>
-              <span aria-hidden="true">/</span>
-              <Link href={`/players?league=${player.league}`} className="transition-colors hover:text-white">
+              <span aria-hidden="true" className="text-zinc-700">/</span>
+              <Link href={`/players?league=${player.league}`} className="transition-colors hover:text-zinc-100">
                 {league.name}
               </Link>
-              <span aria-hidden="true">/</span>
-              <span className="text-white/85">{player.name}</span>
+              <span aria-hidden="true" className="text-zinc-700">/</span>
+              <span className="text-zinc-200">{player.name}</span>
             </nav>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <FollowButton
+                player={{
+                  code: player.code,
+                  name: player.name,
+                  circuit: league.name,
+                  nation: player.nation,
+                }}
+                className="h-8 w-8 border border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-zinc-500 hover:bg-zinc-800 hover:text-white"
+              />
               <HeroButton href={`/players/${player.code}/matches`}>Match history</HeroButton>
               <HeroButton href={`/compare?a=${player.code}`} primary>
                 Compare H2H
@@ -182,9 +180,9 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
             </div>
           </div>
 
-          <div className="grid gap-5 pb-6 pt-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-end sm:gap-7">
+          <div className="grid gap-5 pb-7 pt-6 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-end sm:gap-7">
             <div className="relative w-fit">
-              <div className="relative aspect-[4/5] w-[132px] overflow-hidden rounded-[6px] bg-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] ring-1 ring-white/15 sm:w-[160px]">
+              <div className="relative aspect-[4/5] w-[128px] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 sm:w-[152px]">
                 <SafeImage
                   path={player.photoPath}
                   src={player.photoLarge ?? player.photo}
@@ -194,7 +192,6 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                   className="h-full w-full object-cover object-top"
                   fallback={<InitialsPlate name={player.name} />}
                 />
-                <div className="absolute inset-x-0 bottom-0 h-1 bg-[var(--yellow)]" aria-hidden="true" />
               </div>
             </div>
 
@@ -204,22 +201,23 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                 <HeroTag>{player.gender === "F" ? "Women" : "Men"}</HeroTag>
                 {championships.length > 0 && (
                   <HeroTag tone="gold">
-                    ★ {championships.length} {championships.length === 1 ? "title" : "titles"}
+                    <Trophy className="h-3 w-3" aria-hidden="true" />
+                    {championships.length} {championships.length === 1 ? "title" : "titles"}
                   </HeroTag>
                 )}
               </div>
 
-              <h1 className="mt-2.5 font-display text-[30px] font-bold leading-[1.02] tracking-[-0.01em] text-white sm:text-[40px]">
+              <h1 className="mt-2.5 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
                 {player.name}
               </h1>
-              <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-white/65">
-                {player.nameKo && <span className="font-semibold text-white/90">{player.nameKo}</span>}
+              <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-zinc-400">
+                {player.nameKo && <span className="font-medium text-zinc-200">{player.nameKo}</span>}
                 <NationPlate code={player.nation} />
-                {age !== null && <span className="tnum">{age} years old</span>}
-                <span className="tnum text-white/45">ID {player.code}</span>
+                {age !== null && <span className="font-mono text-xs tabular-nums">{age} yrs</span>}
+                <span className="font-mono text-xs tabular-nums text-zinc-500">ID {player.code}</span>
               </p>
 
-              <dl className="mt-5 grid grid-cols-2 overflow-hidden rounded-[6px] border border-white/10 bg-white/[0.04] backdrop-blur-sm lg:grid-cols-5">
+              <dl className="mt-5 grid grid-cols-2 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60 lg:grid-cols-5">
                 <HeroStat label="Career avg" value={average(player.average)} highlight />
                 <HeroStat label="High run" value={grouped(player.highRun)} />
                 <HeroStat label="Win rate" value={percent(rate, 1)} hint={`${player.wins}W – ${player.losses}L`} />
@@ -239,16 +237,17 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
         </div>
       </section>
 
-      <div className="mx-auto max-w-[1300px] px-4 py-5">
-
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="wrap py-6">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           {/* ------------------------------------------------------ main column */}
-          <div className="min-w-0 space-y-5">
-            <div id="season" className="scroll-mt-24 space-y-3">
+          <div className="min-w-0 space-y-6">
+            <div id="season" className="scroll-mt-24 space-y-4">
               <div className="flex min-w-0 flex-wrap items-end justify-between gap-3">
                 <div>
-                  <p className="eyebrow">Season statistics</p>
-                  <h2 className="display-md mt-1">{seasonTitle}</h2>
+                  <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Season statistics
+                  </p>
+                  <h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground">{seasonTitle}</h2>
                 </div>
                 <FilterRow
                   label="Season"
@@ -272,7 +271,7 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                       <HeadlineStat label="Win rate" value={percent(line.winRate)} rank={line.ranks.winRate} />
                       <HeadlineStat label="Points" value={grouped(line.points)} rank={line.ranks.points} />
                     </div>
-                    <div className="grid gap-x-8 gap-y-4 border-t border-[var(--line)] bg-[var(--bar)] px-4 py-3.5 md:grid-cols-2">
+                    <div className="grid gap-x-8 gap-y-4 border-t border-border bg-secondary/40 px-4 py-4 md:grid-cols-2">
                       <RecordBar label="Match record" wins={line.wins} losses={line.losses} />
                       <RecordBar label="Set record" wins={line.setWins} losses={line.setLosses} />
                     </div>
@@ -280,7 +279,7 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
 
                   <div className="grid gap-5 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                     <Panel title="Shot profile" meta="success rate · circuit rank">
-                      <ul className="divide-y divide-[var(--line)]">
+                      <ul className="divide-y divide-border/60">
                         <RateRow label="Bank shot" value={line.bankShotRate} rank={line.ranks.bankShotRate} />
                         <RateRow label="First shot" value={line.firstShotRate} rank={line.ranks.firstShotRate} />
                         <RateRow label="Attack success" value={line.attackRate} rank={line.ranks.attackRate} />
@@ -290,7 +289,7 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                     </Panel>
 
                     <Panel title="Volume">
-                      <div className="grid grid-cols-2 gap-px bg-[var(--line)]">
+                      <div className="grid grid-cols-2 gap-px bg-border/60">
                         <VolumeCell label="Matches" value={grouped(line.matches)} />
                         <VolumeCell label="Innings" value={grouped(line.innings)} />
                         <VolumeCell
@@ -390,23 +389,23 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
           <aside id="career" className="min-w-0 scroll-mt-24 space-y-4">
             {seasonRank && (
               <Panel title="Season standing" meta={seasonTitle}>
-                <div className="grid grid-cols-2 divide-x divide-[var(--line)]">
-                  <div className="px-3 py-3">
-                    <p className="eyebrow">Ranking pts</p>
-                    <p className="tnum mt-1 font-display text-[22px] font-bold leading-none">
+                <div className="grid grid-cols-2 divide-x divide-border/60">
+                  <div className="px-4 py-3.5">
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Ranking pts</p>
+                    <p className="mt-1 font-mono text-xl font-semibold leading-none tabular-nums text-foreground">
                       {grouped(seasonRank.랭킹포인트)}
                     </p>
                     <PlaceTag value={seasonRank.랭킹포인트순위} />
                   </div>
-                  <div className="px-3 py-3">
-                    <p className="eyebrow">Prize money</p>
-                    <p className="tnum mt-1 font-display text-[22px] font-bold leading-none text-[var(--link)]">
+                  <div className="px-4 py-3.5">
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Prize money</p>
+                    <p className="mt-1 font-mono text-xl font-semibold leading-none tabular-nums text-foreground">
                       {wonCompact(seasonRank.상금)}
                     </p>
                     <PlaceTag value={seasonRank.상금순위} />
                   </div>
                 </div>
-                <dl className="border-t border-[var(--line)] px-3">
+                <dl className="border-t border-border/60 px-4">
                   <KeyValue label="Events entered">{grouped(seasonRank.참가대회)}</KeyValue>
                   <KeyValue label="Titles">{grouped(seasonRank.우승횟수)}</KeyValue>
                 </dl>
@@ -414,37 +413,39 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
             )}
 
             <Panel title="Career totals">
-              <dl className="px-3">
+              <dl className="px-4">
                 {careerRank && <KeyValue label="Events entered">{grouped(careerRank.참가횟수)}</KeyValue>}
                 <KeyValue label="Titles">
-                  <span className="font-bold text-[var(--gold)]">{grouped(championships.length)}</span>
+                  <span className="font-semibold text-amber-500">{grouped(championships.length)}</span>
                 </KeyValue>
                 <KeyValue label="Ranking points">{grouped(player.points)}</KeyValue>
                 <KeyValue label="Career prize">
-                  <span className="font-bold text-[var(--link)]">{won(player.prize)}</span>
+                  <span className="font-semibold text-foreground">{won(player.prize)}</span>
                 </KeyValue>
               </dl>
             </Panel>
 
             {championships.length > 0 && (
               <Panel id="titles" className="scroll-mt-24" title="Titles" meta={championships.length}>
-                <ul className="divide-y divide-[var(--line)]">
+                <ul className="divide-y divide-border/60">
                   {championships.map((title, index) => (
                     <li
                       key={`${title.SeasonCode}-${title.TourTitleEn}-${index}`}
-                      className="flex items-start gap-2.5 px-3 py-2.5"
+                      className="flex items-start gap-2.5 px-4 py-3"
                     >
                       <span
                         aria-hidden="true"
-                        className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--yellow)] text-[11px] font-bold text-[#1d2329]"
+                        className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-amber-500/15 text-amber-500"
                       >
-                        ★
+                        <Trophy className="h-3.5 w-3.5" />
                       </span>
                       <div className="min-w-0">
-                        <p className="text-[12.5px] font-semibold leading-snug text-[var(--text)]">
+                        <p className="text-[13px] font-medium leading-snug text-foreground">
                           {cleanDisplayText(title.TourTitleEn) || translateKoreanTourTitle(title.TourTitle)}
                         </p>
-                        <p className="tnum mt-0.5 text-[11px] text-[var(--muted)]">{title.SeasonTitle}</p>
+                        <p className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+                          {title.SeasonTitle}
+                        </p>
                       </div>
                     </li>
                   ))}
@@ -453,25 +454,25 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
             )}
 
             <Panel title="Profile">
-              <dl className="px-3">
+              <dl className="px-4">
                 {player.nameKo && <KeyValue label="Korean name">{player.nameKo}</KeyValue>}
                 <KeyValue label="Nation">
                   <NationPlate code={player.nation} />
                 </KeyValue>
                 {player.birth && (
                   <KeyValue label="Born">
-                    <span className="tnum">
+                    <span className="font-mono tabular-nums">
                       {player.birth}
-                      {age !== null && <span className="text-[var(--muted)]"> · {age} yrs</span>}
+                      {age !== null && <span className="text-muted-foreground"> · {age} yrs</span>}
                     </span>
                   </KeyValue>
                 )}
                 <KeyValue label="Circuit">{league.name}</KeyValue>
                 <KeyValue label="Member code">
-                  <span className="tnum">{player.code}</span>
+                  <span className="font-mono tabular-nums">{player.code}</span>
                 </KeyValue>
               </dl>
-              <div className="flex flex-col gap-1.5 border-t border-[var(--line)] bg-[var(--bar)] px-3 py-2.5">
+              <div className="flex flex-col gap-1.5 border-t border-border/60 bg-secondary/40 px-4 py-3">
                 <TextLink href={`/players/${player.code}/matches`}>All matches by {lastName}</TextLink>
                 <TextLink href={`/compare?a=${player.code}`}>Compare head-to-head</TextLink>
               </div>
@@ -490,10 +491,10 @@ function HeroButton({ href, children, primary = false }: { href: string; childre
     <Link
       href={href}
       className={cn(
-        "rounded-[4px] px-3 py-1.5 text-[12px] font-semibold transition-colors hover:no-underline",
+        "inline-flex h-8 items-center rounded-md px-3 text-xs font-medium transition-colors hover:no-underline",
         primary
-          ? "bg-[var(--yellow)] text-[#1d2329] hover:bg-[#f2c443] hover:text-[#1d2329]"
-          : "border border-white/20 text-white/85 hover:border-white/40 hover:bg-white/10 hover:text-white",
+          ? "bg-white text-zinc-950 hover:bg-zinc-200"
+          : "border border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-zinc-500 hover:text-white",
       )}
     >
       {children}
@@ -505,10 +506,10 @@ function HeroTag({ children, tone = "plain" }: { children: ReactNode; tone?: "pl
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-[3px] px-1.5 py-[2px] font-display text-[10.5px] font-bold uppercase tracking-[0.06em]",
-        tone === "accent" && "bg-[#3a75c4] text-white",
-        tone === "gold" && "bg-[var(--yellow)] text-[#1d2329]",
-        tone === "plain" && "bg-white/10 text-white/80",
+        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[11px] font-medium",
+        tone === "accent" && "bg-zinc-800 text-zinc-100",
+        tone === "gold" && "bg-amber-500/15 text-amber-400",
+        tone === "plain" && "border border-zinc-800 bg-zinc-900 text-zinc-400",
       )}
     >
       {children}
@@ -528,17 +529,17 @@ function HeroStat({
   highlight?: boolean;
 }) {
   return (
-    <div className="border-b border-r border-white/10 px-4 py-3 even:border-r-0 last:col-span-2 last:border-b-0 lg:border-b-0 lg:even:border-r lg:last:col-span-1 lg:last:border-r-0">
-      <dt className="font-display text-[10.5px] font-semibold uppercase tracking-[0.08em] text-white/50">{label}</dt>
+    <div className="border-b border-r border-zinc-800 px-4 py-3.5 even:border-r-0 last:col-span-2 last:border-b-0 lg:border-b-0 lg:even:border-r lg:last:col-span-1 lg:last:border-r-0">
+      <dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">{label}</dt>
       <dd
         className={cn(
-          "tnum mt-1 font-display text-[24px] font-bold leading-none",
-          highlight ? "text-[var(--yellow)]" : "text-white",
+          "mt-1 font-mono text-2xl font-semibold leading-none tabular-nums",
+          highlight ? "text-emerald-400" : "text-white",
         )}
       >
         {value}
       </dd>
-      {hint && <dd className="tnum mt-1 text-[11px] text-white/50">{hint}</dd>}
+      {hint && <dd className="mt-1 font-mono text-[11px] tabular-nums text-zinc-500">{hint}</dd>}
     </div>
   );
 }
@@ -549,17 +550,15 @@ function RankText({ rank }: { rank?: number }) {
     return (
       <span
         className={cn(
-          "tnum inline-flex items-center rounded-[3px] px-1.5 py-[1px] text-[10.5px] font-bold",
-          rank === 1
-            ? "bg-[var(--yellow)] text-[#1d2329]"
-            : "border border-[var(--gold)]/45 bg-[var(--gold)]/12 text-[var(--gold)]",
+          "inline-flex items-center rounded-md px-1.5 py-0.5 font-mono text-[10.5px] font-semibold tabular-nums",
+          rank === 1 ? "bg-foreground text-background" : "bg-secondary text-foreground",
         )}
       >
         {ordinal(rank)}
       </span>
     );
   }
-  return <span className="tnum text-[11px] font-semibold text-[var(--text-2)]">{ordinal(rank)}</span>;
+  return <span className="font-mono text-[11px] font-medium tabular-nums text-muted-foreground">{ordinal(rank)}</span>;
 }
 
 function HeadlineStat({
@@ -574,17 +573,17 @@ function HeadlineStat({
   accent?: boolean;
 }) {
   return (
-    <div className="border-b border-r border-[var(--line)] px-4 py-4 even:border-r-0 md:border-b-0 md:even:border-r md:last:border-r-0">
-      <p className="eyebrow">{label}</p>
+    <div className="border-b border-r border-border/60 px-4 py-4 even:border-r-0 md:border-b-0 md:even:border-r md:last:border-r-0">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
       <p
         className={cn(
-          "tnum mt-1.5 font-display text-[30px] font-bold leading-none",
-          accent ? "text-[var(--link)]" : "text-[var(--text)]",
+          "mt-1.5 font-mono text-2xl font-semibold leading-none tabular-nums sm:text-3xl",
+          accent ? "text-emerald-600 dark:text-emerald-400" : "text-foreground",
         )}
       >
         {value}
       </p>
-      <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[var(--muted)]">
+      <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
         {rank ? (
           <>
             <RankText rank={rank} />
@@ -604,16 +603,16 @@ function RecordBar({ label, wins, losses }: { label: string; wins: number; losse
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
-        <p className="eyebrow">{label}</p>
-        <p className="tnum text-[12.5px] font-semibold">
-          <span className="text-[var(--win)]">{wins}W</span>
-          <span className="mx-1 text-[var(--muted)]">–</span>
-          <span className="text-[var(--loss)]">{losses}L</span>
-          <span className="ml-2 text-[var(--muted)]">{total ? `${share.toFixed(0)}%` : "—"}</span>
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <p className="font-mono text-xs font-semibold tabular-nums">
+          <span className="text-emerald-600 dark:text-emerald-400">{wins}W</span>
+          <span className="mx-1 text-muted-foreground">–</span>
+          <span className="text-rose-600 dark:text-rose-400">{losses}L</span>
+          <span className="ml-2 text-muted-foreground">{total ? `${share.toFixed(0)}%` : "—"}</span>
         </p>
       </div>
-      <div className="mt-1.5 flex h-2 overflow-hidden rounded-full bg-[var(--loss)]/70" aria-hidden="true">
-        <div className="h-full rounded-r-full bg-[var(--win)]" style={{ width: `${share}%` }} />
+      <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-secondary" aria-hidden="true">
+        <div className="h-full rounded-full bg-emerald-500" style={{ width: `${share}%` }} />
       </div>
     </div>
   );
@@ -623,15 +622,15 @@ function RateRow({ label, value, rank }: { label: string; value: number; rank?: 
   const width = Math.max(0, Math.min(100, value || 0));
   const top = rank !== undefined && rank > 0 && rank <= 3;
   return (
-    <li className="grid grid-cols-[110px_minmax(0,1fr)_56px_44px] items-center gap-3 px-3 py-2.5">
-      <span className="text-[12.5px] font-medium text-[var(--text)]">{label}</span>
-      <span className="h-1.5 overflow-hidden rounded-full bg-[var(--bar-2)]" aria-hidden="true">
+    <li className="grid grid-cols-[110px_minmax(0,1fr)_56px_44px] items-center gap-3 px-4 py-2.5">
+      <span className="text-[13px] font-medium text-foreground">{label}</span>
+      <span className="h-1.5 overflow-hidden rounded-full bg-secondary" aria-hidden="true">
         <span
-          className={cn("block h-full rounded-full", top ? "bg-[var(--yellow)]" : "bg-[var(--link)]")}
+          className={cn("block h-full rounded-full", top ? "bg-amber-500" : "bg-foreground/75")}
           style={{ width: `${width}%` }}
         />
       </span>
-      <span className="tnum text-right font-display text-[15px] font-bold">{percent(value)}</span>
+      <span className="text-right font-mono text-xs font-semibold tabular-nums text-foreground">{percent(value)}</span>
       <span className="text-right">
         <RankText rank={rank} />
       </span>
@@ -641,18 +640,18 @@ function RateRow({ label, value, rank }: { label: string; value: number; rank?: 
 
 function VolumeCell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-[var(--panel)] px-3 py-3">
-      <p className="eyebrow">{label}</p>
-      <p className="tnum mt-1 font-display text-[20px] font-bold leading-none">{value}</p>
+    <div className="bg-card px-4 py-3">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-1 font-mono text-lg font-semibold leading-none tabular-nums text-foreground">{value}</p>
     </div>
   );
 }
 
 function PlaceTag({ value }: { value: number | string | null | undefined }) {
   const n = Number(value);
-  if (!n) return <p className="mt-1.5 text-[11px] text-[var(--muted)]">—</p>;
+  if (!n) return <p className="mt-1.5 text-xs text-muted-foreground">—</p>;
   return (
-    <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[var(--muted)]">
+    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
       <RankText rank={n} />
       <span>place</span>
     </p>

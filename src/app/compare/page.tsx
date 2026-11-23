@@ -126,7 +126,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
               defaultValue={q1 || (playerA ? playerA.name : "")}
               placeholder="Player one — name"
               aria-label="First player"
-              className="field"
+              className="h-8 rounded-md border border-border bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
             <input
               type="search"
@@ -134,11 +134,11 @@ export default async function ComparePage({ searchParams }: PageProps) {
               defaultValue={q2 || (playerB ? playerB.name : "")}
               placeholder="Player two — name"
               aria-label="Second player"
-              className="field"
+              className="h-8 rounded-md border border-border bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
             <button
               type="submit"
-              className="press rounded-[3px] bg-[var(--nav)] px-4 py-1.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-[var(--link)]"
+              className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
               Compare
             </button>
@@ -162,7 +162,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1300px] px-3 py-5">
+      <div className="wrap py-6">
         {!playerA && !playerB ? (
           <div>
             <EmptyState
@@ -175,16 +175,18 @@ export default async function ComparePage({ searchParams }: PageProps) {
               action={
                 <Link
                   href="/players"
-                  className="mt-1 rounded-md border border-ink-700 bg-ink-900 px-3 py-1.5 text-[12px] font-semibold text-fog-200 hover:border-carom-400/50 hover:text-carom-300"
+                  className="mt-1 inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:no-underline"
                 >
                   Browse players
                 </Link>
               }
             />
             {suggestions.length >= 2 && (
-              <section className="mt-6">
-                <p className="eyebrow mb-2.5">Top Ranked Matchups</p>
-                <div className="grid gap-3 sm:grid-cols-2">
+              <section className="mt-8">
+                <p className="mb-3 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Top Ranked Matchups
+                </p>
+                <div className="grid gap-3.5 sm:grid-cols-2">
                   {[0, 2].map((start) => {
                     const a = suggestions[start];
                     const b = suggestions[start + 1];
@@ -193,24 +195,24 @@ export default async function ComparePage({ searchParams }: PageProps) {
                       <Link
                         key={`${a.MemCode}-${b.MemCode}`}
                         href={`/compare?a=${a.MemCode}&b=${b.MemCode}&season=${seasonCode}`}
-                        className="surface card-hover grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 p-3.5"
+                        className="group grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-accent/40 hover:no-underline"
                       >
-                        <span className="flex min-w-0 items-center gap-2">
+                        <span className="flex min-w-0 items-center gap-2.5">
                           <PlayerAvatar
                             path={a.ImgURL}
                             src={isRealAsset(a.ImgURL) ? asset(a.ImgURL) : null}
                             name={cleanPlayerName(pick(a.PlayerNameEN, a.PlayerNameKO))}
                             size="sm"
                           />
-                          <span className="truncate text-[12.5px] font-semibold text-fog-100 sm:text-[13px]">
+                          <span className="truncate text-sm font-medium text-foreground">
                             {cleanPlayerName(pick(a.PlayerNameEN, a.PlayerNameKO))}
                           </span>
                         </span>
-                        <span className="shrink-0 text-[10.5px] font-bold uppercase tracking-[0.08em] text-carom-300">
+                        <span className="shrink-0 font-mono text-[11px] font-medium uppercase text-muted-foreground">
                           vs
                         </span>
-                        <span className="flex min-w-0 items-center justify-end gap-2">
-                          <span className="truncate text-right text-[12.5px] font-semibold text-fog-100 sm:text-[13px]">
+                        <span className="flex min-w-0 items-center justify-end gap-2.5">
+                          <span className="truncate text-right text-sm font-medium text-foreground">
                             {cleanPlayerName(pick(b.PlayerNameEN, b.PlayerNameKO))}
                           </span>
                           <PlayerAvatar
@@ -229,7 +231,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
           </div>
         ) : (
           <>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3.5 sm:grid-cols-2">
               <CompareCard player={playerA} code={codeA} query={q1} label="Player one" tone="carom" />
               <CompareCard player={playerB} code={codeB} query={q2} label="Player two" tone="gold" />
             </div>
@@ -242,33 +244,35 @@ export default async function ComparePage({ searchParams }: PageProps) {
                   description={`${h2h.total_matches} recorded meetings in the ${seasonTitle} season.`}
                 />
 
-                <div className="surface mt-4 overflow-hidden">
-                  <div className="grid grid-cols-3 items-center gap-2 border-b border-ink-800 bg-ink-850 px-5 py-4">
+                <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
+                  <div className="grid grid-cols-3 items-center gap-2 border-b border-border bg-secondary/40 px-5 py-4">
                     <div className="text-left">
-                      <p className="truncate text-[12.5px] font-bold text-fog-100">
+                      <p className="truncate text-sm font-semibold text-foreground">
                         {playerA.name.split(" ").slice(-1)[0]}
                       </p>
-                      <p className="tnum mt-1 font-display text-3xl font-extrabold text-carom-300">
+                      <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
                         {h2h.player1_wins ?? 0}
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-fog-500">
+                      <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                         Matches won
                       </p>
-                      <p className="tnum mt-1 text-[11.5px] text-fog-450">{h2h.total_matches} played</p>
+                      <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
+                        {h2h.total_matches} played
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="truncate text-[12.5px] font-bold text-fog-100">
+                      <p className="truncate text-sm font-semibold text-foreground">
                         {playerB.name.split(" ").slice(-1)[0]}
                       </p>
-                      <p className="tnum mt-1 font-display text-3xl font-extrabold text-gold-300">
+                      <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
                         {h2h.player2_wins ?? 0}
                       </p>
                     </div>
                   </div>
 
-                  <ul className="divide-y divide-ink-800">
+                  <ul className="divide-y divide-border/60">
                     {(
                       [
                         ["Average", h2h.player1_average, h2h.player2_average, "avg"],
@@ -292,33 +296,33 @@ export default async function ComparePage({ searchParams }: PageProps) {
                       const leftPct = sum > 0 ? (l / sum) * 100 : 0;
                       const rightPct = sum > 0 ? 100 - leftPct : 0;
                       return (
-                        <li key={label} className="px-5 py-2.5">
+                        <li key={label} className="px-5 py-3">
                           <div className="flex items-center justify-between gap-4">
                             <span
                               className={cn(
-                                "tnum w-16 text-left text-[12.5px] font-bold",
-                                l > r ? "text-carom-300" : "text-fog-300",
+                                "w-16 text-left font-mono text-xs font-semibold tabular-nums",
+                                l > r ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
                               )}
                             >
                               {formatH2H(unit, left)}
                             </span>
-                            <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-fog-500">
+                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                               {label}
                             </span>
                             <span
                               className={cn(
-                                "tnum w-16 text-right text-[12.5px] font-bold",
-                                r > l ? "text-gold-300" : "text-fog-300",
+                                "w-16 text-right font-mono text-xs font-semibold tabular-nums",
+                                r > l ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
                               )}
                             >
                               {formatH2H(unit, right)}
                             </span>
                           </div>
-                          <div className="mt-1.5 flex h-1 overflow-hidden rounded-full bg-ink-800" aria-hidden="true">
+                          <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-secondary" aria-hidden="true">
                             {sum > 0 && (
                               <>
-                                <span className="bg-carom-400/80" style={{ width: `${leftPct}%` }} />
-                                <span className="bg-gold-400/80" style={{ width: `${rightPct}%` }} />
+                                <span className="bg-emerald-500" style={{ width: `${leftPct}%` }} />
+                                <span className="bg-amber-500" style={{ width: `${rightPct}%` }} />
                               </>
                             )}
                           </div>
@@ -346,13 +350,13 @@ export default async function ComparePage({ searchParams }: PageProps) {
             {hasStatData(lineA) || hasStatData(lineB) ? (
               <section className="mt-8">
                 <SectionHeading eyebrow="Season Comparison" title={`Season Statistics · ${seasonTitle}`} />
-                <div className="mt-4 overflow-x-auto rounded-[8px] border border-ink-750 bg-ink-900">
+                <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
                   <table className="stat-table">
                     <thead>
                       <tr>
                         <th scope="col" className="!text-left">Metric</th>
-                        <th scope="col" className="!text-carom-300">{playerA?.shortName ?? "—"}</th>
-                        <th scope="col" className="!text-gold-300">{playerB?.shortName ?? "—"}</th>
+                        <th scope="col" className="!text-emerald-600 dark:!text-emerald-400">{playerA?.shortName ?? "—"}</th>
+                        <th scope="col" className="!text-amber-600 dark:!text-amber-400">{playerB?.shortName ?? "—"}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -378,11 +382,21 @@ export default async function ComparePage({ searchParams }: PageProps) {
                         const rightWins = bothPlayed && (lowerIsBetter ? r < l : r > l);
                         return (
                           <tr key={label}>
-                            <td className="!text-left text-fog-400">{label}</td>
-                            <td className={cn("font-bold", leftWins ? "text-carom-300" : "text-fog-200")}>
+                            <td className="!text-left text-muted-foreground">{label}</td>
+                            <td
+                              className={cn(
+                                "font-mono tabular-nums",
+                                leftWins ? "font-semibold text-emerald-600 dark:text-emerald-400" : "text-foreground",
+                              )}
+                            >
                               {hasStatData(lineA) ? formatH2H(unit, left) : "—"}
                             </td>
-                            <td className={cn("font-bold", rightWins ? "text-gold-300" : "text-fog-200")}>
+                            <td
+                              className={cn(
+                                "font-mono tabular-nums",
+                                rightWins ? "font-semibold text-amber-600 dark:text-amber-400" : "text-foreground",
+                              )}
+                            >
                               {hasStatData(lineB) ? formatH2H(unit, right) : "—"}
                             </td>
                           </tr>
@@ -424,8 +438,8 @@ function CompareCard({
 }) {
   if (!player) {
     return (
-      <div className="surface flex min-h-[108px] items-center justify-center p-4">
-        <p className="text-[12.5px] text-fog-450">
+      <div className="flex min-h-[108px] items-center justify-center rounded-xl border border-border bg-card p-4">
+        <p className="text-xs text-muted-foreground">
           {code
             ? `No player found for ${code}`
             : query
@@ -442,22 +456,22 @@ function CompareCard({
     <Link
       href={`/players/${player.code}`}
       className={cn(
-        "surface card-hover group flex items-center gap-3.5 p-4",
-        tone === "carom" ? "border-l-2 border-l-carom-400" : "border-l-2 border-l-gold-400",
+        "group flex items-center gap-3.5 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-accent/40 hover:no-underline",
+        tone === "carom" ? "border-l-2 border-l-emerald-500" : "border-l-2 border-l-amber-500",
       )}
     >
       <PlayerAvatar path={player.photoPath} src={player.photo} name={player.name} size="lg" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <Chip tone={league.tone} className="!text-[9px]">
+          <Chip tone={league.tone} className="!text-[9.5px]">
             {league.name}
           </Chip>
           <NationPlate code={player.nation} />
         </div>
-        <p className="mt-1.5 truncate font-display text-[15px] font-bold text-fog-100 group-hover:text-carom-300">
+        <p className="mt-1.5 truncate text-base font-semibold text-foreground group-hover:underline">
           {cleanPlayerName(pick(player.name, player.nameKo))}
         </p>
-        <p className="tnum mt-0.5 text-[11.5px] text-fog-450">
+        <p className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground">
           AVG {average(player.average)} · HR {player.highRun} · {percent(winRate(player), 0)} win
         </p>
       </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { cn } from "@/components/ui/primitives";
 import { fmtRange } from "@/lib/format";
 import type { CalendarEvent } from "@/lib/pba/calendar";
@@ -23,40 +24,41 @@ export function NowNextStrip({
   next: NextFixture | null;
 }) {
   return (
-    <div className="grid gap-px overflow-hidden rounded-[8px] border border-ink-750 bg-ink-750 lg:grid-cols-[1.1fr_1fr_0.9fr]">
+    <div className="grid gap-px overflow-hidden rounded-xl border border-border bg-border lg:grid-cols-[1.1fr_1fr_0.9fr]">
       {live}
 
-      <div className="bg-ink-900 px-4 py-3.5">
-        <p className="micro-label flex items-center gap-1.5">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-carom-400" aria-hidden="true" />
+      <div className="bg-card px-4 py-3.5">
+        <p className="flex items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
           Up next
         </p>
         {next ? (
           <>
-            <p className="mt-2 flex min-w-0 items-center gap-1.5 text-[13px] font-semibold leading-tight text-fog-100">
+            <p className="mt-2 flex min-w-0 items-center gap-1.5 text-sm font-medium leading-tight text-foreground">
               <SideLogo logo={next.homeLogo} name={next.home} />
               <span className="min-w-0 truncate">{next.home}</span>
-              <span className="shrink-0 text-[9.5px] font-bold uppercase tracking-[0.08em] text-fog-550">
+              <span className="shrink-0 font-mono text-[10px] font-medium uppercase text-muted-foreground">
                 vs
               </span>
               <SideLogo logo={next.awayLogo} name={next.away} />
               <span className="min-w-0 truncate">{next.away}</span>
             </p>
-            <p className="tnum mt-1.5 text-[11.5px] leading-snug">
-              <span className="font-bold text-carom-400">{next.label}</span>
-              {next.at ? <span className="text-fog-450"> · {next.at}</span> : null}
+            <p className="mt-1.5 font-mono text-xs leading-snug tabular-nums">
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">{next.label}</span>
+              {next.at ? <span className="text-muted-foreground"> · {next.at}</span> : null}
             </p>
             {next.href ? (
               <Link
                 href={next.href}
-                className="mt-2 inline-flex items-center gap-1 text-[11.5px] font-semibold text-fog-200 transition-colors hover:text-carom-300"
+                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-foreground transition-colors hover:text-muted-foreground hover:no-underline"
               >
-                Open fixture →
+                Open fixture
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
               </Link>
             ) : null}
           </>
         ) : (
-          <p className="mt-2 text-[12px] leading-snug text-fog-450">
+          <p className="mt-2 text-xs leading-snug text-muted-foreground">
             {event.status === "completed"
               ? "Every fixture published for this event has concluded."
               : "No fixture published yet. The draw appears as soon as the association posts it."}
@@ -64,14 +66,16 @@ export function NowNextStrip({
         )}
       </div>
 
-      <div className="bg-ink-900 px-4 py-3.5">
-        <p className="micro-label">Event window</p>
-        <p className="tnum mt-2 text-[13px] font-semibold leading-tight text-fog-100">
+      <div className="bg-card px-4 py-3.5">
+        <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          Event window
+        </p>
+        <p className="mt-2 font-mono text-sm font-semibold leading-tight tabular-nums text-foreground">
           {fmtRange(event.start, event.end)}
         </p>
-        <p className="mt-1 line-clamp-2 text-[11.5px] leading-snug text-fog-450">{event.venue}</p>
+        <p className="mt-1 line-clamp-2 text-xs leading-snug text-muted-foreground">{event.venue}</p>
         {event.entrants.players || event.entrants.teams ? (
-          <p className="tnum mt-1.5 text-[11px] text-fog-550">
+          <p className="mt-1.5 font-mono text-xs tabular-nums text-muted-foreground">
             {event.entrants.teams
               ? `${event.entrants.teams} teams${event.entrants.players ? ` · ${event.entrants.players} players` : ""}`
               : `${event.entrants.players} players`}
@@ -90,27 +94,28 @@ export function LiveIdle({
   unavailable?: boolean;
 }) {
   return (
-    <div className="bg-ink-900 px-4 py-3.5">
-      <p className="micro-label flex items-center gap-1.5">
+    <div className="bg-card px-4 py-3.5">
+      <p className="flex items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
         <span
-          className={cn("inline-block h-1.5 w-1.5 rounded-full", unavailable ? "bg-rose-450" : "bg-fog-550")}
+          className={cn("inline-block h-1.5 w-1.5 rounded-full", unavailable ? "bg-rose-500" : "bg-muted-foreground/60")}
           aria-hidden="true"
         />
         {unavailable ? "Feed unreachable" : "On table"}
       </p>
-      <p className="mt-2 text-[12.5px] font-semibold leading-snug text-fog-200">
+      <p className="mt-2 text-sm font-medium leading-snug text-foreground">
         {unavailable ? "Scoring board did not answer" : "No match is being scored right now"}
       </p>
-      <p className="mt-1 text-[11.5px] leading-snug text-fog-450">
+      <p className="mt-1 text-xs leading-snug text-muted-foreground">
         {unavailable
           ? "The live feed could not be reached for this render. Check the match centre directly."
           : "The association's scoreboard reports an idle table."}
       </p>
       <Link
         href={href}
-        className="mt-2 inline-flex items-center gap-1 text-[11.5px] font-semibold text-carom-400 transition-colors hover:text-carom-300"
+        className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-foreground transition-colors hover:text-muted-foreground hover:no-underline"
       >
-        Match centre →
+        Match centre
+        <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
       </Link>
     </div>
   );
@@ -120,15 +125,13 @@ function SideLogo({ logo, name }: { logo?: string | null; name: string }) {
   if (logo) {
     // eslint-disable-next-line @next/next/no-img-element
     return (
-      <img src={logo} alt="" loading="lazy" className="h-4 w-4 shrink-0 rounded-[3px] object-contain" />
+      <img src={logo} alt="" loading="lazy" className="h-4 w-4 shrink-0 rounded object-contain" />
     );
   }
   return (
     <span
       aria-hidden="true"
-      className={cn(
-        "grid h-4 w-4 shrink-0 place-items-center rounded-full bg-ink-800 text-[7px] font-bold text-fog-450",
-      )}
+      className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-secondary text-[8px] font-semibold text-muted-foreground"
     >
       {name.replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2).toUpperCase() || "–"}
     </span>

@@ -7,6 +7,7 @@ import { normalizeArticle } from "@/lib/normalize";
 import { excerpt, fmtDate, grouped, stripTags } from "@/lib/format";
 import { sanitizeCmsHtml, htmlTextLength } from "@/lib/sanitize";
 import { translateArticleFull, translateKoToEn, translatePlainTitles } from "@/lib/translate";
+import { ArrowRight, ExternalLink } from "lucide-react";
 import { SafeImage } from "@/components/ui/safe-image";
 import { splitNewsHeadline } from "@/lib/news";
 import { EmptyState, TextLink, cn } from "@/components/ui/primitives";
@@ -73,31 +74,31 @@ export default async function ArticlePage({ params }: PageProps) {
 
   return (
     <>
-      <div className="border-b border-[var(--line)] bg-[var(--bar)]">
+      <div className="border-b border-border bg-card">
         <div className="mx-auto max-w-[900px] px-4 pb-6 pt-5 sm:px-6">
-          <nav className="flex items-center gap-1.5 text-[11.5px] text-[var(--muted)]" aria-label="Breadcrumb">
-            <Link href="/news" className="transition-colors hover:text-[var(--link)]">
+          <nav className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-label="Breadcrumb">
+            <Link href="/news" className="transition-colors hover:text-foreground">
               Newsroom
             </Link>
-            <span aria-hidden="true">/</span>
-            <span className="text-[var(--text-2)]">Press release</span>
+            <span aria-hidden="true" className="text-border">/</span>
+            <span className="text-foreground">Press release</span>
           </nav>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className={cn("tag", tag.cls)}>{tag.label}</span>
-            <span className="tnum rounded border border-[var(--line)] bg-[var(--panel)] px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[var(--text-2)]">
+            <span className="rounded-md border border-border bg-secondary px-2 py-0.5 font-mono text-[11px] font-medium tabular-nums text-muted-foreground">
               {fmtDate(article.date)}
             </span>
-            <span className="tnum text-[11px] text-[var(--muted)]">{readMinutes} min read</span>
-            <span className="tnum text-[11px] text-[var(--muted)]">· {grouped(article.views)} views</span>
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">{readMinutes} min read</span>
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">· {grouped(article.views)} views</span>
             {article.featured && (
-              <span className="rounded bg-[var(--yellow)]/20 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-[var(--yellow-ink)]">
+              <span className="rounded-md bg-amber-500/15 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
                 Featured
               </span>
             )}
           </div>
 
-          <h1 className="mt-3 font-display text-[clamp(1.45rem,2.9vw,2.2rem)] font-bold leading-[1.15] tracking-tight text-[var(--text)]">
+          <h1 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">
             {headline}
           </h1>
         </div>
@@ -105,7 +106,7 @@ export default async function ArticlePage({ params }: PageProps) {
 
       <article className="mx-auto max-w-[900px] px-4 py-8 sm:px-6">
         {article.image && (
-          <div className="mb-6 overflow-hidden rounded-[6px] border border-[var(--line)] bg-[var(--bar)]">
+          <div className="mb-6 overflow-hidden rounded-xl border border-border bg-secondary">
             <SafeImage
               src={article.image}
               alt={headline}
@@ -128,38 +129,41 @@ export default async function ArticlePage({ params }: PageProps) {
           />
         )}
 
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-ink-800 pt-4">
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
           <TextLink href="/news">Back to newsroom</TextLink>
           <a
             href="https://www.pbatour.org/en/media/press/index"
             target="_blank"
             rel="noreferrer noopener"
-            className="text-[12px] font-medium text-fog-450 transition-colors hover:text-carom-300"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            Press archive on pbatour.org <span aria-hidden="true">↗</span>
+            Press archive on pbatour.org
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
             <span className="sr-only"> (opens in new tab)</span>
           </a>
         </div>
 
         {related.length > 0 && (
           <section className="mt-10">
-            <h2 className="eyebrow">More from the association</h2>
-            <div className="mt-3 divide-y divide-ink-800 rounded-[8px] border border-ink-750 bg-ink-900">
+            <h2 className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              More from the association
+            </h2>
+            <div className="mt-3 divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card">
               {related.map((item, index) => (
                 <Link
                   key={item.SEQ}
                   href={`/news/${item.SEQ}`}
-                  className="group flex items-center gap-4 px-4 py-3 transition-colors hover:bg-ink-850"
+                  className="group flex items-center gap-4 px-4 py-3 transition-colors hover:bg-accent/50 hover:no-underline"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold text-fog-100 group-hover:text-carom-300">
+                    <p className="truncate text-sm font-medium text-foreground group-hover:underline">
                       {relatedTitles[index] || stripTags(item.TITLE)}
                     </p>
-                    <p className="tnum mt-0.5 text-[10.5px] text-fog-550">{fmtDate(item.VIEW_DATE)}</p>
+                    <p className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground">
+                      {fmtDate(item.VIEW_DATE)}
+                    </p>
                   </div>
-                  <span aria-hidden="true" className="text-fog-550 group-hover:text-carom-300">
-                    →
-                  </span>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" aria-hidden="true" />
                 </Link>
               ))}
             </div>

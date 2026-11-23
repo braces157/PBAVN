@@ -4,7 +4,7 @@ import { InningTable } from "./inning-table";
 import { ProgressionChart } from "./progression-chart";
 import type { AnalysedSet } from "@/lib/match";
 
-const TONES = ["text-[var(--link)]", "text-[var(--live)]", "text-[var(--gold)]", "text-[var(--win)]"];
+const TONES = ["text-emerald-600 dark:text-emerald-400", "text-amber-600 dark:text-amber-400", "text-sky-600 dark:text-sky-400", "text-violet-600 dark:text-violet-400"];
 
 export function SetPanel({ set }: { set: AnalysedSet }) {
   const winner = set.winner === null ? null : set.sides[set.winner];
@@ -12,20 +12,20 @@ export function SetPanel({ set }: { set: AnalysedSet }) {
   return (
     <section
       id={`set-${set.setNo}`}
-      className="surface scroll-mt-20 overflow-hidden"
+      className="scroll-mt-20 overflow-hidden rounded-xl border border-border bg-card"
       aria-labelledby={`set-${set.setNo}-title`}
     >
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-750 bg-ink-850 px-4 py-2.5">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-secondary/40 px-4 py-3">
         <div className="flex items-center gap-2.5">
-          <h3 id={`set-${set.setNo}-title`} className="font-display text-[14px] font-bold text-fog-100">
+          <h3 id={`set-${set.setNo}-title`} className="text-sm font-semibold text-foreground">
             Set {set.setNo}
           </h3>
           {set.gameType && (
-            <span className="rounded-[4px] border border-ink-700 bg-ink-900 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] text-fog-400">
+            <span className="rounded-md border border-border bg-background px-2 py-0.5 font-mono text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
               {set.target !== null ? `Race to ${set.target}` : set.gameType}
             </span>
           )}
-          {set.playedOn && <span className="tnum text-[11px] text-fog-550">{set.playedOn}</span>}
+          {set.playedOn && <span className="font-mono text-xs tabular-nums text-muted-foreground">{set.playedOn}</span>}
         </div>
         {winner && (
           <Chip tone="carom">
@@ -34,54 +34,60 @@ export function SetPanel({ set }: { set: AnalysedSet }) {
         )}
       </header>
 
-      <div className="divide-y divide-ink-800">
+      <div className="divide-y divide-border/60">
         {set.sides.map((side, index) => (
-          <div key={side.index} className="flex items-baseline gap-3 px-4 py-2.5">
-            <span className={cn("font-display text-[13.5px] font-bold", TONES[index] ?? "text-fog-200")}>
+          <div key={side.index} className="flex items-baseline gap-3 px-4 py-3">
+            <span className={cn("text-sm font-semibold", TONES[index] ?? "text-foreground")}>
               {side.name || `Player ${index + 1}`}
             </span>
             {side.broke && (
-              <span className="rounded bg-ink-800 px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.06em] text-fog-450">
+              <span className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 Break
               </span>
             )}
-            {side.won && <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-carom-300">Won</span>}
-            <span className="ml-auto flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1 text-[11.5px] text-fog-450">
-              <span className="tnum">
-                <span className="font-semibold text-fog-100">{side.points}</span> pts
+            {side.won && (
+              <span className="font-mono text-[10.5px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                Won
               </span>
-              <span className="tnum">{side.innings} inn</span>
-              <span className="tnum">avg {side.average?.toFixed(3) ?? "—"}</span>
-              <span className="tnum">HR {side.highRun ?? "—"}</span>
+            )}
+            <span className="ml-auto flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1 font-mono text-xs tabular-nums text-muted-foreground">
+              <span>
+                <span className="font-semibold text-foreground">{side.points}</span> pts
+              </span>
+              <span>{side.innings} inn</span>
+              <span>avg {side.average?.toFixed(3) ?? "—"}</span>
+              <span>HR {side.highRun ?? "—"}</span>
             </span>
           </div>
         ))}
       </div>
 
       {set.hasTurns ? (
-        <div className="border-t border-ink-800 px-4 py-4">
+        <div className="border-t border-border/60 px-4 py-4">
           <ProgressionChart
             innings={set.innings}
             target={set.target}
             series={set.sides.map((side, index) => ({
               name: side.name || `Player ${index + 1}`,
               values: side.turns.map((turn) => turn.total),
-              tone: TONES[index] ?? "text-fog-400",
+              tone: TONES[index] ?? "text-muted-foreground",
             }))}
           />
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-            <p className="eyebrow">Inning sheet</p>
-            <p className="text-[10.5px] text-fog-550">
+            <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Inning sheet
+            </p>
+            <p className="text-xs text-muted-foreground">
               1P &amp; 2P are points scored per visit; Tot is cumulative score.
             </p>
           </div>
-          <div className="mt-2 overflow-hidden rounded-[6px] border border-ink-800">
+          <div className="mt-2 overflow-hidden rounded-lg border border-border">
             <InningTable set={set} />
           </div>
         </div>
       ) : (
-        <p className="border-t border-ink-800 px-4 py-3 text-[12px] text-fog-550">
+        <p className="border-t border-border/60 px-4 py-3 text-xs text-muted-foreground">
           Turn-by-turn detail was not published for this set.
         </p>
       )}
@@ -97,10 +103,10 @@ export function SetNav({ sets }: { sets: AnalysedSet[] }) {
         <Link
           key={set.setNo}
           href={`#set-${set.setNo}`}
-          className="tnum rounded-md border border-ink-750 bg-ink-850 px-2.5 py-1 text-[12px] font-semibold text-fog-300 transition-colors hover:border-carom-400/50 hover:text-carom-300"
+          className="rounded-md border border-border bg-secondary/50 px-2.5 py-1 font-mono text-xs font-medium tabular-nums text-foreground transition-colors hover:bg-secondary hover:no-underline"
         >
           S{set.setNo}
-          <span className="ml-1.5 text-[11px] text-fog-450">
+          <span className="ml-1.5 text-[11px] text-muted-foreground">
             {set.sides.map((side) => side.points).join("–")}
           </span>
         </Link>

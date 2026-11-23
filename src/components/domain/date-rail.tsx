@@ -22,8 +22,8 @@ export function DateRail({
 }) {
   if (days.length === 0) {
     return (
-      <div className="rounded-[8px] border border-ink-750 bg-ink-900 p-4">
-        <p className="text-[11.5px] leading-relaxed text-fog-500">No dated events in this window.</p>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="text-xs leading-relaxed text-muted-foreground">No dated events in this window.</p>
       </div>
     );
   }
@@ -44,10 +44,10 @@ export function DateRail({
   return (
     <nav
       aria-label={label ?? "Dates"}
-      className="overflow-hidden rounded-[8px] border border-ink-750 bg-ink-900"
+      className="overflow-hidden rounded-xl border border-border bg-card"
     >
       {label && (
-        <p className="border-b border-ink-750 bg-ink-850 px-2.5 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-fog-450">
+        <p className="border-b border-border bg-secondary/40 px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           {label}
         </p>
       )}
@@ -56,9 +56,9 @@ export function DateRail({
         {weeks.map((week, index) => {
           const showMonth = index === 0 || week.label !== weeks[index - 1]?.label;
           return (
-            <div key={week.key} className="border-b border-ink-800/60 last:border-b-0">
+            <div key={week.key} className="border-b border-border/60 last:border-b-0">
               {showMonth && week.label && (
-                <p className="flex items-baseline justify-between bg-ink-900 px-2.5 pb-0.5 pt-2 text-[10px] font-bold uppercase tracking-[0.08em] text-fog-550">
+                <p className="flex items-baseline justify-between bg-card px-2.5 pb-0.5 pt-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                   <span className="truncate">{week.label}</span>
                 </p>
               )}
@@ -75,20 +75,20 @@ export function DateRail({
                         id={`day-${day}`}
                         aria-current={active ? "date" : undefined}
                         className={cn(
-                          "flex h-[27px] items-center gap-1.5 px-2 text-[11.5px] transition-colors",
+                          "flex h-7 items-center gap-1.5 px-2 text-xs transition-colors hover:no-underline",
                           active
-                            ? "bg-ink-800 text-fog-100"
-                            : "text-fog-300 hover:bg-ink-850 hover:text-fog-100",
+                            ? "bg-secondary text-foreground"
+                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                         )}
                       >
                         <span
                           className={cn(
-                            "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px] tabular-nums",
+                            "flex h-5 w-5 shrink-0 items-center justify-center rounded-md font-mono text-[11px] tabular-nums",
                             active
-                              ? "bg-[var(--yellow)] font-bold text-[#1d2329]"
+                              ? "bg-foreground font-semibold text-background"
                               : isToday
-                                ? "font-bold text-[var(--live)] ring-1 ring-inset ring-[var(--live)]"
-                                : "font-medium text-fog-300",
+                                ? "font-semibold text-rose-500 ring-1 ring-inset ring-rose-500/40"
+                                : "font-medium text-foreground/80",
                           )}
                         >
                           {Number(parts.day)}
@@ -96,7 +96,7 @@ export function DateRail({
                         <span
                           className={cn(
                             "flex-1 truncate text-[11px]",
-                            active ? "font-semibold text-fog-100" : "text-fog-400",
+                            active ? "font-semibold text-foreground" : "text-muted-foreground",
                           )}
                         >
                           {parts.weekday}
@@ -107,8 +107,8 @@ export function DateRail({
                               <span
                                 key={index2}
                                 className={cn(
-                                  "h-[3px] w-[3px] rounded-full",
-                                  active ? "bg-carom-300" : isToday ? "bg-carom-400" : "bg-fog-500",
+                                  "h-1 w-1 rounded-full",
+                                  active ? "bg-foreground" : isToday ? "bg-rose-500" : "bg-muted-foreground/60",
                                 )}
                               />
                             ))}
@@ -161,21 +161,26 @@ export function DateStrip({
               id={`strip-day-${day}`}
               aria-current={active ? "date" : undefined}
               className={cn(
-                "relative flex h-[54px] w-[54px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-[3px] border transition-colors hover:no-underline",
+                "relative flex h-[54px] w-[54px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border transition-colors hover:no-underline",
                 active
-                  ? "border-[var(--line-2)] border-b-2 border-b-[var(--yellow)] bg-[var(--bar-2)] text-[var(--text)]"
+                  ? "border-foreground bg-foreground text-background"
                   : isToday
-                    ? "border-[var(--live)] bg-[var(--panel)] text-[var(--text)]"
-                    : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:border-[var(--link)] hover:text-[var(--text)]",
+                    ? "border-rose-500/50 bg-card text-foreground"
+                    : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
               )}
             >
-              <span className="text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--muted)]">
+              <span
+                className={cn(
+                  "text-[9.5px] font-medium uppercase tracking-wider",
+                  active ? "text-background/75" : "text-muted-foreground",
+                )}
+              >
                 {parts.weekday.slice(0, 3)} {day.slice(5, 7)}
               </span>
               <span
                 className={cn(
-                  "tnum text-[14px] font-bold leading-none",
-                  isToday ? "text-[var(--live)]" : "text-[var(--text)]",
+                  "font-mono text-sm font-semibold leading-none tabular-nums",
+                  active ? "text-background" : isToday ? "text-rose-500" : "text-foreground",
                 )}
               >
                 {Number(parts.day)}
@@ -185,8 +190,8 @@ export function DateStrip({
                   <span
                     aria-hidden="true"
                     className={cn(
-                      "h-[3px] w-[3px] rounded-full",
-                      active ? "bg-[var(--link)]" : isToday ? "bg-[var(--live)]" : "bg-[var(--muted)]",
+                      "h-1 w-1 rounded-full",
+                      active ? "bg-background" : isToday ? "bg-rose-500" : "bg-muted-foreground",
                     )}
                   />
                   <span className="sr-only">{`${count} event${count === 1 ? "" : "s"}`}</span>

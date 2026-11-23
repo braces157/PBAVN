@@ -138,7 +138,7 @@ export default async function TeamFixturesPage({ searchParams }: PageProps) {
         )}
       </PageHeader>
 
-      <div className="mx-auto max-w-[1300px] px-3 py-5">
+      <div className="wrap py-5">
         {!season || !selectedRound ? (
           <EmptyState
             title="No team league season published"
@@ -146,18 +146,18 @@ export default async function TeamFixturesPage({ searchParams }: PageProps) {
           />
         ) : (
           <>
-            <div className="surface mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
-              <p className="tnum text-[12px] text-fog-300">
-                <span className="font-bold text-fog-100">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-xl border border-border bg-card px-4 py-3">
+              <p className="font-mono text-xs tabular-nums text-muted-foreground">
+                <span className="font-sans font-semibold text-foreground">
                   Round {selectedRound.라운드}
                   {selectedRound.포스트여부 === "Y" ? " · Postseason" : ""}
                 </span>
-                <span className="mx-2 text-ink-600">·</span>
-                {englishRoundStatus(selectedRound.진행상황)}
-                <span className="mx-2 text-ink-600">·</span>
+                <span className="mx-2 text-border">·</span>
+                <span className="font-sans">{englishRoundStatus(selectedRound.진행상황)}</span>
+                <span className="mx-2 text-border">·</span>
                 {selectedRound.시작일자} → {selectedRound.종료일자}
               </p>
-              <p className="tnum text-[11.5px] font-semibold text-carom-300">
+              <p className="font-mono text-xs font-semibold tabular-nums text-foreground">
                 {fixtures.length} fixtures
               </p>
             </div>

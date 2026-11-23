@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { cn } from "@/components/ui/primitives";
+import { cn } from "@/lib/utils";
 import { DataStatus } from "@/components/site/data-status";
 
 export interface FilterOption {
@@ -39,15 +39,17 @@ export function FilterRow({
   const scrollable = options.length > 4;
 
   return (
-    <div className={cn("flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2.5", className)}>
-      <span className="min-w-[50px] shrink-0 font-display text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--muted)]">
+    <div className={cn("flex w-full min-w-0 flex-col gap-1.5 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3", className)}>
+      <span className="min-w-[56px] shrink-0 text-xs font-medium text-muted-foreground">
         {label}
       </span>
       <nav
         aria-label={label}
         className={cn(
-          "flex w-full min-w-0 max-w-full gap-1 sm:w-auto",
-          scrollable ? "no-scrollbar flex-nowrap overflow-x-auto py-1 sm:flex-wrap sm:overflow-visible sm:py-0" : "flex-wrap",
+          "inline-flex w-full min-w-0 max-w-full items-center gap-0.5 rounded-lg bg-secondary p-1 sm:w-auto",
+          scrollable
+            ? "no-scrollbar mask-fade-r flex-nowrap overflow-x-auto pr-4 sm:flex-wrap sm:overflow-visible sm:pr-1 sm:[mask-image:none]"
+            : "flex-wrap",
         )}
       >
         {options.map((option) => {
@@ -58,15 +60,15 @@ export function FilterRow({
               href={buildHref(option.value)}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "shrink-0 rounded-[3px] border px-2 py-0.5 text-[12px] font-semibold transition-colors hover:no-underline",
+                "inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-all hover:no-underline",
                 isActive
-                  ? "border-[var(--line-2)] border-b-2 border-b-[var(--yellow)] bg-[var(--bar-2)] text-[var(--text)]"
-                  : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:bg-[var(--hover)] hover:text-[var(--text)]",
+                  ? "bg-card text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {option.label}
+              <span>{option.label}</span>
               {typeof option.count === "number" && (
-                <span className={cn("tnum ml-1.5 text-[10.5px]", isActive ? "text-[var(--text)]" : "text-[var(--muted)]")}>
+                <span className={cn("mono text-[11px]", isActive ? "text-muted-foreground" : "opacity-65")}>
                   {option.count}
                 </span>
               )}
@@ -92,21 +94,23 @@ export function PageHeader({
   failures?: string[];
 }) {
   return (
-    <header className="border-b border-[var(--line)] bg-[var(--panel)]">
-      <div className="wrap py-3.5 sm:py-4">
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <p className="eyebrow">{eyebrow}</p>
+    <header className="border-b border-border bg-card">
+      <div className="wrap py-5 sm:py-6">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+          <p className="font-medium text-[var(--pba)]">{eyebrow}</p>
           {description && (
             <>
-              <span aria-hidden="true" className="text-[var(--muted)]">
-                ·
+              <span aria-hidden="true" className="text-muted-foreground/60">
+                /
               </span>
-              <p className="text-[12px] text-[var(--text-2)]">{description}</p>
+              <p className="text-muted-foreground">{description}</p>
             </>
           )}
         </div>
-        <h1 className="display-md mt-1 text-[var(--text)]">{title}</h1>
-        {children && <div className="mt-3">{children}</div>}
+        <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          {title}
+        </h1>
+        {children && <div className="mt-4">{children}</div>}
         <DataStatus failures={failures} />
       </div>
     </header>

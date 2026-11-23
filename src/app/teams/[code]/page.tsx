@@ -172,34 +172,36 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
 
   return (
     <>
-      <section className="border-b border-ink-800 bg-ink-900">
-        <div className="mx-auto max-w-[1300px] px-3 pb-5 pt-4">
-          <nav className="flex items-center gap-1.5 text-[11.5px] text-fog-500" aria-label="Breadcrumb">
-            <Link href="/teams" className="transition-colors hover:text-carom-300">
+      <section className="border-b border-border bg-card">
+        <div className="wrap pb-6 pt-5">
+          <nav className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-label="Breadcrumb">
+            <Link href="/teams" className="transition-colors hover:text-foreground">
               Team League
             </Link>
-            <span aria-hidden="true">/</span>
-            <span className="text-fog-300">{season.시즌명}</span>
+            <span aria-hidden="true" className="text-border">/</span>
+            <span className="text-foreground">{season.시즌명}</span>
           </nav>
 
           <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-5">
             <div className="flex min-w-0 flex-1 items-center gap-4">
-              <TeamLogo src={profile.logo} name={profile.name} size="xl" />
+              <TeamLogo src={standing?.logo || profile.logo} name={profile.name} size="xl" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <Chip tone="violet">Team league</Chip>
                   {standing && <Chip tone="neutral">Rank #{standing.rank}</Chip>}
                   {round && <Chip tone="neutral">Round {round.라운드}</Chip>}
                 </div>
-                <h1 className="display-lg mt-2 text-fog-100">{profile.name}</h1>
-                <p className="mt-1 text-[12.5px] text-fog-450">
+                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                  {profile.name}
+                </h1>
+                <p className="mt-1 text-sm text-muted-foreground">
                   {profile.base || "Team League"}
                   {profile.coach ? ` · Coach ${profile.coach}` : ""}
                 </p>
               </div>
             </div>
             {standing && (
-              <dl className="grid grid-cols-3 gap-4 border-t border-ink-800 pt-3 sm:flex sm:gap-7 sm:border-t-0 sm:pt-0">
+              <dl className="grid grid-cols-3 gap-4 border-t border-border pt-3 sm:flex sm:gap-7 sm:border-t-0 sm:pt-0">
                 <Stat label="Points" value={grouped(standing.points)} accent />
                 <Stat label="Record" value={`${standing.wins}–${standing.losses}`} />
                 <Stat label="Set ratio" value={standing.setRatio ? standing.setRatio.toFixed(3) : "—"} />
@@ -209,7 +211,7 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
         </div>
       </section>
 
-      <div className="mx-auto max-w-[1300px] px-3 py-5">
+      <div className="wrap py-6">
         <DataStatus failures={failures} />
         {standing && <TeamStatGrid team={standing} />}
 
@@ -227,27 +229,29 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
                     <Link
                       key={player.code}
                       href={`/players/${player.code}`}
-                      className="surface card-hover group flex items-center gap-3 p-3.5"
+                      className="group flex items-center gap-3 rounded-xl border border-border bg-card p-3.5 transition-colors hover:bg-accent/40 hover:no-underline"
                     >
                       <PlayerAvatar path={player.photoPath} src={player.photo} name={player.name} size="md" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13px] font-semibold text-fog-100 group-hover:text-carom-300">
+                        <p className="truncate text-sm font-medium text-foreground group-hover:underline">
                           {player.name}
                           {player.isCaptain && (
-                            <span className="ml-1.5 rounded bg-gold-400/15 px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-wide text-gold-300">
+                            <span className="ml-1.5 rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-amber-600 dark:text-amber-400">
                               C
                             </span>
                           )}
                         </p>
-                        <p className="tnum mt-0.5 truncate text-[11px] text-fog-500">
+                        <p className="mt-0.5 truncate font-mono text-xs tabular-nums text-muted-foreground">
                           {player.nation} · {player.sets} sets · HR {player.highRun}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="tnum font-display text-[14px] font-bold text-carom-300">
+                        <p className="font-mono text-sm font-semibold tabular-nums text-foreground">
                           {average(player.average)}
                         </p>
-                        <p className="tnum text-[10.5px] text-fog-500">{percent(player.winRate, 0)} win</p>
+                        <p className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                          {percent(player.winRate, 0)} win
+                        </p>
                       </div>
                     </Link>
                   ))}
@@ -303,8 +307,10 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
           </div>
 
           <aside className="space-y-4">
-            <div className="surface p-4">
-              <p className="eyebrow">Club Info</p>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Club Info
+              </p>
               <dl className="mt-2.5">
                 <KeyValue label="Coach">{profile.coach || "—"}</KeyValue>
                 <KeyValue label="Base">{profile.base || "—"}</KeyValue>
@@ -314,12 +320,12 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
               </dl>
             </div>
 
-            <div className="surface overflow-hidden">
-              <div className="flex items-center justify-between border-b border-ink-750 bg-ink-850 px-4 py-2.5">
-                <p className="eyebrow">Head-to-Head Matrix</p>
-                <span className="text-[10.5px] font-semibold text-fog-500">{season.시즌명}</span>
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <div className="flex items-center justify-between border-b border-border bg-secondary/40 px-4 py-2.5">
+                <p className="text-xs font-semibold text-foreground">Head-to-Head Matrix</p>
+                <span className="font-mono text-[11px] text-muted-foreground">{season.시즌명}</span>
               </div>
-              <div className="divide-y divide-ink-800">
+              <div className="divide-y divide-border/60">
                 {standings
                   .filter((other) => other.code !== profile.code)
                   .map((other) => {
@@ -328,20 +334,20 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
                     const ownWins = cell && profile.code <= other.code ? cell.wins : cell?.losses ?? 0;
                     const ownLosses = cell && profile.code <= other.code ? cell.losses : cell?.wins ?? 0;
                     return (
-                      <div key={other.code} className="flex items-center gap-2.5 px-3.5 py-2">
+                      <div key={other.code} className="flex items-center gap-2.5 px-4 py-2.5">
                         <TeamLogo src={other.logo} name={other.name} size="xs" />
-                        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-fog-200">
+                        <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
                           {profileIndex.get(other.code)?.shortName ?? other.shortName}
                         </span>
                         <span
-                          className={`tnum shrink-0 text-[12px] font-bold ${
+                          className={`shrink-0 font-mono text-xs font-semibold tabular-nums ${
                             !cell
-                              ? "text-fog-600"
+                              ? "text-muted-foreground/50"
                               : ownWins > ownLosses
-                                ? "text-carom-300"
+                                ? "text-emerald-600 dark:text-emerald-400"
                                 : ownWins < ownLosses
-                                  ? "text-live-400"
-                                  : "text-fog-450"
+                                  ? "text-rose-600 dark:text-rose-400"
+                                  : "text-muted-foreground"
                           }`}
                         >
                           {cell ? `${ownWins}–${ownLosses}` : "—"}
@@ -351,14 +357,16 @@ export default async function TeamDetailPage({ params, searchParams }: PageProps
                   })}
               </div>
               {!standing && (
-                <p className="border-t border-ink-800 px-4 py-2.5 text-[11px] text-fog-550">
+                <p className="border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
                   No meetings recorded for this club in round {round?.라운드 ?? "—"}.
                 </p>
               )}
             </div>
 
-            <div className="surface p-4">
-              <p className="eyebrow">Navigation</p>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Navigation
+              </p>
               <div className="mt-2.5 flex flex-col gap-2">
                 <TextLink href={`/teams?season=${season.시즌코드}&round=${roundCode}`}>Standings &amp; clubs</TextLink>
                 <TextLink href="/teams/players">All player statistics</TextLink>

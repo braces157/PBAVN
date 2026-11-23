@@ -15,6 +15,7 @@ import {
   type GalleryCardItem,
   type VideoCardItem,
 } from "@/components/domain/news-media";
+import { ArrowRight } from "lucide-react";
 import { SafeImage } from "@/components/ui/safe-image";
 import { EmptyState, Pagination, TabLinks, cn } from "@/components/ui/primitives";
 
@@ -132,7 +133,7 @@ export default async function NewsPage({ searchParams }: PageProps) {
         />
       </PageHeader>
 
-      <div className="mx-auto max-w-[1300px] px-3 py-5">
+      <div className="wrap py-5">
         {tab === "news" && (
           <>
             {articles.length === 0 ? (
@@ -197,20 +198,21 @@ type SummarizedArticle = Awaited<ReturnType<typeof translateArticleSummaries>>[n
 
 function LeadPressCard({ article }: { article: SummarizedArticle }) {
   const { tag, headline } = splitNewsHeadline(article.title);
+  const imgSrc = article.image ? (eventArtUrl(article.image, 960) ?? article.image) : null;
   return (
     <Link
       href={`/news/${article.seq}`}
-      className="surface card-hover group grid overflow-hidden lg:grid-cols-[1.35fr_1fr]"
+      className="group grid overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-foreground/20 hover:no-underline lg:grid-cols-[1.35fr_1fr]"
     >
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--bar)]">
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-secondary">
         <SafeImage
-          src={article.image}
+          src={imgSrc}
           alt={headline}
           loading="eager"
           className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
           fallback={
-            <div className="grid h-full w-full place-items-center bg-[var(--bar)]">
-              <span className="eyebrow">PBA Newsroom</span>
+            <div className="grid h-full w-full place-items-center bg-secondary">
+              <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">PBA Newsroom</span>
             </div>
           }
         />
@@ -220,28 +222,29 @@ function LeadPressCard({ article }: { article: SummarizedArticle }) {
           <div className="flex flex-wrap items-center gap-2">
             <span className={cn("tag", tag.cls)}>{tag.label}</span>
             {article.featured && (
-              <span className="rounded-[2px] bg-[var(--yellow)]/20 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-[var(--yellow-ink)]">
+              <span className="rounded-md bg-amber-500/15 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
                 Featured
               </span>
             )}
-            <span className="tnum text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--muted)]">
+            <span className="font-mono text-[11px] font-medium tabular-nums text-muted-foreground">
               {fmtDate(article.date)}
             </span>
           </div>
-          <h2 className="mt-3 font-display text-[22px] font-bold leading-[1.15] tracking-tight text-[var(--text)] group-hover:text-[var(--link)] sm:text-[26px]">
+          <h2 className="mt-3 text-xl font-semibold leading-snug tracking-tight text-foreground group-hover:underline sm:text-2xl">
             {headline}
           </h2>
           {article.summary && (
-            <p className="mt-3 line-clamp-3 text-[13.5px] leading-relaxed text-[var(--text-2)]">
+            <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
               {article.summary}
             </p>
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t border-[var(--line)] pt-3 text-[11.5px]">
-          <span className="tnum text-[var(--muted)]">{grouped(article.views)} views</span>
-          <span className="font-semibold text-[var(--link)] group-hover:underline">
-            Read release →
+        <div className="flex items-center justify-between border-t border-border/60 pt-3 text-xs">
+          <span className="font-mono tabular-nums text-muted-foreground">{grouped(article.views)} views</span>
+          <span className="inline-flex items-center gap-1 font-medium text-foreground">
+            Read release
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
           </span>
         </div>
       </div>
@@ -257,19 +260,20 @@ function PressCard({
   variant?: "featured" | "standard";
 }) {
   const { tag, headline } = splitNewsHeadline(article.title);
+  const imgSrc = article.image ? (eventArtUrl(article.image, 640) ?? article.image) : null;
   return (
     <Link
       href={`/news/${article.seq}`}
-      className="surface card-hover group flex flex-col overflow-hidden"
+      className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-foreground/20 hover:no-underline"
     >
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--bar)]">
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-secondary">
         <SafeImage
-          src={article.image}
+          src={imgSrc}
           alt={headline}
           className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]"
           fallback={
-            <div className="grid h-full w-full place-items-center bg-[var(--bar)]">
-              <span className="eyebrow">PBA Newsroom</span>
+            <div className="grid h-full w-full place-items-center bg-secondary">
+              <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">PBA Newsroom</span>
             </div>
           }
         />
@@ -279,29 +283,29 @@ function PressCard({
           <div className="flex flex-wrap items-center gap-2">
             <span className={cn("tag", tag.cls)}>{tag.label}</span>
             {article.featured && (
-              <span className="rounded-[2px] bg-[var(--yellow)]/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--yellow-ink)]">
+              <span className="rounded-md bg-amber-500/15 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
                 Featured
               </span>
             )}
-            <span className="tnum text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[var(--muted)]">
+            <span className="font-mono text-[11px] font-medium tabular-nums text-muted-foreground">
               {fmtDate(article.date)}
             </span>
           </div>
           <h2
             className={cn(
-              "mt-2 line-clamp-2 font-display font-bold leading-snug text-[var(--text)] group-hover:text-[var(--link)]",
-              variant === "featured" ? "text-[18px]" : "text-[15.5px]",
+              "mt-2 line-clamp-2 font-semibold leading-snug text-foreground group-hover:underline",
+              variant === "featured" ? "text-lg" : "text-[15px]",
             )}
           >
             {headline}
           </h2>
           {article.summary && (
-            <p className="mt-1.5 line-clamp-2 text-[12.5px] leading-relaxed text-[var(--text-2)]">
+            <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
               {article.summary}
             </p>
           )}
         </div>
-        <p className="tnum text-[10.5px] text-[var(--muted)]">{grouped(article.views)} views</p>
+        <p className="font-mono text-[11px] tabular-nums text-muted-foreground">{grouped(article.views)} views</p>
       </div>
     </Link>
   );
