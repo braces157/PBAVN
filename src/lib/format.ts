@@ -357,7 +357,7 @@ export function cleanPlayerName(value: string | null | undefined): string {
   if (!cleaned) return "";
   return cleaned
     .replace(/\?+/g, " ")
-    .replace(/([A-Za-z])\s*[1-9]$/, "$1")
+    .replace(/([A-Za-z\uAC00-\uD7A3])\s*[1-9]+$/, "$1")
     .replace(/\s+/g, " ")
     .trim();
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink, Play, X } from "lucide-react";
 import { splitNewsHeadline } from "@/lib/news";
 import { SafeImage } from "@/components/ui/safe-image";
 import { cn } from "@/components/ui/primitives";
@@ -56,15 +57,15 @@ export function NewsVideoGrid({ items }: { items: VideoCardItem[] }) {
 
           const cardBody = (
             <>
-              <div className="relative aspect-video w-full overflow-hidden bg-[var(--bar)]">
+              <div className="relative aspect-video w-full overflow-hidden bg-secondary">
                 <SafeImage
                   src={poster}
                   alt={video.alt}
                   loading={index < 6 ? "eager" : "lazy"}
                   className="h-full w-full object-cover object-[50%_25%] transition-transform duration-300 group-hover:scale-[1.03]"
                   fallback={
-                    <div className="grid h-full w-full place-items-center bg-[var(--bar)]">
-                      <span className="eyebrow">PBA TV</span>
+                    <div className="grid h-full w-full place-items-center bg-secondary">
+                      <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">PBA TV</span>
                     </div>
                   }
                 />
@@ -73,19 +74,22 @@ export function NewsVideoGrid({ items }: { items: VideoCardItem[] }) {
                   <span className={cn("tag", tag.cls)}>{tag.label}</span>
                 </span>
                 <span className="absolute inset-0 grid place-items-center">
-                  <span className="grid h-11 w-11 place-items-center rounded-full bg-black/70 text-white ring-1 ring-white/30 backdrop-blur-xs transition-transform duration-200 group-hover:scale-110 group-hover:bg-[var(--link)]">
-                    <svg viewBox="0 0 24 24" className="ml-0.5 h-4 w-4" aria-hidden="true">
-                      <path d="M8 5.5v13l11-6.5z" fill="currentColor" />
-                    </svg>
+                  <span className="grid h-11 w-11 place-items-center rounded-full bg-zinc-950/80 text-white ring-1 ring-white/25 backdrop-blur-xs transition-transform duration-200 group-hover:scale-110">
+                    <Play className="ml-0.5 h-4 w-4 fill-current" aria-hidden="true" />
                   </span>
                 </span>
               </div>
-              <div className="flex flex-1 flex-col justify-between gap-2 p-3.5">
-                <p className="line-clamp-2 font-display text-[15px] font-bold leading-snug text-[var(--text)] group-hover:text-[var(--link)]">
+              <div className="flex flex-1 flex-col justify-between gap-2 p-4">
+                <p className="line-clamp-2 text-sm font-semibold leading-snug text-foreground group-hover:underline">
                   {headline}
                 </p>
-                <span className="text-[11px] font-semibold text-[var(--muted)] group-hover:text-[var(--link)]">
-                  {video.youtubeId ? "Watch highlight →" : "Open video ↗"}
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground group-hover:text-foreground">
+                  {video.youtubeId ? "Watch highlight" : "Open video"}
+                  {video.youtubeId ? (
+                    <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  ) : (
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
                 </span>
               </div>
             </>
@@ -98,7 +102,7 @@ export function NewsVideoGrid({ items }: { items: VideoCardItem[] }) {
                 href={watchUrl}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="surface card-hover group flex flex-col overflow-hidden text-left"
+                className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card text-left transition-colors hover:border-foreground/20 hover:no-underline"
               >
                 {cardBody}
               </a>
@@ -115,7 +119,7 @@ export function NewsVideoGrid({ items }: { items: VideoCardItem[] }) {
                   setActive(video);
                 }
               }}
-              className="surface card-hover group flex flex-col overflow-hidden text-left"
+              className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card text-left transition-colors hover:border-foreground/20"
             >
               {cardBody}
             </button>
@@ -130,12 +134,12 @@ export function NewsVideoGrid({ items }: { items: VideoCardItem[] }) {
         onClick={(e) => {
           if (e.target === dialogRef.current) setActive(null);
         }}
-        className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-[920px] overflow-y-auto rounded-[6px] border border-[var(--line-2)] bg-[var(--panel)] p-0 text-inherit shadow-2xl backdrop:bg-black/80"
+        className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-[920px] overflow-y-auto rounded-xl border border-border bg-card p-0 text-inherit shadow-2xl backdrop:bg-black/80"
       >
         {active && active.youtubeId && (
           <div>
-            <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--bar)] px-4 py-2.5">
-              <p className="truncate font-display text-[15px] font-bold text-[var(--text)]">
+            <div className="flex items-center justify-between gap-3 border-b border-border bg-secondary/40 px-4 py-3">
+              <p className="truncate text-sm font-semibold text-foreground">
                 {splitNewsHeadline(active.title).headline}
               </p>
               <div className="flex shrink-0 items-center gap-3">
@@ -143,18 +147,20 @@ export function NewsVideoGrid({ items }: { items: VideoCardItem[] }) {
                   href={`https://www.youtube.com/watch?v=${active.youtubeId}`}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="text-[11.5px] font-semibold text-[var(--link)] hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  Open on YouTube <span aria-hidden="true">↗</span>
+                  YouTube
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="sr-only"> (opens in new tab)</span>
                 </a>
                 <button
                   type="button"
                   onClick={() => setActive(null)}
                   aria-label="Close video"
-                  className="grid h-7 w-7 place-items-center rounded-[3px] border border-[var(--line)] bg-[var(--panel)] text-[14px] text-[var(--text-2)] hover:text-[var(--text)]"
+                  title="Close video"
+                  className="grid h-7 w-7 place-items-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  ✕
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -225,17 +231,17 @@ export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
                 openerRef.current = e.currentTarget;
                 setActiveIndex(index);
               }}
-              className="surface card-hover group flex flex-col overflow-hidden text-left"
+              className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card text-left transition-colors hover:border-foreground/20"
             >
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--bar)]">
+              <div className="relative aspect-[4/3] w-full overflow-hidden bg-secondary">
                 <SafeImage
                   src={gallery.image}
                   alt={gallery.alt}
                   loading={index < 6 ? "eager" : "lazy"}
                   className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]"
                   fallback={
-                    <div className="grid h-full w-full place-items-center bg-[var(--bar)]">
-                      <span className="eyebrow">Gallery</span>
+                    <div className="grid h-full w-full place-items-center bg-secondary">
+                      <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Gallery</span>
                     </div>
                   }
                 />
@@ -243,11 +249,11 @@ export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
                   <span className={cn("tag", tag.cls)}>{tag.label}</span>
                 </span>
               </div>
-              <div className="flex flex-1 flex-col justify-between gap-1.5 p-3.5">
-                <p className="line-clamp-2 font-display text-[14.5px] font-bold leading-snug text-[var(--text)] group-hover:text-[var(--link)]">
+              <div className="flex flex-1 flex-col justify-between gap-1.5 p-4">
+                <p className="line-clamp-2 text-sm font-semibold leading-snug text-foreground group-hover:underline">
                   {headline}
                 </p>
-                <p className="tnum text-[11px] text-[var(--muted)]">{gallery.dateLabel}</p>
+                <p className="font-mono text-[11px] tabular-nums text-muted-foreground">{gallery.dateLabel}</p>
               </div>
             </button>
           );
@@ -261,16 +267,16 @@ export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
         onClick={(e) => {
           if (e.target === dialogRef.current) setActiveIndex(null);
         }}
-        className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-[960px] overflow-y-auto rounded-[6px] border border-[var(--line-2)] bg-[var(--panel)] p-0 text-inherit shadow-2xl backdrop:bg-black/85"
+        className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-[960px] overflow-y-auto rounded-xl border border-border bg-card p-0 text-inherit shadow-2xl backdrop:bg-black/85"
       >
         {active && activeIndex !== null && (
           <div>
-            <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--bar)] px-4 py-2.5">
+            <div className="flex items-center justify-between gap-3 border-b border-border bg-secondary/40 px-4 py-3">
               <div className="min-w-0">
-                <p className="truncate font-display text-[15px] font-bold text-[var(--text)]">
+                <p className="truncate text-sm font-semibold text-foreground">
                   {splitNewsHeadline(active.title.replace(/_/g, " · ")).headline}
                 </p>
-                <p className="tnum text-[11px] text-[var(--muted)]" aria-live="polite">
+                <p className="font-mono text-xs tabular-nums text-muted-foreground" aria-live="polite">
                   {active.dateLabel} · {activeIndex + 1} / {items.length}
                 </p>
               </div>
@@ -281,25 +287,28 @@ export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
                     items.length > 0 && setActiveIndex((activeIndex - 1 + items.length) % items.length)
                   }
                   aria-label="Previous photo"
-                  className="grid h-7 w-7 place-items-center rounded-[3px] border border-[var(--line)] bg-[var(--panel)] text-[13px] text-[var(--text-2)] hover:text-[var(--text)]"
+                  title="Previous photo"
+                  className="grid h-7 w-7 place-items-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  ←
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
                   onClick={() => items.length > 0 && setActiveIndex((activeIndex + 1) % items.length)}
                   aria-label="Next photo"
-                  className="grid h-7 w-7 place-items-center rounded-[3px] border border-[var(--line)] bg-[var(--panel)] text-[13px] text-[var(--text-2)] hover:text-[var(--text)]"
+                  title="Next photo"
+                  className="grid h-7 w-7 place-items-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  →
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveIndex(null)}
                   aria-label="Close photo"
-                  className="ml-1 grid h-7 w-7 place-items-center rounded-[3px] border border-[var(--line)] bg-[var(--panel)] text-[14px] text-[var(--text-2)] hover:text-[var(--text)]"
+                  title="Close photo"
+                  className="ml-1 grid h-7 w-7 place-items-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  ✕
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -310,7 +319,7 @@ export function NewsGalleryGrid({ items }: { items: GalleryCardItem[] }) {
                 alt={active.alt}
                 loading="eager"
                 className="max-h-[72vh] w-auto max-w-full object-contain"
-                fallback={<span className="py-20 text-sm text-[var(--muted)]">Photo unavailable</span>}
+                fallback={<span className="py-20 text-sm text-muted-foreground">Photo unavailable</span>}
               />
             </div>
           </div>

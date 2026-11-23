@@ -21,6 +21,7 @@ import {
 } from "../src/lib/pba/scoreboard-parse.ts";
 import { bracketRound, parseBracketRows } from "../src/lib/pba/bracket-parse.ts";
 import { normaliseStamp, parseDatedBracketRows, roundName } from "../src/lib/pba/bracket-dated-parse.ts";
+import { parseLiveTourCards, parseUpcomingTourCards } from "../src/lib/pba/day-cards-parse.ts";
 import { parseLiveTeamFixtures } from "../src/lib/pba/team-live-parse.ts";
 import { parseSearchRows } from "../src/lib/pba/search-parse.ts";
 import {
@@ -866,6 +867,101 @@ check("player-codes.json normalizes display artifacts and omits ambiguous aliase
   assert.equal(codes["ga-eun park"], undefined);
   assert.equal(codes["박가은"], "M0022002");
   assert.equal(codes["박가은(b)"], "M0022407");
+});
+
+check("LPBA points-format (Point/Inn) bracket rows parse in both dated and English parsers", () => {
+  const lpbaKo = `
+    <div class="set_box">
+      <div class="tit_round"><strong class="t18 number0">64강</strong> <span class="t14">대진 결과 (점수제 경기)</span></div>
+      <div class="content_block_set bg_col01 br5px">
+        <div class="proud_box_set">
+          <span class="no_order t15">No 90</span>
+          <span class="t14">T6</span><span class="icon_divi">|</span>
+          <span class="t14">26-11-22 20:10</span>
+          <a href="#" onclick="javascript:matchlayer('M0020070','M0017283');">상대전적</a>
+          <a href="#" onclick="javascript:setview(99488);">상세결과</a>
+        </div>
+        <ul class="win_lost_block01_set">
+          <li><span class="t_order">Result</span><span class="t_name">Player</span><span class="t_avg">Avg</span><span class="t_high">HR</span><span class="">Point/Inn</span></li>
+          <li class="player_end"><span class="t_order"><span class="icon_win">W</span></span><span class="t_name">전어람</span><span class="t_avg">1.000</span><span class="t_high">5</span><span class="" style="width:80px;">23/23</span></li>
+          <li><span class="t_order"><span class="icon_lost">&nbsp;</span></span><span class="t_name">이화연</span><span class="t_avg">0.913</span><span class="t_high">3</span><span class="" style="width:80px;">21/23</span></li>
+        </ul>
+      </div>
+    </div>`;
+  const dated = parseDatedBracketRows(lpbaKo, 64);
+  assert.equal(dated.length, 1);
+  assert.equal(dated[0].pstCode, "99488");
+  assert.equal(dated[0].day, "2026-11-22");
+  assert.equal(dated[0].sides.length, 2);
+  assert.equal(dated[0].sides[0].sets, 23);
+  assert.equal(dated[0].sides[0].won, true);
+  assert.equal(dated[0].sides[1].sets, 21);
+  assert.equal(dated[0].sides[1].won, false);
+
+  const bracket = parseBracketRows(lpbaKo, 64);
+  assert.equal(bracket.length, 1);
+  assert.equal(bracket[0].sides[0].sets, 23);
+  assert.equal(bracket[0].sides[1].sets, 21);
+});
+
+check("parseUpcomingTourCards extracts scheduled tour fixtures from next_game_new2.asp", () => {
+  const html = `
+    <div class="set_game">
+      <div class="vers_box_set"><a href="#" onclick="javascript:comGameResultSet('en', '274', 'LPBA1', 'M0017225', 'M0020077');return false;">Player Comparison</a></div>
+      <div class="tbl_info">No <strong>1</strong> <span class="pt5">|</span> <strong>Round 32</strong>
+        <span class="btn_box" style="width:160px;">11-23 <span class="pt5">|</span> 15:30</span>
+      </div>
+      <ul class="score_01 lpba_bg3">
+        <li><a href="#" onclick="javascript:comPlayerInfoTour('en', 'LPBA1', 'M0017225', 'GY Kim','');return false;"><div class="name_lft"><span class="spbox w_80">GY Kim</span><span class="set_point">0</span></div></a></li>
+        <li><a href="#" onclick="javascript:comPlayerInfoTour('en', 'LPBA1', 'M0020077', 'MJ Hwang','');return false;"><div class="name_lft"><span class="spbox w_80">MJ Hwang</span><span class="set_point">0</span></div></a></li>
+      </ul>
+    </div>`;
+  const cards = parseUpcomingTourCards(html);
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].tourCode, "274");
+  assert.equal(cards[0].league, "LPBA1");
+  assert.equal(cards[0].matchNo, "1");
+  assert.equal(cards[0].round, "Round of 32");
+  assert.equal(cards[0].monthDay, "11-23");
+  assert.equal(cards[0].clock, "15:30");
+  assert.deepEqual(cards[0].sides, [
+    { name: "GY Kim", memCode: "M0017225" },
+    { name: "MJ Hwang", memCode: "M0020077" },
+  ]);
+});
+
+check("parseLiveTourCards extracts live tables, sets, averages and high runs from live_info.asp", () => {
+  const html = `
+    <div class="set_game">
+      <div class="vers_box_set"><a href="#" onclick="javascript:comGameResultSet('en', '273', 'PBA1', 'M0017748', 'M0022430');return false;">Player Comparison</a></div>
+      <div class="tbl_info">No <strong>41</strong> <span class="pt5">|</span> <strong>Round 128</strong> T1 <span class="pt5">|</span> inn 7
+        <span class="btn_box child_height"><a href="#" onclick="javascript: setview(99495);return false;">set</a></span>
+      </div>
+      <ul class="score_01">
+        <li>
+          <a href="#" onclick="javascript:comPlayerInfoTour('en', 'PBA1', 'M0017748', 'HB MOON','');return false;"><div class="name_lft"><span class="spbox w_80">HB MOON</span> <span class="set_point ">0</span></div></a>
+          <div class="player_lft"><span class="point_box01"><span class="number0 t22 w_col">2</span><br><span class="avg_col">AVG 0.333</span><br><span class="avg_col">HR 2</span></span></div>
+        </li>
+        <li>
+          <a href="#" onclick="javascript:comPlayerInfoTour('en', 'PBA1', 'M0022430', 'SW CHOI','');return false;"><div class="name_lft"><span class="spbox w_80">SW CHOI</span> <span class="set_point ">1</span></div></a>
+          <div class="player_rgt"><span class="point_box02"><span class="number0 t22 y_col">3</span><br><span class="avg_col">AVG 0.429</span><br><span class="avg_col">HR 2</span></span></div>
+        </li>
+      </ul>
+    </div>`;
+  const cards = parseLiveTourCards(html);
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].pstCode, "99495");
+  assert.equal(cards[0].tourCode, "273");
+  assert.equal(cards[0].matchNo, "41");
+  assert.equal(cards[0].round, "Round of 128");
+  assert.equal(cards[0].table, "T1");
+  assert.equal(cards[0].sides[0].name, "HB MOON");
+  assert.equal(cards[0].sides[0].sets, 0);
+  assert.equal(cards[0].sides[0].average, 0.333);
+  assert.equal(cards[0].sides[0].highRun, 2);
+  assert.equal(cards[0].sides[1].name, "SW CHOI");
+  assert.equal(cards[0].sides[1].sets, 1);
+  assert.equal(cards[0].sides[1].points, 3);
 });
 
 console.log(`\n${passed}/${passed + failures.length} parser checks passed`);

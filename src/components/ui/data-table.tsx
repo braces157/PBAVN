@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { SafeImage } from "./safe-image";
 import { cn } from "./primitives";
 
@@ -72,22 +73,35 @@ function compareValues(a: number | string, b: number | string): number {
   return String(a).localeCompare(String(b), "en", { numeric: true, sensitivity: "base" });
 }
 
-function Cell({ value }: { value: CellValue }) {
-  if (value === null || value === undefined || value === "") return <span className="text-[var(--ink-3)]">—</span>;
+function SortIcon({ active, direction }: { active: boolean; direction?: SortDirection }) {
+  if (!active) return <ArrowUpDown className="h-3 w-3 opacity-40" aria-hidden="true" />;
+  return direction === "desc" ? (
+    <ArrowDown className="h-3 w-3 text-foreground" aria-hidden="true" />
+  ) : (
+    <ArrowUp className="h-3 w-3 text-foreground" aria-hidden="true" />
+  );
+}
 
-  if (typeof value === "number") return <span className="tnum">{value.toLocaleString("en-US")}</span>;
+function Cell({ value }: { value: CellValue }) {
+  if (value === null || value === undefined || value === "") {
+    return <span className="text-muted-foreground/60">—</span>;
+  }
+
+  if (typeof value === "number") {
+    return <span className="font-mono tabular-nums">{value.toLocaleString("en-US")}</span>;
+  }
   if (typeof value === "string") return <>{value}</>;
 
   if (value.kind === "rank") {
     return (
       <span
         className={cn(
-          "tnum inline-grid h-5 min-w-5 place-items-center rounded-[2px] px-1 text-[11px] font-bold",
+          "inline-grid h-5 min-w-5 place-items-center rounded-md px-1 font-mono text-[11px] font-semibold tabular-nums",
           value.value === 1
-            ? "bg-[var(--yellow)] text-[#1d2329]"
+            ? "bg-foreground text-background"
             : value.value <= 3
-              ? "text-[var(--gold)]"
-              : "text-[var(--muted)]",
+              ? "bg-secondary text-foreground"
+              : "text-muted-foreground",
         )}
       >
         {value.value || "—"}
@@ -97,7 +111,7 @@ function Cell({ value }: { value: CellValue }) {
 
   if (value.kind === "tag") {
     return (
-      <span className="rounded-[2px] border border-[var(--line)] bg-[var(--bar-2)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-[var(--text-2)]">
+      <span className="inline-flex items-center rounded-md border border-border bg-secondary/70 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         {value.text}
       </span>
     );
@@ -108,7 +122,7 @@ function Cell({ value }: { value: CellValue }) {
       <Link
         href={value.href}
         onClick={(e) => e.stopPropagation()}
-        className="text-[12.5px] font-medium text-[var(--text-2)] underline-offset-2 transition-colors hover:text-[var(--link)] hover:underline"
+        className="text-[13px] font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
       >
         {value.text}
       </Link>
@@ -124,23 +138,25 @@ function Cell({ value }: { value: CellValue }) {
       .toUpperCase() || "–";
 
   return (
-    <Link href={value.href} className="group/cell flex items-center gap-2 transition-colors hover:text-[var(--link)] hover:no-underline">
-      <span className="av overflow-hidden">
+    <Link href={value.href} className="group/cell flex items-center gap-2.5 transition-colors hover:no-underline">
+      <span className="relative inline-grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-secondary text-[10px] font-semibold text-muted-foreground">
+        <span aria-hidden="true">{fallbackInitials}</span>
         <SafeImage
           src={value.photo}
           alt=""
-          className="h-full w-full object-cover object-top"
-          fallback={<span>{fallbackInitials}</span>}
+          revealOnLoad
+          className="absolute inset-0 h-full w-full object-cover object-top"
+          fallback={null}
         />
       </span>
-      <span className="block min-w-0 max-w-[165px]">
-        <span className="block truncate text-[12.5px] font-semibold text-[var(--text)] group-hover/cell:text-[var(--link)]">
+      <span className="block min-w-0 max-w-[175px]">
+        <span className="block truncate text-[13px] font-medium text-foreground group-hover/cell:underline">
           {value.name}
         </span>
-        {value.sub && <span className="block truncate text-[11px] text-[var(--muted)]">{value.sub}</span>}
+        {value.sub && <span className="block truncate text-[11px] text-muted-foreground">{value.sub}</span>}
       </span>
       {value.badge && (
-        <span className="shrink-0 rounded-[2px] border border-[var(--line)] bg-[var(--bar-2)] px-1 py-0.5 text-[9.5px] font-semibold uppercase text-[var(--text-2)]">
+        <span className="shrink-0 rounded-md border border-border bg-secondary/70 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase text-muted-foreground">
           {value.badge}
         </span>
       )}
@@ -227,19 +243,17 @@ export function DataTable({
   const showReset = sort !== null;
 
   return (
-    <div className={cn("overflow-hidden rounded-[3px] border border-[var(--line)] bg-[var(--panel)]", className)}>
+    <div className={cn("overflow-hidden rounded-xl border border-border bg-card", className)}>
       {!hideSortBar && ordered.length > 0 && (showReset || hiddenSortable.length > 0) && (
         <div
           className={cn(
-            "flex flex-wrap items-center gap-2 border-b border-[var(--line)] bg-[var(--bar)] px-2.5 py-1.5 text-[11.5px]",
+            "flex flex-wrap items-center gap-2 border-b border-border bg-secondary/40 px-3 py-2 text-xs",
             !showReset && mobileSortHideClass,
           )}
         >
           {hiddenSortable.length > 0 && (
             <div className={cn("flex flex-wrap items-center gap-1", mobileSortHideClass)}>
-              <span className="mr-1 font-display text-[10.5px] font-bold uppercase tracking-[0.05em] text-[var(--muted)]">
-                Sort
-              </span>
+              <span className="mr-1 text-[11px] font-medium text-muted-foreground">Sort</span>
               {hiddenSortable.map((column) => {
                 const active = sort?.id === column.id;
                 return (
@@ -249,14 +263,14 @@ export function DataTable({
                     onClick={() => toggle(column)}
                     aria-pressed={active}
                     className={cn(
-                      "inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 font-display text-[11px] font-semibold uppercase tracking-[0.04em] transition-colors",
+                      "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors",
                       active
-                        ? "border-[var(--line-2)] border-b-2 border-b-[var(--yellow)] bg-[var(--bar-2)] text-[var(--text)]"
-                        : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:text-[var(--text)]",
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border bg-background text-muted-foreground hover:text-foreground",
                     )}
                   >
                     {column.shortLabel ?? column.label}
-                    {active && <span aria-hidden="true">{sort?.direction === "desc" ? "▼" : "▲"}</span>}
+                    {active && <SortIcon active direction={sort?.direction} />}
                   </button>
                 );
               })}
@@ -266,7 +280,7 @@ export function DataTable({
             <button
               type="button"
               onClick={() => setSort(null)}
-              className="ml-auto rounded-[2px] border border-[var(--line)] bg-[var(--panel)] px-2 py-0.5 font-display text-[10.5px] font-semibold uppercase tracking-[0.04em] text-[var(--text-2)] transition-colors hover:border-[var(--link)] hover:text-[var(--link)]"
+              className="ml-auto rounded-md border border-border bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               Reset order
             </button>
@@ -274,7 +288,7 @@ export function DataTable({
         </div>
       )}
       {ordered.length === 0 ? (
-        <div className="px-4 py-10 text-center text-[13px] text-[var(--muted)]">
+        <div className="px-4 py-10 text-center text-sm text-muted-foreground">
           {empty ?? "No rows to show."}
         </div>
       ) : (
@@ -297,7 +311,7 @@ export function DataTable({
                       className={cn(
                         column.hideBelow && HIDE_CLASS[column.hideBelow],
                         !alignRight && "!text-left",
-                        active && "!text-[var(--text)]",
+                        active && "!text-foreground",
                       )}
                       aria-sort={active ? (sort?.direction === "desc" ? "descending" : "ascending") : undefined}
                     >
@@ -306,14 +320,12 @@ export function DataTable({
                         onClick={() => toggle(column)}
                         aria-pressed={active}
                         className={cn(
-                          "inline-flex items-center gap-1 font-display font-semibold uppercase tracking-[0.05em] transition-colors hover:text-[var(--text)]",
+                          "inline-flex items-center gap-1 font-sans text-[11px] font-medium uppercase tracking-wider transition-colors hover:text-foreground",
                           alignRight && "ml-auto",
                         )}
                       >
                         {column.label}
-                        <span aria-hidden="true" className={cn("text-[9px] leading-none", active ? "text-[var(--link)] opacity-100" : "opacity-45")}>
-                          {active ? (sort?.direction === "desc" ? "▼" : "▲") : "⇅"}
-                        </span>
+                        <SortIcon active={active} direction={sort?.direction} />
                       </button>
                     </th>
                   );
@@ -324,12 +336,15 @@ export function DataTable({
               {ordered.map((row, position) => {
                 const rankNumber = showSourceRank ? ranks[row.key] ?? position + 1 : position + 1;
                 const hasInlineLink = Object.values(row.cells).some(
-                  (cell) =>
-                    typeof cell === "object" &&
-                    cell !== null &&
-                    "kind" in cell &&
-                    cell.kind === "person" &&
-                    Boolean(cell.href),
+                  (c) => typeof c === "object" && c !== null && "kind" in c && c.kind === "person" && Boolean(c.href),
+                );
+                const rankCls = cn(
+                  "inline-grid h-5 min-w-5 place-items-center rounded-md px-1 font-mono text-[11px] font-semibold tabular-nums",
+                  rankNumber === 1
+                    ? "bg-foreground text-background"
+                    : rankNumber <= 3
+                      ? "bg-secondary text-foreground"
+                      : "text-muted-foreground group-hover:text-foreground",
                 );
                 return (
                   <tr
@@ -337,8 +352,7 @@ export function DataTable({
                     className="group"
                     data-href={row.href}
                     onClick={(event) => {
-                      if (!row.href) return;
-                      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                      if (!row.href || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                       if ((event.target as HTMLElement).closest("a, button, input, select, textarea")) return;
                       if (typeof window !== "undefined" && window.getSelection()?.toString()) return;
                       router.push(row.href);
@@ -346,25 +360,11 @@ export function DataTable({
                   >
                     <td>
                       {row.href && !hasInlineLink ? (
-                        <Link
-                          href={row.href}
-                          aria-label={row.linkLabel ?? "Open details"}
-                          className={cn(
-                            "tnum inline-grid h-5 min-w-5 place-items-center rounded-[2px] px-1 text-[11px] font-bold transition-colors hover:no-underline",
-                            rankNumber <= 3 ? "text-[var(--gold)]" : "text-[var(--muted)] group-hover:text-[var(--link)]",
-                          )}
-                        >
+                        <Link href={row.href} aria-label={row.linkLabel ?? "Open details"} className={cn(rankCls, "hover:no-underline")}>
                           {rankNumber}
                         </Link>
                       ) : (
-                        <span
-                          className={cn(
-                            "tnum inline-grid h-5 min-w-5 place-items-center rounded-[2px] px-1 text-[11px] font-bold",
-                            rankNumber <= 3 ? "text-[var(--gold)]" : "text-[var(--muted)]",
-                          )}
-                        >
-                          {rankNumber}
-                        </span>
+                        <span className={rankCls}>{rankNumber}</span>
                       )}
                     </td>
                     {columns.map((column) => {

@@ -105,7 +105,7 @@ export interface LiveBoard {
 export async function getLiveBoard(tourCode = ""): Promise<LiveBoard> {
   const html = await fetchHtmlFragment(
     `/mob/contest_new/code_behind/live_info.asp?TourCode=${encodeURIComponent(tourCode)}&LangCode=en`,
-    { revalidate: LIVE, timeoutMs: 7_000 },
+    { revalidate: LIVE, timeoutMs: 7_000, allowEmpty: true },
   );
   return { refs: parseLiveBoard(html), lines: visibleLines(html), reachable: html !== null };
 }

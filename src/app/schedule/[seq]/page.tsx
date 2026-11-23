@@ -23,6 +23,7 @@ import {
   romanizeKoreanName,
   stampDay,
 } from "@/lib/format";
+import { ArrowRight, ExternalLink, Radio } from "lucide-react";
 import { EventCrest } from "@/components/ui/media";
 import { Chip, EmptyState, LiveChip, Panel, TabStrip, TextLink, cn } from "@/components/ui/primitives";
 import { BracketView } from "@/components/domain/bracket-view";
@@ -134,7 +135,7 @@ export default async function EventPage({ params, searchParams }: PageProps) {
         keys={keys}
       />
 
-      <div className="mx-auto max-w-[1300px] px-3 py-5">
+      <div className="wrap py-5">
         <NowNextStrip
           event={entry}
           live={
@@ -201,28 +202,28 @@ function EventHeader({
   const dayNumber = keys.includes(today) ? keys.indexOf(today) + 1 : null;
 
   return (
-    <header className="border-b border-ink-800 bg-ink-900">
-      <div className="mx-auto max-w-[1300px] px-3">
-        <nav className="flex flex-wrap items-center gap-1.5 py-2.5 text-[11px] text-fog-500" aria-label="Breadcrumb">
-          <Link href="/schedule" className="transition-colors hover:text-carom-300">
+    <header className="border-b border-border bg-card">
+      <div className="wrap">
+        <nav className="flex flex-wrap items-center gap-1.5 py-3 text-xs text-muted-foreground" aria-label="Breadcrumb">
+          <Link href="/schedule" className="transition-colors hover:text-foreground">
             Schedule
           </Link>
           <Separator />
           <Link
             href={`/schedule?league=${entry.league}`}
-            className="transition-colors hover:text-carom-300"
+            className="transition-colors hover:text-foreground"
           >
             {league.name}
           </Link>
           <Separator />
           <Link
             href={`/schedule?season=${entry.season}&league=${entry.league}`}
-            className="transition-colors hover:text-carom-300"
+            className="transition-colors hover:text-foreground"
           >
             {entry.season}
           </Link>
           <Separator />
-          <span className="max-w-[260px] truncate text-fog-300">{entry.title}</span>
+          <span className="max-w-[260px] truncate text-foreground">{entry.title}</span>
         </nav>
 
         <div className="flex flex-wrap items-start gap-x-4 gap-y-3 pb-4 pt-1">
@@ -236,17 +237,19 @@ function EventHeader({
             <div className="flex flex-wrap items-center gap-2">
               <StatusChip status={entry.status} dayNumber={dayNumber} />
               <Chip tone={league.tone}>{league.name}</Chip>
-              {days && <span className="text-[11px] text-fog-500">{days}-day event</span>}
+              {days && <span className="text-xs text-muted-foreground">{days}-day event</span>}
             </div>
-            <h1 className="display-sm mt-1.5 max-w-3xl text-balance text-fog-100">{entry.title}</h1>
-            <p className="tnum mt-1 text-[12px] text-fog-400">
+            <h1 className="mt-1.5 max-w-3xl text-balance text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              {entry.title}
+            </h1>
+            <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
               {fmtRange(entry.start, entry.end)}
-              <span className="mx-1.5 text-ink-600">·</span>
-              {entry.venue}
+              <span className="mx-1.5 text-border">·</span>
+              <span className="font-sans">{entry.venue}</span>
               {entry.sponsor !== "—" && (
                 <>
-                  <span className="mx-1.5 text-ink-600">·</span>
-                  Presented by {entry.sponsor}
+                  <span className="mx-1.5 text-border">·</span>
+                  <span className="font-sans">Presented by {entry.sponsor}</span>
                 </>
               )}
             </p>
@@ -258,18 +261,20 @@ function EventHeader({
                 href={entry.guideUrl}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="press inline-flex items-center gap-1 rounded-[3px] bg-[var(--nav)] px-3 py-1.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-[var(--link)] hover:text-white"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 hover:no-underline"
               >
-                Event guide ↗
+                Event guide
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               </a>
             )}
             <a
               href="https://www.pbatour.org/en/tournament/schedule/index"
               target="_blank"
               rel="noreferrer noopener"
-              className="inline-flex items-center gap-1 rounded-md border border-ink-700 bg-ink-900 px-3 py-1.5 text-[12px] font-semibold text-fog-200 transition-colors hover:border-carom-400/50 hover:text-carom-300"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:no-underline"
             >
-              pbatour.org ↗
+              pbatour.org
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
             </a>
           </div>
         </div>
@@ -295,7 +300,7 @@ function EventHeader({
 
 function Separator() {
   return (
-    <span aria-hidden="true" className="text-ink-600">
+    <span aria-hidden="true" className="text-border">
       /
     </span>
   );
@@ -406,21 +411,21 @@ function ResultsPanel({
   return (
     <>
       {hidden > 0 && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-ink-750 bg-ink-900 px-3.5 py-2.5">
-          <p className="text-[12px] text-fog-400">
-            Showing the <span className="font-semibold text-fog-100">closing {shown.length} matches</span> of{" "}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+          <p className="text-xs text-muted-foreground">
+            Showing the <span className="font-semibold text-foreground">closing {shown.length} matches</span> of{" "}
             {matches.length}.
           </p>
           <div className="flex items-center gap-2">
             <Link
               href={moreHref}
-              className="rounded-md border border-ink-700 bg-ink-850 px-2.5 py-1 text-[11.5px] font-semibold text-fog-200 transition-colors hover:border-carom-400/50 hover:text-carom-300"
+              className="inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:no-underline"
             >
               Show all rounds
             </Link>
             <Link
               href={`/schedule/${seq}?tab=bracket`}
-              className="rounded-md border border-ink-700 bg-ink-850 px-2.5 py-1 text-[11.5px] font-semibold text-fog-200 transition-colors hover:border-carom-400/50 hover:text-carom-300"
+              className="inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:no-underline"
             >
               Full bracket
             </Link>
@@ -439,18 +444,18 @@ function EventQuickFacts({ event, days }: { event: CalendarEvent; days: number |
     { label: "Prize pool", value: event.prizePool },
     { label: "Defending champ", value: event.defendingChampion },
     { label: "Duration", value: days ? `${days} days` : "—" },
-    { label: "Season", value: `${event.season}-${Number(event.season) + 1}` },
+    { label: "Season", value: `${event.season}–${Number(event.season) + 1}` },
   ].filter((row) => row.value && row.value !== "—");
 
   if (rows.length === 0) return null;
 
   return (
     <Panel title="Event info">
-      <dl className="divide-y divide-ink-800/70">
+      <dl className="divide-y divide-border/60">
         {rows.map((row) => (
-          <div key={row.label} className="flex items-baseline justify-between gap-3 px-3.5 py-2">
-            <dt className="micro-label shrink-0">{row.label}</dt>
-            <dd className="tnum text-right text-[12px] font-medium text-fog-100">{row.value}</dd>
+          <div key={row.label} className="flex items-baseline justify-between gap-3 px-4 py-2.5">
+            <dt className="shrink-0 text-xs text-muted-foreground">{row.label}</dt>
+            <dd className="text-right font-mono text-xs font-medium tabular-nums text-foreground">{row.value}</dd>
           </div>
         ))}
       </dl>
@@ -462,7 +467,7 @@ function DaysPanel({ entry, keys, today }: { entry: CalendarEvent; keys: string[
   if (keys.length === 0) return null;
   return (
     <Panel title="Competition days" meta={String(keys.length)}>
-      <ul className="divide-y divide-ink-800/70">
+      <ul className="divide-y divide-border/60">
         {keys.map((key) => {
           const index = dayOfEvent(key, entry.start, entry.end) ?? 0;
           const isToday = key === today;
@@ -470,15 +475,17 @@ function DaysPanel({ entry, keys, today }: { entry: CalendarEvent; keys: string[
             <li
               key={key}
               className={cn(
-                "flex items-center justify-between gap-2 px-3.5 py-2 text-[12px]",
-                isToday && "bg-carom-400/[0.08]",
+                "flex items-center justify-between gap-2 px-4 py-2 text-xs",
+                isToday && "bg-secondary/70",
               )}
             >
               <span className="flex items-center gap-2.5">
-                <span className="tnum w-4 text-right font-display text-[11px] font-bold text-fog-550">
+                <span className="w-4 text-right font-mono text-[11px] font-semibold tabular-nums text-muted-foreground">
                   {index}
                 </span>
-                <span className={cn("tnum", isToday ? "font-semibold text-fog-100" : "text-fog-300")}>{keyLabel(key)}</span>
+                <span className={cn("font-mono tabular-nums", isToday ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                  {keyLabel(key)}
+                </span>
               </span>
               {isToday && <LiveChip label="Today" />}
             </li>
@@ -504,21 +511,24 @@ function SiblingsPanel({ entry }: { entry: CalendarEvent }) {
   return (
     <Panel title="Around this event">
       {nearby.length === 0 ? (
-        <p className="px-3.5 py-3 text-[12px] text-fog-500">No other published events on this circuit.</p>
+        <p className="px-4 py-3 text-xs text-muted-foreground">No other published events on this circuit.</p>
       ) : (
-        <ul className="divide-y divide-ink-800/70">
+        <ul className="divide-y divide-border/60">
           {nearby.map((sibling) => (
             <li key={sibling.id}>
-              <Link href={`/schedule/${sibling.id}`} className="row-hover block px-3.5 py-2.5">
+              <Link
+                href={`/schedule/${sibling.id}`}
+                className="block px-4 py-2.5 transition-colors hover:bg-accent/50 hover:no-underline"
+              >
                 <span className="flex items-start justify-between gap-2">
-                  <span className="min-w-0 text-[12px] font-medium leading-snug text-fog-100">
+                  <span className="min-w-0 text-[13px] font-medium leading-snug text-foreground">
                     {sibling.title}
                   </span>
                   {sibling.status === "live" ? (
-                    <span className="live-dot mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-live-500" aria-label="Live" />
+                    <Radio className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-500" aria-label="Live" />
                   ) : null}
                 </span>
-                <span className="tnum mt-0.5 block text-[10.5px] text-fog-550">
+                <span className="mt-0.5 block font-mono text-[11px] tabular-nums text-muted-foreground">
                   {fmtRange(sibling.start, sibling.end)}
                 </span>
               </Link>
@@ -526,7 +536,7 @@ function SiblingsPanel({ entry }: { entry: CalendarEvent }) {
           ))}
         </ul>
       )}
-      <div className="border-t border-ink-800 px-3.5 py-2.5">
+      <div className="border-t border-border px-4 py-2.5">
         <TextLink href={`/schedule?season=${entry.season}&league=${entry.league}`}>
           All {league.name} events
         </TextLink>
@@ -557,11 +567,11 @@ function OverviewPanel({
 
   return (
     <Panel title="Event specifications">
-      <dl className="divide-y divide-ink-800/70">
+      <dl className="divide-y divide-border/60">
         {rows.map((row) => (
-          <div key={row.label} className="flex items-baseline justify-between gap-6 px-4 py-2.5">
-            <dt className="micro-label shrink-0">{row.label}</dt>
-            <dd className="text-right text-[13px] leading-snug text-fog-100">{row.value}</dd>
+          <div key={row.label} className="flex items-baseline justify-between gap-6 px-4 py-3">
+            <dt className="shrink-0 text-xs text-muted-foreground">{row.label}</dt>
+            <dd className="text-right text-sm font-medium leading-snug text-foreground">{row.value}</dd>
           </div>
         ))}
       </dl>
@@ -571,20 +581,20 @@ function OverviewPanel({
 
 function LiveBlock({ match }: { match: LiveMatch }) {
   return (
-    <div className="bg-ink-900 px-4 py-3">
-      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-live-400">
-        <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
+    <div className="bg-card px-4 py-3.5">
+      <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-rose-500">
+        <Radio className="h-3.5 w-3.5" aria-hidden="true" />
         On table now
       </p>
       <ol className="mt-2 space-y-1">
         {match.sides.map((side, index) => (
           <li key={`${side.name}-${index}`} className="flex items-center justify-between gap-2">
-            <span className="min-w-0 truncate text-[13px] font-semibold text-fog-100">{side.name}</span>
-            <span className="tnum shrink-0 text-[13.5px] font-bold text-live-400">{side.points}</span>
+            <span className="min-w-0 truncate text-sm font-medium text-foreground">{side.name}</span>
+            <span className="shrink-0 font-mono text-sm font-semibold tabular-nums text-rose-500">{side.points}</span>
           </li>
         ))}
       </ol>
-      <p className="tnum mt-1.5 text-[11px] leading-snug text-fog-450">
+      <p className="mt-1.5 font-mono text-xs tabular-nums text-muted-foreground">
         Set {match.latestSet.setNo}
         {match.latestSet.target !== null ? ` · race to ${match.latestSet.target}` : ""} ·{" "}
         {match.sides[0]?.setsWon ?? 0}–{match.sides[1]?.setsWon ?? 0} in sets
@@ -592,9 +602,10 @@ function LiveBlock({ match }: { match: LiveMatch }) {
       {match.competition || !match.pstCode ? null : (
         <Link
           href={`/matches/${match.pstCode}?live=1`}
-          className="mt-2 inline-flex items-center gap-1 text-[11.5px] font-semibold text-carom-300 transition-colors hover:text-carom-400"
+          className="mt-2.5 inline-flex items-center gap-1 text-xs font-medium text-foreground transition-colors hover:text-muted-foreground hover:no-underline"
         >
-          Open live card →
+          Open live card
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
         </Link>
       )}
     </div>

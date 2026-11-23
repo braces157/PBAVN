@@ -17,52 +17,8 @@ const PIXELS = { xs: 24, sm: 32, md: 44, lg: 56, xl: 80, "2xl": 96 } as const;
 
 export type AvatarSize = keyof typeof SIZES;
 
-const ISO2_BY_CODE: Record<string, string> = {
-  KOR: "kr",
-  ESP: "es",
-  VIE: "vn", VNM: "vn",
-  TUR: "tr",
-  BEL: "be",
-  GRE: "gr", GRC: "gr",
-  COL: "co",
-  NED: "nl", NLD: "nl",
-  JPN: "jp",
-  AUT: "at",
-  FRA: "fr",
-  GER: "de", DEU: "de",
-  USA: "us",
-  DEN: "dk", DNK: "dk",
-  EGY: "eg",
-  ITA: "it",
-  POR: "pt", PRT: "pt",
-  SWE: "se",
-  MEX: "mx",
-  CHN: "cn",
-  ECU: "ec",
-  PER: "pe",
-  CAM: "kh", KHM: "kh",
-  GBR: "gb", UK: "gb",
-  TPE: "tw", TWN: "tw",
-  BRA: "br",
-  ARG: "ar",
-  SUI: "ch", CHE: "ch",
-  POL: "pl",
-  CZE: "cz",
-  ROU: "ro",
-  HUN: "hu",
-  THA: "th",
-  MAS: "my", MYS: "my",
-  PHI: "ph", PHL: "ph",
-  AUS: "au",
-  CAN: "ca",
-};
-
-export function flagClass(nation: string | null | undefined): string {
-  const key = (nation ?? "").trim().toUpperCase();
-  if (!key || key === "—") return "f";
-  const iso2 = ISO2_BY_CODE[key] ?? (/^[A-Z]{2}$/.test(key) ? key.toLowerCase() : null);
-  return iso2 ? `f fi fi-${iso2}` : "f";
-}
+import { flagClass } from "@/lib/flag";
+export { flagClass };
 
 const CLUB_CRESTS: Record<string, { code: string; cls: string }> = {
   huons: { code: "HL", cls: "c1" },
@@ -112,7 +68,7 @@ function Initials({ name, className }: { name: string; className?: string }) {
   return (
     <span
       className={cn(
-        "grid h-full w-full place-items-center bg-[var(--bar-2)] font-display font-bold text-[var(--text-2)]",
+        "grid h-full w-full place-items-center bg-secondary font-sans font-semibold text-muted-foreground",
         className,
       )}
       aria-hidden="true"
@@ -125,10 +81,10 @@ function Initials({ name, className }: { name: string; className?: string }) {
 export function InitialsPlate({ name, className }: { name: string; className?: string }) {
   return (
     <div
-      className={cn("grid h-full w-full place-items-center bg-[var(--bar-2)]", className)}
+      className={cn("grid h-full w-full place-items-center bg-secondary", className)}
       aria-hidden="true"
     >
-      <span className="font-display text-[clamp(16px,2.8vw,28px)] font-bold tracking-[0.04em] text-[var(--text-2)]">
+      <span className="font-sans text-[clamp(16px,2.8vw,28px)] font-semibold tracking-wide text-muted-foreground">
         {initials(name)}
       </span>
     </div>
@@ -153,19 +109,21 @@ export function PlayerAvatar({
   return (
     <span
       className={cn(
-        "relative inline-grid shrink-0 place-items-center overflow-hidden rounded-[3px] border border-[var(--line)] bg-[var(--bar-2)] font-display font-bold text-[var(--text)]",
+        "relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-secondary font-sans font-semibold text-foreground",
         SIZES[size],
-        ring && "ring-2 ring-[var(--yellow)] ring-offset-1 ring-offset-[var(--panel)]",
+        ring && "ring-2 ring-amber-500/70 ring-offset-2 ring-offset-background",
         className,
       )}
     >
+      <Initials name={name} />
       <SafeImage
         path={path}
         src={src}
         width={PIXELS[size]}
         alt=""
-        className="h-full w-full object-cover object-top"
-        fallback={<Initials name={name} />}
+        revealOnLoad
+        className="absolute inset-0 h-full w-full object-cover object-top"
+        fallback={null}
       />
     </span>
   );
@@ -189,12 +147,12 @@ export function TeamLogo({
   if (!resolved) {
     return (
       <span
-        className={cn("inline-grid shrink-0 place-items-center overflow-hidden rounded-[3px]", SIZES[size], className)}
+        className={cn("inline-grid shrink-0 place-items-center overflow-hidden rounded-lg", SIZES[size], className)}
         aria-hidden={alt === "" ? "true" : undefined}
         role={alt ? "img" : undefined}
         aria-label={alt || undefined}
       >
-        <span className={cn("cr h-full w-full", badge.cls)} aria-hidden="true">
+        <span className={cn("cr !h-full !w-full !rounded-none", badge.cls)} aria-hidden="true">
           {badge.code}
         </span>
       </span>
@@ -203,20 +161,20 @@ export function TeamLogo({
   return (
     <span
       className={cn(
-        "inline-grid shrink-0 place-items-center overflow-hidden rounded-[3px] border border-[var(--line)] bg-[#ffffff] p-1",
+        "relative inline-grid shrink-0 place-items-center overflow-hidden rounded-lg border border-border bg-white p-1",
         SIZES[size],
         className,
       )}
     >
+      <span className={cn("cr !h-full !w-full !rounded-md", badge.cls)} aria-hidden="true">
+        {badge.code}
+      </span>
       <SafeImage
         src={resolved}
         alt={alt}
-        className="h-full w-full object-contain"
-        fallback={
-          <span className={cn("cr", badge.cls)} aria-hidden="true">
-            {badge.code}
-          </span>
-        }
+        revealOnLoad
+        className="absolute inset-1 h-[calc(100%-8px)] w-[calc(100%-8px)] bg-white object-contain"
+        fallback={null}
       />
     </span>
   );
@@ -268,11 +226,12 @@ export function EventCrest({
   const entry = LEAGUES.find((item) => item.code === league);
   const tag = entry?.tag ?? (league || "PBA");
   const label = alt ?? name ?? tag;
+  const resolved = src ? (eventArtUrl(src, 128) ?? src) : null;
 
   const fallback = (
     <span
       className={cn(
-        "grid h-full w-full place-items-center rounded-[3px] font-display font-bold tracking-[0.04em] text-white",
+        "grid h-full w-full place-items-center rounded-lg font-mono text-xs font-semibold tracking-wide text-white",
         leagueTagClass(league),
       )}
     >
@@ -280,11 +239,11 @@ export function EventCrest({
     </span>
   );
 
-  if (!src) {
+  if (!resolved) {
     return (
       <span
         role="img"
-        className={cn("inline-grid shrink-0 place-items-center", CREST_SIZES[size], className)}
+        className={cn("inline-grid shrink-0 place-items-center overflow-hidden rounded-lg", CREST_SIZES[size], className)}
         aria-label={label}
       >
         {fallback}
@@ -295,12 +254,19 @@ export function EventCrest({
   return (
     <span
       className={cn(
-        "inline-grid shrink-0 place-items-center overflow-hidden rounded-[3px] border border-[var(--line)] bg-[#ffffff] p-1",
+        "relative inline-grid shrink-0 place-items-center overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900",
         CREST_SIZES[size],
         className,
       )}
     >
-      <SafeImage src={src} alt={alt ?? ""} className="h-full w-full object-contain" fallback={fallback} />
+      {fallback}
+      <SafeImage
+        src={resolved}
+        alt={alt ?? ""}
+        revealOnLoad
+        className="absolute inset-0 h-full w-full bg-zinc-900 object-contain p-1"
+        fallback={null}
+      />
     </span>
   );
 }

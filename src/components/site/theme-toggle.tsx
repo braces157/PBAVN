@@ -1,41 +1,48 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Moon, Sun } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type Theme = "light" | "dark";
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>("light");
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const current = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
     setTheme(current);
-    setMounted(true);
   }, []);
 
   const toggle = () => {
     const next: Theme = theme === "dark" ? "light" : "dark";
+    const root = document.documentElement;
+    root.dataset.themeSwitching = "1";
     setTheme(next);
-    document.documentElement.dataset.theme = next;
-    document.documentElement.style.colorScheme = next;
+    root.dataset.theme = next;
+    root.style.colorScheme = next;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        delete root.dataset.themeSwitching;
+      });
+    });
     try {
       localStorage.setItem("pba-theme", next);
     } catch {
-      /* storage unavailable */
+      // Storage blocked in private contexts
     }
   };
 
   return (
-    <button
-      id="theme"
+    <Button
       type="button"
+      variant="outline"
+      size="icon"
       onClick={toggle}
-      aria-label={mounted && theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-      title={mounted && theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-      className="tbtn"
+      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+      title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
     >
-      <span suppressHydrationWarning>{mounted ? (theme === "dark" ? "Light" : "Dark") : "Theme"}</span>
-    </button>
+      {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+    </Button>
   );
 }

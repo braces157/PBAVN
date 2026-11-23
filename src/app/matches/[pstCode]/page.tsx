@@ -103,14 +103,14 @@ export default async function MatchPage({
 
   if (analysed.length === 0) {
     return (
-      <div className="mx-auto max-w-[1300px] px-3 py-6">
+      <div className="wrap py-6">
         <h1 className="sr-only">Match #{pstCode} Scorecard</h1>
-        <nav className="mb-4 flex items-center gap-1.5 text-[11.5px] text-fog-500" aria-label="Breadcrumb">
-          <Link href="/schedule" className="hover:text-carom-300">
+        <nav className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground" aria-label="Breadcrumb">
+          <Link href="/schedule" className="hover:text-foreground">
             Schedule
           </Link>
-          <span aria-hidden="true">/</span>
-          <span className="text-fog-300">Match #{pstCode}</span>
+          <span aria-hidden="true" className="text-border">/</span>
+          <span className="text-foreground">Match #{pstCode}</span>
         </nav>
         <EmptyState
           title="No scorecard for this match"
@@ -128,39 +128,39 @@ export default async function MatchPage({
   const covered = summary.coveredSets;
 
   return (
-    <div className="mx-auto max-w-[1300px] px-3 pb-10 pt-4">
-      <nav className="mb-4 flex flex-wrap items-center justify-between gap-3 text-[11.5px] text-fog-500" aria-label="Breadcrumb">
+    <div className="wrap pb-10 pt-5">
+      <nav className="mb-4 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground" aria-label="Breadcrumb">
         <div className="flex flex-wrap items-center gap-1.5">
-          <Link href="/schedule" className="transition-colors hover:text-carom-300">
+          <Link href="/schedule" className="transition-colors hover:text-foreground">
             Schedule
           </Link>
           {context.title ? (
             <>
-              <span aria-hidden="true" className="text-ink-600">/</span>
+              <span aria-hidden="true" className="text-border">/</span>
               {context.eventSeq ? (
-                <Link href={`/schedule/${context.eventSeq}`} className="transition-colors hover:text-carom-300">
+                <Link href={`/schedule/${context.eventSeq}`} className="transition-colors hover:text-foreground">
                   {context.title}
                 </Link>
               ) : (
-                <span className="text-fog-300">{context.title}</span>
+                <span className="text-foreground">{context.title}</span>
               )}
             </>
           ) : (
             <>
-              <span aria-hidden="true" className="text-ink-600">/</span>
-              <span className="text-fog-300">Match Scorecard</span>
+              <span aria-hidden="true" className="text-border">/</span>
+              <span className="text-foreground">Match Scorecard</span>
             </>
           )}
           {context.round && (
             <>
-              <span aria-hidden="true" className="text-ink-600">/</span>
-              <span className="text-fog-300">{context.round}</span>
+              <span aria-hidden="true" className="text-border">/</span>
+              <span className="text-foreground">{context.round}</span>
             </>
           )}
-          <span aria-hidden="true" className="text-ink-600">/</span>
-          <span className="tnum text-fog-400">#{pstCode}</span>
+          <span aria-hidden="true" className="text-border">/</span>
+          <span className="font-mono tabular-nums text-muted-foreground">#{pstCode}</span>
         </div>
-        <span className="tnum text-[11px] text-fog-500">
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
           {analysed.length} sets{covered > 0 ? ` · ${covered} with inning sheet` : ""}
         </span>
       </nav>

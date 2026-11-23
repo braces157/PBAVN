@@ -29,13 +29,15 @@ export default function RouteError({
       role="alert"
       className="mx-auto flex min-h-[60vh] max-w-[640px] flex-col items-center justify-center px-4 text-center"
     >
-      <p className="eyebrow">Request error</p>
-      <h1 className="display-md mt-2.5 text-fog-100">Unable to load this page</h1>
-      <p className="mt-2.5 max-w-md text-[13px] leading-relaxed text-fog-450">
+      <p className="font-mono text-xs font-medium uppercase tracking-wider text-muted-foreground">Request error</p>
+      <h1 className="mt-2.5 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+        Unable to load this page
+      </h1>
+      <p className="mt-2.5 max-w-md text-sm leading-relaxed text-muted-foreground">
         The association&apos;s data service may be temporarily unreachable or returned an unexpected response.
       </p>
       {error.digest && (
-        <p className="tnum mt-3 rounded border border-ink-700 bg-ink-900 px-2.5 py-1 text-[10.5px] text-fog-500">
+        <p className="mt-3 rounded-md border border-border bg-card px-2.5 py-1 font-mono text-xs text-muted-foreground">
           ref {error.digest}
         </p>
       )}
@@ -43,13 +45,13 @@ export default function RouteError({
         <button
           type="button"
           onClick={handleRetry}
-          className="press rounded-[3px] bg-[var(--nav)] px-4 py-2 text-[12.5px] font-semibold text-white transition-colors hover:bg-[var(--link)]"
+          className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           Retry
         </button>
         <Link
           href="/"
-          className="rounded-md border border-ink-700 bg-ink-900 px-4 py-2 text-[12.5px] font-semibold text-fog-200 transition-colors hover:border-carom-400/50 hover:text-carom-300"
+          className="inline-flex h-9 items-center rounded-md border border-border bg-background px-4 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:no-underline"
         >
           Matches home
         </Link>
@@ -57,9 +59,9 @@ export default function RouteError({
           href="https://www.pbatour.org/en/index"
           target="_blank"
           rel="noreferrer noopener"
-          className="rounded-md border border-ink-700 bg-ink-900 px-4 py-2 text-[12.5px] font-semibold text-fog-200 transition-colors hover:border-carom-400/50 hover:text-carom-300"
+          className="inline-flex h-9 items-center rounded-md border border-border bg-background px-4 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:no-underline"
         >
-          pbatour.org <span aria-hidden="true">↗</span>
+          pbatour.org <span aria-hidden="true" className="ml-1">↗</span>
           <span className="sr-only"> (opens in new tab)</span>
         </a>
       </div>

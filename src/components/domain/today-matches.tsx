@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { Radio } from "lucide-react";
 import { cn } from "@/components/ui/primitives";
+import { Badge } from "@/components/ui/badge";
 import type { DayBoard, DayMatch, MatchState } from "@/lib/pba/matches-on-day";
 import { leagueShort } from "@/lib/normalize";
 import { leagueTagTone } from "./scoreboard";
@@ -106,28 +108,23 @@ function MatchLine({ match }: { match: DayMatch }) {
   const upcoming = match.state !== "final";
   const body = (
     <>
-      <span className="flex w-[52px] shrink-0 flex-col items-start gap-0.5">
+      <span className="flex w-[60px] shrink-0 flex-col items-start gap-0.5">
         {match.state === "live" ? (
-          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold uppercase leading-none tracking-[0.06em] text-live-400">
-            <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400">
+            <Radio className="size-3" />
             Live
           </span>
         ) : (
-          <span className="tnum text-[11px] font-semibold leading-none text-fog-400">
+          <span className="mono text-xs font-semibold leading-none text-foreground">
             {match.clock ?? (match.state === "final" ? "FT" : "—")}
           </span>
         )}
-        <span
-          className={cn(
-            "truncate text-[9px] font-bold uppercase leading-none tracking-[0.05em]",
-            match.state === "live" ? "text-live-400/80" : "text-fog-550",
-          )}
-        >
+        <span className="truncate text-[11px] font-medium text-muted-foreground">
           {shortRound(match.round)}
         </span>
       </span>
 
-      <span className="min-w-0 flex-1 space-y-[3px]">
+      <span className="min-w-0 flex-1 space-y-1">
         <SideRow
           name={match.home}
           memCode={match.homeMemCode}
@@ -148,10 +145,16 @@ function MatchLine({ match }: { match: DayMatch }) {
         />
       </span>
 
-      <span className="flex w-[24px] shrink-0 flex-col items-end justify-center gap-[3px]">
-        <ScoreCell value={upcoming ? null : match.homeSets} won={match.homeWon} />
-        <ScoreCell value={upcoming ? null : match.awaySets} won={match.awayWon} />
-      </span>
+      {match.state === "next" ? (
+        <Badge variant="outline" className="mono shrink-0 text-[11px]">
+          {match.clock ? `${match.clock} KST` : "Scheduled"}
+        </Badge>
+      ) : (
+        <span className="flex w-[28px] shrink-0 flex-col items-end justify-center gap-1">
+          <ScoreCell value={match.homeSets} won={match.homeWon} />
+          <ScoreCell value={match.awaySets} won={match.awayWon} />
+        </span>
+      )}
     </>
   );
 

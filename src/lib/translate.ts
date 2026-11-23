@@ -690,6 +690,15 @@ export function extractArticleLead(html: string | null | undefined, title: strin
   return prose.length <= max ? prose : `${prose.slice(0, max - 1).trimEnd()}…`;
 }
 
+function polishPbaEnglish(text: string): string {
+  return text
+    .replace(/\b(?:Srong|Thong|Slong)\s+Piavib?\b/gi, "Sruong Pheavy")
+    .replace(/\b(?:Srong|Slong)\b/g, "Sruong Pheavy")
+    .replace(/\bHwons\b/gi, "Huons")
+    .replace(/\bHanacard\b/gi, "Hana Card")
+    .replace(/\bCrown\s*Haitai\b/gi, "Crown Haitai");
+}
+
 export async function translateArticleSummaries(
   articles: Article[],
   excerptChars = 160,
@@ -699,8 +708,8 @@ export async function translateArticleSummaries(
   const combined = await translateManyKoToEn([...titles, ...leads]);
   return articles.map((article, i) => ({
     ...article,
-    title: combined[i],
-    summary: combined[articles.length + i],
+    title: polishPbaEnglish(combined[i]),
+    summary: polishPbaEnglish(combined[articles.length + i]),
   }));
 }
 

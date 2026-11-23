@@ -12,6 +12,7 @@ import {
 import { getCurrentSeason } from "@/lib/pba/service";
 import { LEAGUES, leagueByCode, leagueShort } from "@/lib/normalize";
 import { fmtRange, grouped, isoDay, kstDay, parseIsoDay, relativeDay, shiftIsoDay } from "@/lib/format";
+import { ArrowRight } from "lucide-react";
 import { DateRail, DateStrip } from "@/components/domain/date-rail";
 import { Panel, EmptyState, LiveChip, Stat, cn } from "@/components/ui/primitives";
 import { boardSummary, TodayMatches } from "@/components/domain/today-matches";
@@ -76,28 +77,28 @@ export default async function SchedulePage({ searchParams }: PageProps) {
 
   return (
     <>
-      <header className="border-b border-ink-800 bg-ink-900">
-        <div className="mx-auto max-w-[1300px] px-3 py-3.5">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                <p className="eyebrow">Calendar</p>
-                <span aria-hidden="true" className="text-ink-600">
+      <header className="border-b border-border bg-card">
+        <div className="wrap py-5 sm:py-6">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                <span className="font-mono font-medium uppercase tracking-wider">Calendar</span>
+                <span aria-hidden="true" className="text-border">
                   /
                 </span>
-                <p className="text-[12.5px] text-fog-450">
+                <span>
                   {scoped.length} events
                   {league ? ` on ${leagueByCode(league).name}` : " across all circuits"}
                   {" · "}
-                  {liveNow.length > 0 ? `${liveNow.length} live now` : "nothing live"}
-                </p>
+                  {liveNow.length > 0 ? `${liveNow.length} live now` : "none live"}
+                </span>
               </div>
-              <h1 className="display-md mt-1 text-fog-100">
-                {seasonCode}-{Number(seasonCode) + 1} Tour Schedule
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                {seasonCode}–{Number(seasonCode) + 1} Tour Schedule
               </h1>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1">
+            <div className="inline-flex flex-wrap items-center gap-0.5 rounded-lg bg-secondary p-1">
               <FilterChip href={query({ league: "" })} active={!league} label="All" count={seasonEvents.length} />
               {LEAGUES.map((entry) => {
                 const count = seasonEvents.filter((event) => event.league === entry.code).length;
@@ -115,28 +116,30 @@ export default async function SchedulePage({ searchParams }: PageProps) {
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-1">
-            <span className="mr-1.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-fog-500">Season</span>
-            {seasons.map((entry) => (
-              <Link
-                key={entry.code}
-                href={query({ season: entry.code })}
-                aria-current={entry.code === seasonCode ? "page" : undefined}
-                className={cn(
-                  "tnum rounded-[3px] border px-2.5 py-0.5 text-[11.5px] font-semibold transition-colors",
-                  entry.code === seasonCode
-                    ? "border-[var(--line-2)] border-b-2 border-b-[var(--yellow)] bg-[var(--bar)] text-[var(--text)]"
-                    : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:border-[var(--link)] hover:text-[var(--text)]",
-                )}
-              >
-                {entry.code}
-              </Link>
-            ))}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Season</span>
+            <div className="inline-flex flex-wrap items-center gap-0.5 rounded-lg bg-secondary p-1">
+              {seasons.map((entry) => (
+                <Link
+                  key={entry.code}
+                  href={query({ season: entry.code })}
+                  aria-current={entry.code === seasonCode ? "page" : undefined}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 font-mono text-xs font-medium tabular-nums transition-colors hover:no-underline",
+                    entry.code === seasonCode
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {entry.code}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1300px] px-3 pb-10 pt-4">
+      <div className="wrap pb-10 pt-5">
         <div className="mb-3 lg:hidden">
           <DateStrip
             days={railDays}
@@ -168,15 +171,16 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                 focusedIsPast(focusDay, today) ? (
                   <Link
                     href={query({ day: today })}
-                    className="text-[11.5px] font-semibold text-carom-300 transition-colors hover:text-carom-400"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:no-underline"
                   >
-                    Today →
+                    Today
+                    <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                   </Link>
                 ) : null
               }
             >
               {onFocus.length > 0 ? (
-                <ul className="divide-y divide-ink-800/70">
+                <ul className="divide-y divide-border/60">
                   {onFocus.map((event) => (
                     <li key={event.id}>
                       <EventRow event={event} />
@@ -184,7 +188,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                   ))}
                 </ul>
               ) : (
-                <p className="px-3.5 py-4 text-[12.5px] text-fog-450">
+                <p className="px-4 py-5 text-sm text-muted-foreground">
                   No event scheduled on this date. Pick another day on the rail, or browse the season list below.
                 </p>
               )}
@@ -194,12 +198,12 @@ export default async function SchedulePage({ searchParams }: PageProps) {
               key={`${focusDay}-${league}`}
               fallback={
                 <Panel title="Matches on this day" meta="loading fixtures…">
-                  <div className="space-y-px py-1.5" aria-hidden="true">
+                  <div className="space-y-1 py-2" aria-hidden="true">
                     {[0, 1, 2].map((row) => (
-                      <div key={row} className="flex items-center gap-2.5 px-3.5 py-2.5">
-                        <span className="h-[10px] w-[36px] rounded bg-ink-800" />
-                        <span className="h-[10px] flex-1 rounded bg-ink-800" />
-                        <span className="h-[10px] w-[18px] rounded bg-ink-800" />
+                      <div key={row} className="flex items-center gap-3 px-4 py-2.5">
+                        <span className="h-3 w-10 rounded bg-secondary" />
+                        <span className="h-3 flex-1 rounded bg-secondary" />
+                        <span className="h-3 w-6 rounded bg-secondary" />
                       </div>
                     ))}
                   </div>
@@ -211,7 +215,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
 
             {liveExtra.length > 0 && (
               <Panel title="Other live events" meta={String(liveExtra.length)}>
-                <ul className="divide-y divide-ink-800/70">
+                <ul className="divide-y divide-border/60">
                   {liveExtra.map((event) => (
                     <li key={event.id}>
                       <EventRow event={event} live />
@@ -240,37 +244,40 @@ export default async function SchedulePage({ searchParams }: PageProps) {
 
           <aside className="space-y-4">
             <Panel title="Season summary">
-              <dl className="grid grid-cols-2 gap-px bg-ink-750">
-                <div className="bg-ink-900 p-3.5">
+              <dl className="grid grid-cols-2 gap-px bg-border/70">
+                <div className="bg-card p-3.5">
                   <Stat label="Events" value={grouped(scoped.length)} />
                 </div>
-                <div className="bg-ink-900 p-3.5">
+                <div className="bg-card p-3.5">
                   <Stat label="Live" value={grouped(liveNow.length)} accent={liveNow.length > 0} />
                 </div>
-                <div className="bg-ink-900 p-3.5">
+                <div className="bg-card p-3.5">
                   <Stat label="Upcoming" value={grouped(upcoming.length)} />
                 </div>
-                <div className="bg-ink-900 p-3.5">
+                <div className="bg-card p-3.5">
                   <Stat label="Completed" value={grouped(done.length)} />
                 </div>
               </dl>
             </Panel>
 
             <Panel title="Circuits">
-              <ul className="divide-y divide-ink-800/70">
+              <ul className="divide-y divide-border/60">
                 {LEAGUES.map((entry) => {
                   const count = seasonEvents.filter((event) => event.league === entry.code).length;
                   return (
                     <li key={entry.code}>
                       <Link
                         href={query({ league: entry.code })}
-                        className={cn("row-hover flex items-center justify-between gap-2 px-3.5 py-2", league === entry.code && "bg-ink-850")}
+                        className={cn(
+                          "flex items-center justify-between gap-2 px-4 py-2.5 transition-colors hover:bg-accent/50 hover:no-underline",
+                          league === entry.code && "bg-secondary/70",
+                        )}
                       >
                         <span className="flex items-center gap-2">
                           <span className={cn("h-2 w-2 rounded-full", toneDot(entry.tone))} />
-                          <span className="text-[12.5px] font-medium text-fog-100">{entry.name}</span>
+                          <span className="text-[13px] font-medium text-foreground">{entry.name}</span>
                         </span>
-                        <span className="tnum text-[11px] text-fog-500">{count}</span>
+                        <span className="font-mono text-xs tabular-nums text-muted-foreground">{count}</span>
                       </Link>
                     </li>
                   );
@@ -280,18 +287,26 @@ export default async function SchedulePage({ searchParams }: PageProps) {
 
             {seasons.length > 0 && (
               <Panel title="Seasons">
-                <ul className="divide-y divide-ink-800/70">
+                <ul className="divide-y divide-border/60">
                   {seasons.map((entry) => (
                     <li key={entry.code}>
                       <Link
                         href={query({ season: entry.code })}
-                        className="row-hover flex items-center justify-between gap-2 px-3.5 py-2"
+                        className={cn(
+                          "flex items-center justify-between gap-2 px-4 py-2.5 transition-colors hover:bg-accent/50 hover:no-underline",
+                          entry.code === seasonCode && "bg-secondary/70",
+                        )}
                         aria-current={entry.code === seasonCode ? "page" : undefined}
                       >
-                        <span className={cn("tnum text-[12.5px] font-semibold", entry.code === seasonCode ? "text-carom-300" : "text-fog-200")}>
-                          {entry.code}-{Number(entry.code) + 1}
+                        <span
+                          className={cn(
+                            "font-mono text-xs tabular-nums",
+                            entry.code === seasonCode ? "font-semibold text-foreground" : "text-muted-foreground",
+                          )}
+                        >
+                          {entry.code}–{Number(entry.code) + 1}
                         </span>
-                        <span className="tnum text-[11px] text-fog-500">{entry.count}</span>
+                        <span className="font-mono text-xs tabular-nums text-muted-foreground">{entry.count}</span>
                       </Link>
                     </li>
                   ))}
@@ -330,31 +345,34 @@ function EventRow({ event, live = false }: { event: CalendarEvent; live?: boolea
       : "TBA";
 
   return (
-    <Link href={`/schedule/${event.id}`} className="row-hover flex items-center gap-3 px-3.5 py-2.5">
-      <span className="flex w-[48px] shrink-0 flex-col items-start gap-0.5">
+    <Link
+      href={`/schedule/${event.id}`}
+      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50 hover:no-underline"
+    >
+      <span className="flex w-12 shrink-0 flex-col items-start gap-0.5">
         <span
           className={cn(
-            "tnum text-[10px] font-bold uppercase tracking-[0.05em]",
-            running ? "text-live-400" : "text-fog-400",
+            "font-mono text-[10.5px] font-semibold uppercase tabular-nums",
+            running ? "text-rose-500" : "text-muted-foreground",
           )}
         >
           {gutterTop}
         </span>
-        <span className={cn("text-[9px] font-bold uppercase tracking-[0.05em]", toneText(league.tone))}>
+        <span className={cn("font-mono text-[10px] font-semibold uppercase tracking-wide", toneText(league.tone))}>
           {leagueShort(event.league)}
         </span>
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-semibold text-fog-100">{event.title}</span>
-        <span className="mt-0.5 block truncate text-[11px] text-fog-500">
+        <span className="block truncate text-[13.5px] font-medium text-foreground">{event.title}</span>
+        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
           {event.status === "completed" ? "Final" : fmtRange(event.start, event.end)}
-          <span className="mx-1.5 text-ink-600">·</span>
+          <span className="mx-1.5 text-border">·</span>
           {event.venue}
         </span>
       </span>
       <span className="hidden shrink-0 text-right sm:block">
-        <span className="block text-[9.5px] font-bold uppercase tracking-[0.06em] text-fog-550">Prize</span>
-        <span className="tnum block text-[11.5px] font-semibold text-fog-200">{shortPrize(event.prizePool)}</span>
+        <span className="block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Prize</span>
+        <span className="block font-mono text-xs font-medium tabular-nums text-foreground">{shortPrize(event.prizePool)}</span>
       </span>
       {running ? <LiveChip /> : null}
     </Link>
@@ -377,10 +395,10 @@ function SeasonList({ events }: { events: CalendarEvent[] }) {
     <div>
       {months.map((month) => (
         <div key={month.key}>
-          <p className="bg-ink-850/70 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-fog-450">
+          <p className="border-y border-border/60 bg-secondary/50 px-4 py-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground first:border-t-0">
             {month.label}
           </p>
-          <ul className="divide-y divide-ink-800/70">
+          <ul className="divide-y divide-border/60">
             {month.rows.map((event) => (
               <li key={event.id}>
                 <EventRow event={event} />
@@ -409,14 +427,14 @@ function FilterChip({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "rounded-[3px] border px-2.5 py-1 text-[11.5px] font-semibold transition-colors",
+        "rounded-md px-2.5 py-1 text-xs font-medium transition-colors hover:no-underline",
         active
-          ? "border-[var(--line-2)] border-b-2 border-b-[var(--yellow)] bg-[var(--bar)] text-[var(--text)]"
-          : "border-[var(--line)] bg-[var(--panel)] text-[var(--text-2)] hover:border-[var(--link)] hover:text-[var(--text)]",
+          ? "bg-background text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
       )}
     >
       {label}
-      <span className="tnum ml-1.5 text-[10px] text-fog-550">{count}</span>
+      <span className="ml-1.5 font-mono text-[11px] tabular-nums opacity-70">{count}</span>
     </Link>
   );
 }

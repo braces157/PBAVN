@@ -1,27 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import localFont from "next/font/local";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "flag-icons/css/flag-icons.min.css";
 import "./globals.css";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
 import { siteUrl } from "@/lib/site";
-
-const ibmPlexSans = localFont({
-  src: "./fonts/ibm-plex-sans-latin.woff2",
-  weight: "400 700",
-  variable: "--font-sans",
-  display: "swap",
-});
-
-const ibmPlexCondensed = localFont({
-  src: [
-    { path: "./fonts/ibm-plex-condensed-500-latin.woff2", weight: "500", style: "normal" },
-    { path: "./fonts/ibm-plex-condensed-600-latin.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/ibm-plex-condensed-700-latin.woff2", weight: "700", style: "normal" },
-  ],
-  variable: "--font-cond",
-  display: "swap",
-});
 
 const THEME_INIT = `(function(){try{var t=localStorage.getItem("pba-theme");if(t!=="dark"&&t!=="light"){t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t;}catch(e){}})();`;
 
@@ -61,8 +45,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#1f2933" },
-    { media: "(prefers-color-scheme: dark)", color: "#0e1217" },
+    { media: "(prefers-color-scheme: light)", color: "#0A1A30" },
+    { media: "(prefers-color-scheme: dark)", color: "#071222" },
   ],
   colorScheme: "light dark",
 };
@@ -73,7 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       data-theme="light"
       suppressHydrationWarning
-      className={`${ibmPlexSans.variable} ${ibmPlexCondensed.variable}`}
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { cn } from "./primitives";
+import { FollowButton } from "./follow-button";
 
 interface IndexRow {
   c: string;
@@ -55,7 +56,15 @@ function search(rows: IndexRow[], term: string): IndexRow[] {
     .map((entry) => entry.row);
 }
 
-export function PlayerSearch({ variant = "header" }: { variant?: "header" | "page" }) {
+export function PlayerSearch({
+  variant = "header",
+  autoFocus = false,
+  onNavigate,
+}: {
+  variant?: "header" | "page" | "mobile";
+  autoFocus?: boolean;
+  onNavigate?: () => void;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const baseId = useId();
@@ -74,6 +83,12 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
     setOpen(false);
     setTerm("");
   }, [pathname]);
+
+  useEffect(() => {
+    if (autoFocus) {
+      inputRef.current?.focus();
+    }
+  }, [autoFocus]);
 
   useEffect(() => {
     return () => {
@@ -152,6 +167,7 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
   const go = (row: IndexRow) => {
     setOpen(false);
     setTerm("");
+    onNavigate?.();
     router.push(`/players/${row.c}`);
   };
 
@@ -160,6 +176,7 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
     if (event.key === "Escape") {
       setOpen(false);
       inputRef.current?.blur();
+      onNavigate?.();
       return;
     }
     if (event.key === "Enter") {
@@ -171,6 +188,7 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
         go(picked);
       } else {
         setOpen(false);
+        onNavigate?.();
         router.push(`/players?q=${encodeURIComponent(trimmed)}`);
       }
       return;
@@ -187,28 +205,41 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
 
   const showPanel = open && term.trim().length >= 2;
   const isHeader = variant === "header";
+  const isMobile = variant === "mobile";
 
   return (
     <div
       ref={containerRef}
-      className={cn("relative", isHeader ? "min-w-0 flex-1 lg:flex-none" : "w-full")}
+      className={cn(
+        "relative",
+        isHeader ? "hidden w-[185px] sm:block xl:w-[235px]" : "w-full",
+      )}
     >
       <label
         className={
-          isHeader
-            ? "srch"
-            : "flex items-center gap-2 rounded-[3px] border border-[var(--line-2)] bg-[var(--panel)] px-2.5 py-1.5 text-[13px] text-[var(--muted)] focus-within:border-[var(--link)]"
+          isHeader || isMobile
+            ? "relative block w-full"
+            : "flex items-center gap-2 rounded-[6px] border border-[var(--line-2)] bg-[var(--panel)] px-2.5 py-1.5 text-[13.5px] text-[var(--muted)] focus-within:border-[var(--link)]"
         }
       >
         <svg
-          width="13"
-          height="13"
-          viewBox="0 0 16 16"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           aria-hidden="true"
-          className="shrink-0 opacity-75"
+          className={
+            isHeader || isMobile
+              ? "pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--ink-3)]"
+              : "shrink-0 opacity-75"
+          }
         >
-          <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" strokeWidth="1.8" />
-          <path d="m11 11 4 4" stroke="currentColor" strokeWidth="1.8" />
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
         </svg>
         <input
           ref={inputRef}
@@ -224,7 +255,7 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
             void load();
           }}
           onKeyDown={onKeyDown}
-          placeholder="Search players"
+          placeholder="Search players..."
           aria-label="Search players"
           role="combobox"
           aria-expanded={showPanel}
@@ -234,18 +265,24 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
           }
           aria-autocomplete="list"
           className={cn(
-            "min-w-0 flex-1 bg-transparent outline-none",
-            isHeader
-              ? "text-[12.5px] text-white placeholder:text-[#98a6b3]"
-              : "text-[13px] text-[var(--text)] placeholder:text-[var(--muted)]",
+            isHeader || isMobile
+              ? "inline-search-input"
+              : "min-w-0 flex-1 bg-transparent text-[13.5px] text-[var(--text)] outline-none placeholder:text-[var(--muted)]",
           )}
         />
-        <kbd className={isHeader ? "hidden sm:inline-block" : "hidden"}>/</kbd>
+        {isHeader && (
+          <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-[var(--line)] bg-[var(--surface)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--ink-3)] sm:inline-block">
+            /
+          </kbd>
+        )}
       </label>
 
       {showPanel && (
         <div
-          className="absolute right-0 top-[calc(100%+4px)] z-50 w-[min(280px,calc(100vw-16px))] rounded-[3px] border border-[var(--line-2)] bg-[var(--panel)] text-[var(--text)] shadow-lg sm:left-0 sm:right-0 sm:w-auto sm:min-w-[270px]"
+          className={cn(
+            "nav-popover",
+            isMobile && "left-0 right-0 w-full max-w-none",
+          )}
         >
           <span className="sr-only" role="status" aria-live="polite">
             {loading && !rows
@@ -293,16 +330,17 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
                   id={`${baseId}-option-${index}`}
                   role="option"
                   aria-selected={index === safeCursor}
+                  className={cn(
+                    "flex items-center gap-1 pr-2 transition-colors",
+                    index === safeCursor ? "bg-[var(--hover)]" : "hover:bg-[var(--hover)]",
+                  )}
                 >
                   <button
                     type="button"
                     tabIndex={-1}
                     onMouseEnter={() => setCursor(index)}
                     onClick={() => go(row)}
-                    className={cn(
-                      "flex w-full items-center gap-2 px-2.5 py-2 text-left transition-colors",
-                      index === safeCursor ? "bg-[var(--hover)]" : "hover:bg-[var(--hover)]",
-                    )}
+                    className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left"
                   >
                     <span className="av shrink-0" aria-hidden="true">
                       {(row.e || row.k).split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase()}
@@ -322,6 +360,10 @@ export function PlayerSearch({ variant = "header" }: { variant?: "header" | "pag
                       {row.l}
                     </span>
                   </button>
+                  <FollowButton
+                    compact
+                    player={{ code: row.c, name: row.e || row.k, circuit: row.l }}
+                  />
                 </li>
               ))}
             </ul>

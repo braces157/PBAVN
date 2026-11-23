@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { photoSrcSet, photoUrl } from "@/lib/photo";
 
 /**
  * Upstream stores a photo path for every member, but only about half of those
  * files were ever uploaded — the URL simply 404s. Rather than render a broken
- * image (and its alt-text flash) we swap in a typographic fallback the first time
- * a load fails.
+ * or blank image we swap in a typographic fallback on error AND check
+ * `img.complete && img.naturalWidth === 0` after hydration.
  *
- * Pass `path` — the raw upstream photo path — to get the resized big variant
- * from `/api/photo`; `src` is for URLs that are already final.
+ * When `revealOnLoad` is set (used by layered avatars where initials sit
+ * underneath), the `<img>` stays `opacity-0` until it actually decodes pixels
+ * (`naturalWidth > 0`), so slow or 404 portraits never flash an empty box.
  */
 export function SafeImage({
   src,
@@ -20,6 +21,7 @@ export function SafeImage({
   className,
   fallback,
   loading = "lazy",
+  revealOnLoad = false,
 }: {
   src?: string | null;
   path?: string | null;
@@ -29,23 +31,43 @@ export function SafeImage({
   className?: string;
   fallback: ReactNode;
   loading?: "lazy" | "eager";
+  revealOnLoad?: boolean;
 }) {
   const resolved = (path ? photoUrl(path, width) : null) ?? src ?? null;
   const srcSet = path ? photoSrcSet(path, [width * 2, width * 3]) : undefined;
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    const el = imgRef.current;
+    if (!el || !resolved) return;
+    if (el.complete) {
+      if (el.naturalWidth === 0) setFailedSrc(resolved);
+      else setLoadedSrc(resolved);
+    }
+  }, [resolved]);
 
   if (!resolved || failedSrc === resolved) return <>{fallback}</>;
+
+  const visible = !revealOnLoad || loadedSrc === resolved;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      ref={imgRef}
       src={resolved}
       srcSet={srcSet}
       alt={alt}
       loading={loading}
       decoding="async"
+      onLoad={() => setLoadedSrc(resolved)}
       onError={() => setFailedSrc(resolved)}
-      className={className}
+      className={
+        revealOnLoad
+          ? `${className ?? ""} transition-opacity duration-150 ${visible ? "opacity-100" : "opacity-0"}`
+          : className
+      }
     />
   );
 }

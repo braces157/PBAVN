@@ -23,7 +23,7 @@ import { IN_PLAY, getLiveBoard, getScorecard } from "./scoreboard";
 import { fetchTeamFragment } from "./http";
 import { parseLiveTeamFixtures, type LiveBout, type LiveTeamFixture } from "./team-live-parse";
 import { getPlayerNameIndex, resolveKoreanName } from "./service";
-import { hasHangul } from "../format";
+import { cleanPlayerName, hasHangul } from "../format";
 import { analyseSet } from "../match";
 import type { AnalysedSet } from "../match";
 
@@ -82,8 +82,8 @@ export interface LiveFeed {
   origin: LiveSource;
 }
 
-/** Enough to cover a multi-table session without hammering the terminal. */
-const MAX_MATCHES = 4;
+/** Enough to cover a full 8-table stadium session without dropping live tables. */
+const MAX_MATCHES = 8;
 
 function toLiveMatch(
   pstCode: string,
@@ -105,7 +105,7 @@ function toLiveMatch(
     pstCode,
     watchUrl,
     sides: latest.sides.map((side, index) => ({
-      name: side.name,
+      name: cleanPlayerName(side.name) || side.name,
       setsWon: won[index] ?? 0,
       points: side.points,
       innings: side.innings,

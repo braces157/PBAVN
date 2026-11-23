@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import { getTeamStandings, getTourHistory } from "@/lib/pba/api";
 import {
   englishVenue,
@@ -11,11 +11,13 @@ import {
   seasonLabel,
 } from "@/lib/pba/service";
 import { getLiveFeed } from "@/lib/pba/live";
+import { getDayBoard } from "@/lib/pba/matches-on-day";
 import { normalizeTeam, leagueByCode, leagueShort } from "@/lib/normalize";
-import { fmtRange, grouped, kstDay, shiftIsoDay, wonCompact } from "@/lib/format";
-import { LiveBoard, LiveMatchBoards } from "@/components/domain/live-board";
+import { fmtRange, kstDay, shiftIsoDay, wonCompact } from "@/lib/format";
+import { LiveArena, type LiveArenaUpcomingItem } from "@/components/domain/live-arena";
 import { StandingsTable } from "@/components/domain/standings-table";
-import { Chip, LiveChip, Panel, TextLink } from "@/components/ui/primitives";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export const revalidate = 30;
 
@@ -31,34 +33,11 @@ const BROADCASTERS = [
   { name: "Billiards TV", href: "https://www.pbatour.org/en/index" },
 ];
 
-async function ScoringNowBadge() {
-  const feed = await getLiveFeed();
-  return feed.available ? <LiveChip label="Scoring now" /> : null;
-}
-
-async function LiveWireSection({ tourCode }: { tourCode?: string }) {
-  const feed = await getLiveFeed();
-  return feed.matches.length > 0 ? (
-    <LiveMatchBoards initial={feed} tourCode={tourCode} />
-  ) : (
-    <LiveBoard initial={feed} tourCode={tourCode} />
-  );
-}
-
-function LiveWireSkeleton() {
-  return (
-    <div className="surface p-5" aria-hidden="true">
-      <div className="h-4 w-36 rounded bg-[var(--bar-2)]" />
-      <div className="mt-4 space-y-2.5">
-        <div className="h-12 rounded bg-[var(--bar-2)]" />
-        <div className="h-12 rounded bg-[var(--bar-2)]" />
-      </div>
-    </div>
-  );
-}
-
 export default async function LivePage() {
-  const [season, teamSeason, tours] = await Promise.all([
+  const today = kstDay();
+  const [feed, todayBoard, season, teamSeason, tours] = await Promise.all([
+    getLiveFeed(),
+    getDayBoard(today),
     getCurrentSeason(),
     getActiveTeamSeason(),
     getTourHistory(),
@@ -77,6 +56,20 @@ export default async function LivePage() {
 
   const standings = rawStandings.map(normalizeTeam);
 
+  const upcomingQueue: LiveArenaUpcomingItem[] = todayBoard.matches
+    .filter((m) => m.state === "next")
+    .slice(0, 12)
+    .map((m) => ({
+      key: m.key,
+      clock: m.clock ?? "",
+      round: m.round || "Scheduled",
+      circuit: m.event ? leagueShort(m.event.league) : "PBA",
+      eventTitle: m.event?.title ?? "PBA Tour",
+      home: m.home,
+      away: m.away,
+      href: m.href ?? "/schedule",
+    }));
+
   const finished = tours
     .filter((tour) => tour.우승자 && tour.투어종료일자)
     .sort((a, b) => (a.투어종료일자 < b.투어종료일자 ? 1 : -1))
@@ -92,151 +85,151 @@ export default async function LivePage() {
   }));
 
   const currentEvent = snapshot.current;
-  const tomorrow = shiftIsoDay(kstDay(), 1);
+  const tomorrow = shiftIsoDay(today, 1);
 
   return (
     <>
-      <header className="border-b border-ink-800 bg-ink-900">
-        <div className="mx-auto flex max-w-[1300px] flex-wrap items-center justify-between gap-3 px-3 py-3.5">
-          <div>
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              <p className="eyebrow">Match centre</p>
-              <span aria-hidden="true" className="text-ink-600">
-                /
-              </span>
-              <p className="text-[12.5px] text-fog-450">
-                {seasonLabel(season)} tour · live scoreboard updates every 20 seconds
-              </p>
-            </div>
-            <h1 className="display-md mt-1 text-fog-100">Live Matches</h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Suspense fallback={null}>
-              <ScoringNowBadge />
-            </Suspense>
-            {snapshot.live.length > 0 && (
-              <Chip tone="live">
-                {snapshot.live.length} {snapshot.live.length === 1 ? "event" : "events"} in progress
-              </Chip>
-            )}
-            <Chip tone="neutral">{grouped(snapshot.upcoming.length)} upcoming</Chip>
-          </div>
-        </div>
-      </header>
+      <LiveArena
+        initial={feed}
+        upcoming={upcomingQueue}
+        eventTitle={currentEvent?.title ?? `PBA ${seasonLabel(season)} Tour`}
+        broadcastLabel="Broadcast: SBS Sports, Billiards TV, PBA YouTube"
+      />
 
-      <div className="mx-auto max-w-[1300px] px-3 pb-10 pt-4">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_316px]">
+      <div className="wrap py-6 pb-12">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_328px]">
           <div className="min-w-0 space-y-5">
-            <Suspense fallback={<LiveWireSkeleton />}>
-              <LiveWireSection />
-            </Suspense>
-
-            <Panel
-              title="Events in progress"
-              meta={snapshot.live.length ? String(snapshot.live.length) : "0"}
-              action={<TextLink href="/schedule">Calendar</TextLink>}
-            >
+            <Card className="overflow-hidden" aria-label="Events in progress">
+              <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+                <h2 className="text-sm font-semibold tracking-tight text-foreground">
+                  Events in Progress{" "}
+                  <span className="mono ml-1 text-xs font-normal text-muted-foreground">
+                    {snapshot.live.length}
+                  </span>
+                </h2>
+                <Link href="/schedule" className="text-xs font-medium text-[var(--pba)] hover:underline">
+                  Calendar →
+                </Link>
+              </div>
               {snapshot.live.length > 0 ? (
-                <ul className="divide-y divide-ink-800/70">
+                <ul className="divide-y divide-border">
                   {snapshot.live.map((event) => (
                     <li key={event.id}>
-                      <Link href={`/schedule/${event.id}`} className="row-hover flex items-center gap-3 px-3.5 py-2.5">
-                        <span className="w-[46px] shrink-0">
-                          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-[0.06em] text-live-400">
-                            <span aria-hidden="true" className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-live-500" />
-                            Live
-                          </span>
-                        </span>
+                      <Link
+                        href={`/schedule/${event.id}`}
+                        className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-accent/50"
+                      >
+                        <Badge variant="secondary" className="shrink-0 text-[11px] text-[var(--pba)]">
+                          Active
+                        </Badge>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-semibold text-fog-100">
+                          <span className="block truncate text-sm font-medium text-foreground">
                             {event.title}
                           </span>
-                          <span className="mt-0.5 block truncate text-[11px] text-fog-500">
-                            {fmtRange(event.start, event.end)}
-                            <span className="mx-1.5 text-ink-600">·</span>
-                            {event.venue}
+                          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                            {fmtRange(event.start, event.end)} · {event.venue}
                           </span>
                         </span>
-                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.06em] text-carom-300">
+                        <Badge variant="outline" className="shrink-0 text-[10px]">
                           {leagueShort(event.league)}
-                        </span>
+                        </Badge>
                       </Link>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="px-3.5 py-4 text-[12.5px] text-fog-450">
+                <p className="px-5 py-6 text-sm text-muted-foreground">
                   No tour event is currently scheduled for today.
                 </p>
               )}
-            </Panel>
+            </Card>
 
             {teamSeason && standings.length > 0 && (
-              <Panel
-                title={
-                  teamSeason.liveRound
-                    ? `Team League · Round ${teamSeason.liveRound.라운드}`
-                    : "Team League"
-                }
-                meta={teamSeason.liveRound ? englishVenue(teamSeason.liveRound.경기장소) : undefined}
-                action={<TextLink href="/teams">Team league</TextLink>}
-              >
+              <Card className="overflow-hidden" aria-label="Team League standings">
+                <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+                  <h2 className="text-sm font-semibold tracking-tight text-foreground">
+                    {teamSeason.liveRound
+                      ? `Team League · Round ${teamSeason.liveRound.라운드}`
+                      : "Team League"}
+                  </h2>
+                  <Link href="/teams" className="text-xs font-medium text-[var(--pba)] hover:underline">
+                    Full standings →
+                  </Link>
+                </div>
                 <StandingsTable rows={standings} limit={10} compact />
-              </Panel>
+              </Card>
             )}
 
-            <Panel title="Recent finals" meta={String(recentFinals.length)}>
-              <ul className="divide-y divide-ink-800/70">
+            <Card className="overflow-hidden" aria-label="Recent tournament finals">
+              <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+                <h2 className="text-sm font-semibold tracking-tight text-foreground">Recent Finals</h2>
+                <Link href="/records" className="text-xs font-medium text-[var(--pba)] hover:underline">
+                  Roll of honour →
+                </Link>
+              </div>
+              <ul className="divide-y divide-border">
                 {recentFinals.map((tour) => (
-                  <li key={`${tour.code}-${tour.endDate}`} className="flex items-center gap-3 px-3.5 py-2.5">
-                    <span className="tnum w-[46px] shrink-0 text-[10.5px] font-semibold uppercase text-fog-500">
+                  <li key={`${tour.code}-${tour.endDate}`} className="flex items-center gap-3 px-5 py-3">
+                    <span className="mono w-[46px] shrink-0 text-xs text-muted-foreground">
                       {tour.endDate?.slice(5).replace("-", "/")}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[12.5px] font-medium text-fog-100">{tour.title}</span>
-                      <span className="mt-0.5 block truncate text-[11px] text-fog-500">
+                      <span className="block truncate text-sm font-medium text-foreground">
+                        {tour.title}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                         {tour.championCode ? (
                           <Link
                             href={`/players/${encodeURIComponent(tour.championCode)}`}
-                            className="font-semibold text-gold-300 underline-offset-2 transition-colors hover:text-carom-300 hover:underline"
+                            className="font-medium text-amber-600 hover:underline dark:text-amber-400"
                           >
                             {tour.champion}
                           </Link>
                         ) : (
-                          <span className="font-semibold text-gold-300">{tour.champion}</span>
+                          <span className="font-medium text-amber-600 dark:text-amber-400">{tour.champion}</span>
                         )}{" "}
-                        won
-                        <span className="mx-1.5 text-ink-600">·</span>
-                        {leagueShort(tour.circuit)}
+                        won · {leagueShort(tour.circuit)}
                       </span>
                     </span>
                   </li>
                 ))}
               </ul>
-            </Panel>
+            </Card>
           </div>
 
-          <aside className="space-y-4">
+          <aside className="space-y-5">
             {currentEvent && (
-              <Panel title="Current event" action={<TextLink href={`/schedule/${currentEvent.id}`}>Open</TextLink>}>
-                <div className="px-3.5 py-3">
-                  <p className="font-display text-[14.5px] font-bold leading-snug text-fog-100">
+              <Card className="overflow-hidden" aria-label="Current event">
+                <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                  <h2 className="text-sm font-semibold text-foreground">Current Event</h2>
+                  <Link
+                    href={`/schedule/${currentEvent.id}`}
+                    className="text-xs font-medium text-[var(--pba)] hover:underline"
+                  >
+                    Open →
+                  </Link>
+                </div>
+                <div className="p-4">
+                  <p className="text-sm font-semibold leading-snug text-foreground">
                     {currentEvent.title}
                   </p>
-                  <p className="tnum mt-1 text-[11.5px] text-fog-400">
+                  <p className="mono mt-1 text-xs text-muted-foreground">
                     {fmtRange(currentEvent.start, currentEvent.end)}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-fog-500">{currentEvent.venue}</p>
-                  <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.08em] text-carom-300">
+                  <p className="mt-0.5 text-xs text-muted-foreground">{currentEvent.venue}</p>
+                  <Badge variant="outline" className="mt-3 text-[11px] text-[var(--pba)]">
                     {leagueByCode(currentEvent.league).name}
-                  </p>
+                  </Badge>
                 </div>
-              </Panel>
+              </Card>
             )}
 
             {teamSeason?.liveRound && (
-              <Panel title="Current round">
-                <dl className="divide-y divide-ink-800/70">
+              <Card className="overflow-hidden" aria-label="Current Team League round">
+                <div className="border-b border-border px-4 py-3">
+                  <h2 className="text-sm font-semibold text-foreground">Team League Round</h2>
+                </div>
+                <dl className="divide-y divide-border">
                   {[
                     {
                       label: "Round",
@@ -255,55 +248,68 @@ export default async function LivePage() {
                     },
                     { label: "Purse", value: wonCompact(teamSeason.season.상금) },
                   ].map((row) => (
-                    <div key={row.label} className="flex items-baseline justify-between gap-3 px-3.5 py-2">
-                      <dt className="micro-label">{row.label}</dt>
-                      <dd className="tnum text-right text-[12px] text-fog-200">{row.value}</dd>
+                    <div key={row.label} className="flex items-baseline justify-between gap-3 px-4 py-2.5">
+                      <dt className="text-xs text-muted-foreground">{row.label}</dt>
+                      <dd className="mono text-right text-xs font-medium text-foreground">
+                        {row.value}
+                      </dd>
                     </div>
                   ))}
                 </dl>
-              </Panel>
+              </Card>
             )}
 
-            <Panel title="Broadcast channels">
-              <ul className="divide-y divide-ink-800/70">
+            <Card className="overflow-hidden" aria-label="Broadcast channels">
+              <div className="border-b border-border px-4 py-3">
+                <h2 className="text-sm font-semibold text-foreground">Broadcast Channels</h2>
+              </div>
+              <ul className="divide-y divide-border">
                 {BROADCASTERS.map((channel) => (
                   <li key={channel.name}>
                     <a
                       href={channel.href}
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="row-hover flex items-center justify-between gap-2 px-3.5 py-2.5 text-[12.5px] font-medium text-fog-200 hover:text-carom-300"
+                      className="flex items-center justify-between gap-2 px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent/50 hover:text-[var(--pba)]"
                     >
                       {channel.name}
-                      <span aria-hidden="true" className="text-fog-550">
-                        ↗
-                      </span>
+                      <ExternalLink className="size-3.5 text-muted-foreground" aria-hidden="true" />
                     </a>
                   </li>
                 ))}
               </ul>
-            </Panel>
+            </Card>
 
-            <Panel title="Upcoming" action={<TextLink href={`/schedule?day=${tomorrow}`}>Calendar</TextLink>}>
-              <ul className="divide-y divide-ink-800/70">
+            <Card className="overflow-hidden" aria-label="Upcoming events">
+              <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                <h2 className="text-sm font-semibold text-foreground">Upcoming</h2>
+                <Link
+                  href={`/schedule?day=${tomorrow}`}
+                  className="text-xs font-medium text-[var(--pba)] hover:underline"
+                >
+                  Calendar →
+                </Link>
+              </div>
+              <ul className="divide-y divide-border">
                 {snapshot.upcoming.slice(0, 5).map((event) => (
                   <li key={event.id}>
-                    <Link href={`/schedule/${event.id}`} className="row-hover block px-3.5 py-2">
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="tnum shrink-0 text-[11px] font-semibold text-fog-400">
-                          {event.start
-                            ? event.start.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
-                            : "TBA"}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-right text-[12px] text-fog-200">
-                          {event.title}
-                        </span>
+                    <Link
+                      href={`/schedule/${event.id}`}
+                      className="flex items-center justify-between gap-2 px-4 py-2.5 transition-colors hover:bg-accent/50"
+                    >
+                      <span className="mono shrink-0 text-xs text-muted-foreground">
+                        {event.start
+                          ? event.start.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+                          : "TBA"}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-right text-xs font-medium text-foreground">
+                        {event.title}
                       </span>
                     </Link>
                   </li>
                 ))}
               </ul>
-            </Panel>
+            </Card>
           </aside>
         </div>
       </div>

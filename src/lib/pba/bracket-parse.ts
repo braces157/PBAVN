@@ -112,12 +112,13 @@ export function parseBracketRows(html: string | null, bracketSize: number): Brac
 
     const sides: BracketSide[] = [];
     for (const item of block.split(/<li\b/i).slice(1)) {
-      if (!/class="t_set"/i.test(item)) continue;
+      if (!/class="t_name"/i.test(item)) continue;
       const name = span(item, "t_name");
-      if (!name) continue;
-      // The column heading row is a list item too. A real player row is the
-      // only one whose set cell is a count.
-      const sets = number(span(item, "t_set"));
+      if (!name || /^player$/i.test(name)) continue;
+      // The column heading row is a list item too. A real player row carries
+      // either a set count (`t_set`) or, in LPBA points-format rounds, `points/innings`.
+      const pointInn = item.match(/<span[^>]*>\s*(\d+)\s*\/\s*\d+\s*<\/span>/i);
+      const sets = number(span(item, "t_set")) ?? (pointInn ? number(pointInn[1]) : null);
       if (sets === null) continue;
       sides.push({
         name,

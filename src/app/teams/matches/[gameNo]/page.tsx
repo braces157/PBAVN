@@ -28,6 +28,7 @@ import { FilterRow } from "@/components/domain/filter-bar";
 import { FixtureList, type FixtureClub } from "@/components/domain/fixture-list";
 import { TeamBoutList, type ResolvedBoutPlayer } from "@/components/domain/team-bout-list";
 import { DataStatus } from "@/components/site/data-status";
+import { ArrowLeft } from "lucide-react";
 import { TeamLogo } from "@/components/ui/media";
 import { Chip, EmptyState, LiveChip, SectionHeading, TextLink, cn } from "@/components/ui/primitives";
 
@@ -142,16 +143,16 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
 
   if (!bouts) {
     return (
-      <div className="mx-auto max-w-[1300px] px-3 py-5">
+      <div className="wrap py-5">
         <h1 className="sr-only">Fixture No {gameNo}</h1>
-        <nav className="mb-3 flex items-center gap-1.5 text-[11.5px] text-fog-500" aria-label="Breadcrumb">
-          <Link href="/teams" className="hover:text-carom-300">Team League</Link>
-          <span>/</span>
-          <Link href={`/teams/matches?season=${season.시즌코드}&round=${roundCode}`} className="hover:text-carom-300">
+        <nav className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground" aria-label="Breadcrumb">
+          <Link href="/teams" className="hover:text-foreground">Team League</Link>
+          <span className="text-border">/</span>
+          <Link href={`/teams/matches?season=${season.시즌코드}&round=${roundCode}`} className="hover:text-foreground">
             Fixtures
           </Link>
-          <span>/</span>
-          <span className="text-fog-300">No {gameNo}</span>
+          <span className="text-border">/</span>
+          <span className="text-foreground">No {gameNo}</span>
         </nav>
         <div className="mb-5 flex flex-col gap-2">
           <FilterRow
@@ -265,25 +266,25 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
 
   return (
     <>
-      <header className="border-b border-ink-800 bg-ink-900">
-        <div className="mx-auto max-w-[1300px] px-3 py-3.5">
+      <header className="border-b border-border bg-card">
+        <div className="wrap py-4">
           <h1 className="sr-only">
             {bouts.homeName} vs {bouts.awayName} — Round {selectedRound.라운드} Fixture #{gameNo}
           </h1>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[11.5px] text-fog-500">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <nav className="flex flex-wrap items-center gap-1.5" aria-label="Breadcrumb">
-              <Link href="/teams" className="hover:text-carom-300">Team League</Link>
-              <span className="text-ink-600">/</span>
+              <Link href="/teams" className="hover:text-foreground">Team League</Link>
+              <span className="text-border">/</span>
               <Link
                 href={`/teams/matches?season=${encodeURIComponent(season.시즌코드)}&round=${encodeURIComponent(roundCode)}`}
-                className="hover:text-carom-300"
+                className="hover:text-foreground"
               >
                 Round {selectedRound.라운드} Fixtures
               </Link>
-              <span className="text-ink-600">/</span>
-              <span className="tnum text-fog-300">Fixture #{gameNo}</span>
+              <span className="text-border">/</span>
+              <span className="font-mono tabular-nums text-foreground">Fixture #{gameNo}</span>
             </nav>
-            <span className="tnum text-[11px] text-fog-450">
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">
               {bouts.bouts.length} sets · {totalHomePoints}–{totalAwayPoints} pts
               {totalInnings > 0 ? ` · ${totalInnings} inn` : ""}
               {bouts.winner ? "" : " · in play"}
@@ -314,8 +315,8 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1300px] px-3 py-5">
-        <div className="surface-raised p-4 sm:p-6">
+      <div className="wrap py-6">
+        <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
           <div className="space-y-3 sm:hidden">
             {([
               {
@@ -345,14 +346,14 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
                   <div className="min-w-0 flex-1">
                     <p
                       className={cn(
-                        "truncate font-display text-[15px] font-bold transition-colors",
-                        side.won ? "text-carom-300" : "text-fog-100",
-                        side.href && "group-hover:text-carom-300 group-hover:underline",
+                        "truncate text-base font-semibold transition-colors",
+                        side.won ? "text-emerald-600 dark:text-emerald-400" : "text-foreground",
+                        side.href && "group-hover:underline",
                       )}
                     >
                       {side.name}
                     </p>
-                    <p className="tnum mt-0.5 truncate text-[11px] text-fog-450">
+                    <p className="mt-0.5 truncate font-mono text-xs tabular-nums text-muted-foreground">
                       {side.avg !== null && <>AVG {side.avg.toFixed(3)} · HR {side.hr ?? "—"}</>}
                       {side.team && (
                         <>
@@ -366,7 +367,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
               return (
                 <div key={index} className="flex items-center gap-3">
                   {side.href ? (
-                    <Link href={side.href} className="group flex min-w-0 flex-1 items-center gap-3">
+                    <Link href={side.href} className="group flex min-w-0 flex-1 items-center gap-3 hover:no-underline">
                       {clubContent}
                     </Link>
                   ) : (
@@ -375,8 +376,8 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
                   {side.won && <Chip tone="carom">W</Chip>}
                   <span
                     className={cn(
-                      "tnum font-display text-3xl font-extrabold",
-                      side.won ? "text-carom-300" : "text-fog-100",
+                      "font-mono text-3xl font-semibold tabular-nums",
+                      side.won ? "text-emerald-600 dark:text-emerald-400" : "text-foreground",
                     )}
                   >
                     {side.sets ?? "–"}
@@ -403,8 +404,8 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
                   <Link
                     href={homeHref}
                     className={cn(
-                      "block truncate font-display text-[17px] font-bold underline-offset-2 transition-colors hover:text-carom-300 hover:underline",
-                      bouts.winner === "home" ? "text-carom-300" : "text-fog-100",
+                      "block truncate text-lg font-semibold underline-offset-2 transition-colors hover:underline",
+                      bouts.winner === "home" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground",
                     )}
                   >
                     {homeDisplayName}
@@ -412,20 +413,20 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
                 ) : (
                   <p
                     className={cn(
-                      "truncate font-display text-[17px] font-bold",
-                      bouts.winner === "home" ? "text-carom-300" : "text-fog-100",
+                      "truncate text-lg font-semibold",
+                      bouts.winner === "home" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground",
                     )}
                   >
                     {homeDisplayName}
                   </p>
                 )}
                 {bouts.homeAverage !== null && (
-                  <p className="tnum mt-0.5 truncate text-[11px] text-fog-450">
+                  <p className="mt-0.5 truncate font-mono text-xs tabular-nums text-muted-foreground">
                     AVG {bouts.homeAverage.toFixed(3)} · HR {bouts.homeHighRun ?? "—"} · {totalHomePoints} pts
                   </p>
                 )}
                 {homeTeam && (
-                  <p className="tnum mt-0.5 truncate text-[11px] text-fog-500">
+                  <p className="mt-0.5 truncate font-mono text-xs tabular-nums text-muted-foreground">
                     Round #{homeTeam.rank} · {homeTeam.wins}W–{homeTeam.losses}L · {homeTeam.points} pts
                   </p>
                 )}
@@ -440,12 +441,12 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
             </div>
 
             <div className="text-center">
-              <p className="tnum font-display text-4xl font-extrabold leading-none tracking-tight sm:text-5xl">
-                <span className={bouts.winner === "home" ? "text-carom-300" : "text-fog-100"}>
+              <p className="font-mono text-4xl font-semibold leading-none tracking-tight tabular-nums sm:text-5xl">
+                <span className={bouts.winner === "home" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}>
                   {bouts.homeSets ?? "–"}
                 </span>
-                <span className="mx-1.5 align-middle text-[0.6em] font-bold text-ink-500">–</span>
-                <span className={bouts.winner === "away" ? "text-carom-300" : "text-fog-100"}>
+                <span className="mx-1.5 align-middle text-[0.6em] font-medium text-muted-foreground">–</span>
+                <span className={bouts.winner === "away" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}>
                   {bouts.awaySets ?? "–"}
                 </span>
               </p>
@@ -474,8 +475,8 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
                   <Link
                     href={awayHref}
                     className={cn(
-                      "block truncate font-display text-[17px] font-bold underline-offset-2 transition-colors hover:text-carom-300 hover:underline",
-                      bouts.winner === "away" ? "text-carom-300" : "text-fog-100",
+                      "block truncate text-lg font-semibold underline-offset-2 transition-colors hover:underline",
+                      bouts.winner === "away" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground",
                     )}
                   >
                     {awayDisplayName}
@@ -483,20 +484,20 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
                 ) : (
                   <p
                     className={cn(
-                      "truncate font-display text-[17px] font-bold",
-                      bouts.winner === "away" ? "text-carom-300" : "text-fog-100",
+                      "truncate text-lg font-semibold",
+                      bouts.winner === "away" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground",
                     )}
                   >
                     {awayDisplayName}
                   </p>
                 )}
                 {bouts.awayAverage !== null && (
-                  <p className="tnum mt-0.5 truncate text-[11px] text-fog-450">
+                  <p className="mt-0.5 truncate font-mono text-xs tabular-nums text-muted-foreground">
                     AVG {bouts.awayAverage.toFixed(3)} · HR {bouts.awayHighRun ?? "—"} · {totalAwayPoints} pts
                   </p>
                 )}
                 {awayTeam && (
-                  <p className="tnum mt-0.5 truncate text-[11px] text-fog-500">
+                  <p className="mt-0.5 truncate font-mono text-xs tabular-nums text-muted-foreground">
                     Round #{awayTeam.rank} · {awayTeam.wins}W–{awayTeam.losses}L · {awayTeam.points} pts
                   </p>
                 )}
@@ -505,7 +506,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
           </div>
         </div>
 
-        <p className="mt-4 text-[11.5px] text-fog-500">
+        <p className="mt-4 text-xs text-muted-foreground">
           Click any set to open its inning-by-inning scorecard, or click any player or club name to view full stats.
         </p>
 
@@ -545,12 +546,13 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
           </section>
         )}
 
-        <p className="mt-6 text-[12px] text-fog-500">
+        <p className="mt-6 text-xs text-muted-foreground">
           <Link
             href={`/teams/matches?season=${encodeURIComponent(season?.시즌코드 ?? "")}&round=${encodeURIComponent(roundCode)}`}
-            className="font-semibold text-carom-300 underline-offset-2 hover:underline"
+            className="inline-flex items-center gap-1.5 font-medium text-foreground underline-offset-2 hover:underline"
           >
-            ← Back to round fixtures
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            Back to round fixtures
           </Link>
           {selectedBout === null && selectedSet !== null
             ? " — this bout number has no record in the fixture."

@@ -41,13 +41,13 @@ export function FixtureBoard({
         return (
           <section key={group.key}>
             {group.label && (
-              <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-y border-ink-800 bg-ink-950/95 px-3.5 py-2 backdrop-blur-md">
-                <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-fog-400">
+              <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-y border-border/60 bg-secondary/90 px-4 py-2 backdrop-blur-md">
+                <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   {group.label}
                 </p>
-                <p className="tnum flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-fog-550">
+                <p className="flex items-center gap-2 font-mono text-[11px] font-medium tabular-nums text-muted-foreground">
                   {collapsed && playedHref ? (
-                    <Link href={playedHref} className="font-semibold text-carom-400 transition-colors hover:text-carom-300">
+                    <Link href={playedHref} className="font-sans font-medium text-foreground transition-colors hover:underline">
                       Show {group.rows.length} results →
                     </Link>
                   ) : (
@@ -57,7 +57,7 @@ export function FixtureBoard({
               </header>
             )}
             {collapsed ? null : (
-              <ul className="divide-y divide-ink-800/70">
+              <ul className="divide-y divide-border/60">
                 {group.rows.map((fixture, index) => {
                   const home = club(fixture.home.clubCode, fixture.home.name);
                   const away = club(fixture.away.clubCode, fixture.away.name);
@@ -73,8 +73,8 @@ export function FixtureBoard({
 
                   return (
                     <li key={fixture.gameNo ?? `fixture-${group.key}-${index}`}>
-                      <div className="row-hover relative grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-3.5 py-2.5">
-                        <div className="grid min-w-0 gap-[3px]">
+                      <div className="relative grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50">
+                        <div className="grid min-w-0 gap-1">
                           <SideLine
                             name={home.name}
                             logo={home.logo}
@@ -100,11 +100,13 @@ export function FixtureBoard({
                           />
                         </div>
 
-                        <div className="w-[58px] shrink-0 text-right">
-                          <p className="tnum text-[10px] leading-tight text-fog-450">
+                        <div className="w-[62px] shrink-0 text-right">
+                          <p className="font-mono text-[11px] leading-tight tabular-nums text-muted-foreground">
                             No {fixture.gameNo ?? "—"}
                           </p>
-                          <p className="tnum text-[10px] leading-tight text-fog-550">{clock ?? ""}</p>
+                          <p className="font-mono text-[10px] leading-tight tabular-nums text-muted-foreground/80">
+                            {clock ?? ""}
+                          </p>
                         </div>
 
                         {link ? (
@@ -188,8 +190,12 @@ function Score({ value, won }: { value: number | null | undefined; won: boolean 
   return (
     <span
       className={cn(
-        "score-cell flex h-[21px] w-[20px] items-center justify-end text-[14px]",
-        value === null || value === undefined ? "text-fog-600" : won ? "text-carom-300" : "text-fog-500",
+        "flex h-[22px] w-5 items-center justify-end font-mono text-sm font-semibold tabular-nums",
+        value === null || value === undefined
+          ? "text-muted-foreground/50"
+          : won
+            ? "text-emerald-600 dark:text-emerald-400"
+            : "text-muted-foreground",
       )}
     >
       {value ?? "–"}
@@ -209,12 +215,12 @@ function SideLine({
   dim: boolean;
 }) {
   return (
-    <span className="flex h-[21px] min-w-0 items-center gap-2">
-      <TeamLogo src={logo} name={name} size="xs" className="!h-[19px] !w-[19px] !rounded-[4px] !p-0.5" />
+    <span className="flex h-[22px] min-w-0 items-center gap-2">
+      <TeamLogo src={logo} name={name} size="xs" className="!h-[19px] !w-[19px] !rounded !p-0.5" />
       <span
         className={cn(
-          "min-w-0 truncate text-[12.5px] leading-none",
-          won ? "font-semibold text-fog-100" : dim ? "text-fog-500" : "text-fog-200",
+          "min-w-0 truncate text-[13px] leading-none",
+          won ? "font-semibold text-foreground" : dim ? "text-muted-foreground" : "text-foreground/90",
         )}
       >
         {name}

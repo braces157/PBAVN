@@ -8,6 +8,7 @@ import { normalizePlayer, leagueByCode, leagueShort, PLAYER_LEAGUES, winRate, ty
 import { average, grouped, wonCompact, percent } from "@/lib/format";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
 import { NationPlate, PlayerAvatar } from "@/components/ui/media";
+import { FollowButton } from "@/components/ui/follow-button";
 import { Chip, EmptyState, Pagination, RankBadge, cn } from "@/components/ui/primitives";
 
 export const revalidate = 1800;
@@ -203,19 +204,19 @@ export default async function PlayersPage({ searchParams }: PageProps) {
                 name="q"
                 defaultValue={query}
                 placeholder="Search name (EN / KO)…"
-                className="field w-52 sm:w-64"
+                className="h-8 w-52 rounded-md border border-border bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring sm:w-64"
                 aria-label="Search players"
               />
               <button
                 type="submit"
-                className="press rounded-[3px] bg-[var(--nav)] px-3.5 py-1.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-[var(--link)]"
+                className="inline-flex h-8 items-center rounded-md bg-primary px-3.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 Search
               </button>
               {query && (
                 <Link
                   href={explicitLeague ? `/players?league=${explicitLeague}` : "/players"}
-                  className="px-1.5 text-[12px] font-medium text-[var(--muted)] hover:text-[var(--link)]"
+                  className="px-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
                 >
                   Clear
                 </Link>
@@ -238,14 +239,14 @@ export default async function PlayersPage({ searchParams }: PageProps) {
 
             {!query && (
               <div className="flex flex-wrap items-center gap-0.5">
-                <span className="mr-1 text-[10px] font-bold uppercase tracking-[0.08em] text-fog-500">
-                  Index
-                </span>
+                <span className="mr-1.5 text-xs font-medium text-muted-foreground">Index</span>
                 <Link
                   href={`/players?league=${league}`}
                   className={cn(
-                    "grid h-6 min-w-6 place-items-center rounded px-1.5 text-[11px] font-semibold transition-colors",
-                    !initial ? "bg-carom-400/15 text-carom-300" : "text-fog-450 hover:bg-ink-850 hover:text-fog-100",
+                    "grid h-6 min-w-6 place-items-center rounded-md px-1.5 text-[11px] font-medium transition-colors hover:no-underline",
+                    !initial
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                   )}
                 >
                   All
@@ -255,10 +256,10 @@ export default async function PlayersPage({ searchParams }: PageProps) {
                     key={letter}
                     href={`/players?league=${league}&initial=${letter}&sort=name`}
                     className={cn(
-                      "grid h-6 w-6 place-items-center rounded text-[11px] font-semibold transition-colors",
+                      "grid h-6 w-6 place-items-center rounded-md font-mono text-[11px] font-medium transition-colors hover:no-underline",
                       initial === letter
-                        ? "bg-carom-400/15 text-carom-300"
-                        : "text-fog-450 hover:bg-ink-850 hover:text-fog-100",
+                        ? "bg-foreground text-background"
+                        : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                     )}
                   >
                     {letter}
@@ -270,7 +271,7 @@ export default async function PlayersPage({ searchParams }: PageProps) {
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1300px] px-3 py-5">
+      <div className="wrap py-6">
         {players.length === 0 ? (
           <EmptyState
             title="No players matched"
@@ -278,7 +279,7 @@ export default async function PlayersPage({ searchParams }: PageProps) {
             action={
               <Link
                 href="/players"
-                className="mt-1 rounded-md border border-ink-700 bg-ink-900 px-3 py-1.5 text-[12px] font-semibold text-fog-200 hover:border-carom-400/50 hover:text-carom-300"
+                className="mt-1 inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:no-underline"
               >
                 Reset
               </Link>
@@ -287,19 +288,19 @@ export default async function PlayersPage({ searchParams }: PageProps) {
         ) : (
           <>
             <div className="mb-4 flex items-baseline justify-between">
-              <p className="text-[12px] text-fog-450">
+              <p className="text-xs text-muted-foreground">
                 Showing{" "}
-                <span className="tnum font-semibold text-fog-100">
+                <span className="font-mono font-semibold tabular-nums text-foreground">
                   {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)}
                 </span>{" "}
-                of <span className="tnum font-semibold text-fog-100">{grouped(total)}</span>
+                of <span className="font-mono font-semibold tabular-nums text-foreground">{grouped(total)}</span>
               </p>
-              <p className="hidden text-[11px] text-fog-550 sm:block">
+              <p className="hidden text-xs text-muted-foreground sm:block">
                 Sorted by {SORT_LABELS[sort]}
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {players.map((player) => (
                 <PlayerCard key={player.code} player={player} />
               ))}
@@ -331,56 +332,71 @@ function PlayerCard({ player }: { player: Player }) {
   const rate = winRate(player);
 
   return (
-    <Link
-      href={`/players/${player.code}`}
-      className="surface card-hover group flex flex-col overflow-hidden"
-    >
-      <div className="flex items-center gap-3 p-3.5">
-        <PlayerAvatar path={player.photoPath} src={player.photo} name={player.name} size="lg" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
+    <div className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-foreground/20">
+      <div className="flex items-start gap-3 p-4">
+        <Link href={`/players/${player.code}`} className="flex min-w-0 flex-1 items-center gap-3 hover:no-underline">
+          <PlayerAvatar path={player.photoPath} src={player.photo} name={player.name} size="lg" />
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <Chip tone={league.tone} className="!px-1.5 !py-0 !text-[9px]">
+              <Chip tone={league.tone} className="!px-1.5 !py-0 !text-[9.5px]">
                 {leagueShort(player.league)}
               </Chip>
               <NationPlate code={player.nation} />
             </div>
-            {player.prizeRank > 0 && <RankBadge rank={player.prizeRank} size="sm" />}
+            <p className="mt-1.5 truncate text-sm font-semibold text-foreground group-hover:underline">
+              {player.name}
+            </p>
+            {player.nameKo && player.nameKo !== player.name && (
+              <p className="truncate text-xs text-muted-foreground">{player.nameKo}</p>
+            )}
           </div>
-          <p className="mt-1.5 truncate font-display text-[14px] font-bold text-fog-100 group-hover:text-carom-300">
-            {player.name}
-          </p>
-          {player.nameKo && player.nameKo !== player.name && (
-            <p className="truncate text-[11px] text-fog-500">{player.nameKo}</p>
-          )}
+        </Link>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          {player.prizeRank > 0 && <RankBadge rank={player.prizeRank} size="sm" />}
+          <FollowButton
+            player={{
+              code: player.code,
+              name: player.name,
+              circuit: league.name,
+              nation: player.nation,
+            }}
+            compact
+          />
         </div>
       </div>
 
-      <div className="grid grid-cols-4 divide-x divide-ink-800 border-t border-ink-800 bg-ink-850/40 text-center">
-        <div className="px-1.5 py-2">
-          <p className="text-[9px] font-bold uppercase tracking-[0.06em] text-fog-550">AVG</p>
-          <p className="tnum mt-0.5 text-[11.5px] font-bold text-fog-100">{average(player.average)}</p>
+      <Link
+        href={`/players/${player.code}`}
+        className="grid grid-cols-4 divide-x divide-border/60 border-t border-border/60 bg-secondary/40 text-center transition-colors hover:bg-secondary/70 hover:no-underline"
+      >
+        <div className="px-1.5 py-2.5">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">AVG</p>
+          <p className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-foreground">
+            {average(player.average)}
+          </p>
         </div>
-        <div className="px-1.5 py-2">
-          <p className="text-[9px] font-bold uppercase tracking-[0.06em] text-fog-550">HR</p>
-          <p className="tnum mt-0.5 text-[11.5px] font-semibold text-fog-200">{player.highRun || "—"}</p>
+        <div className="px-1.5 py-2.5">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">HR</p>
+          <p className="mt-0.5 font-mono text-xs font-medium tabular-nums text-foreground">
+            {player.highRun || "—"}
+          </p>
         </div>
-        <div className="px-1.5 py-2">
-          <p className="text-[9px] font-bold uppercase tracking-[0.06em] text-fog-550">W–L</p>
+        <div className="px-1.5 py-2.5">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">W–L</p>
           <p
             title={player.wins || player.losses ? `${percent(rate, 0)} win rate` : undefined}
-            className="tnum mt-0.5 whitespace-nowrap text-[11px] font-semibold text-fog-200"
+            className="mt-0.5 whitespace-nowrap font-mono text-xs font-medium tabular-nums text-foreground"
           >
             {player.wins || player.losses ? `${player.wins}–${player.losses}` : "—"}
           </p>
         </div>
-        <div className="px-1.5 py-2">
-          <p className="text-[9px] font-bold uppercase tracking-[0.06em] text-fog-550">Prize</p>
-          <p className="tnum mt-0.5 text-[11.5px] font-bold text-carom-300">
+        <div className="px-1.5 py-2.5">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Prize</p>
+          <p className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-foreground">
             {wonCompact(player.prize)}
           </p>
         </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }

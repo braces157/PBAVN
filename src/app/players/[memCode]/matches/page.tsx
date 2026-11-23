@@ -7,6 +7,7 @@ import { getRequestFailures } from "@/lib/pba/failures";
 import { getPlayerCached, getPlayerMatchHistory, getCurrentSeason, getSeasonList } from "@/lib/pba/service";
 import { normalizePlayer, statLeagueCode } from "@/lib/normalize";
 import { average } from "@/lib/format";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
 import { DataStatus } from "@/components/site/data-status";
 import { EmptyState } from "@/components/ui/primitives";
@@ -36,15 +37,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 function HistorySkeleton() {
   return (
-    <div className="rounded-[3px] border border-[var(--line)] bg-[var(--panel)] p-4" aria-hidden="true">
+    <div className="rounded-xl border border-border bg-card p-4" aria-hidden="true">
       <div className="space-y-3">
         {[0, 1, 2, 3, 4, 5].map((row) => (
           <div key={row} className="flex items-center gap-3">
-            <span className="h-3 w-14 rounded bg-[var(--bar-2)]" />
-            <span className="h-3 w-1/3 rounded bg-[var(--bar-2)]" />
-            <span className="h-3 w-16 rounded bg-[var(--bar-2)]" />
-            <span className="h-3 w-20 rounded bg-[var(--bar-2)]" />
-            <span className="h-3 w-8 rounded bg-[var(--bar-2)]" />
+            <span className="h-3 w-14 rounded bg-secondary" />
+            <span className="h-3 w-1/3 rounded bg-secondary" />
+            <span className="h-3 w-16 rounded bg-secondary" />
+            <span className="h-3 w-20 rounded bg-secondary" />
+            <span className="h-3 w-8 rounded bg-secondary" />
           </div>
         ))}
       </div>
@@ -109,7 +110,7 @@ async function HistorySection({
         />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-[3px] border border-[var(--line)] bg-[var(--panel)]">
+          <div className="overflow-x-auto rounded-xl border border-border bg-card">
             <table className="stat-table">
               <thead>
                 <tr>
@@ -132,42 +133,42 @@ async function HistorySection({
                   const href = `/matches/${match.pstCode}?tour=${encodeURIComponent(match.tourCode)}&round=${encodeURIComponent(match.round)}`;
                   return (
                     <tr key={`${match.tourCode}-${match.pstCode}`} className="group">
-                      <td className="!text-left tnum text-[var(--text-2)]">
+                      <td className="!text-left font-mono text-xs tabular-nums text-muted-foreground">
                         {match.scheduledAt ?? "—"}
                       </td>
                       <td className="!text-left">
                         <Link
                           href={href}
-                          className="block max-w-[280px] truncate text-[12.5px] font-medium text-[var(--text)] hover:text-[var(--link)]"
+                          className="block max-w-[280px] truncate text-[13px] font-medium text-foreground hover:underline"
                         >
                           {match.tourTitle}
                         </Link>
                       </td>
-                      <td className="!text-left text-[var(--text-2)]">{match.round || "—"}</td>
-                      <td className="!text-left font-semibold text-[var(--link)]">
+                      <td className="!text-left text-xs text-muted-foreground">{match.round || "—"}</td>
+                      <td className="!text-left text-[13px] font-medium text-foreground">
                         <Link href={href} className="hover:underline">
                           {opponent?.name ?? "—"}
                         </Link>
                       </td>
                       <td
-                        className={`font-bold ${own.won ? "text-[var(--win)]" : "text-[var(--muted)]"}`}
+                        className={`font-mono font-semibold ${own.won ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}
                       >
                         {own.won ? "W" : "L"}
                       </td>
-                      <td className="tnum font-bold text-[var(--text)]">
+                      <td className="font-mono font-semibold tabular-nums text-foreground">
                         {own.sets}–{opponent?.sets ?? "—"}
                       </td>
-                      <td className="tnum text-[var(--text-2)]">{average(own.average)}</td>
-                      <td className="hidden tnum text-[var(--text-2)] sm:table-cell">
+                      <td className="font-mono tabular-nums text-muted-foreground">{average(own.average)}</td>
+                      <td className="hidden font-mono tabular-nums text-muted-foreground sm:table-cell">
                         {own.highRun ?? "—"}
                       </td>
                       <td className="!text-right">
                         <Link
                           href={href}
                           aria-label={`${match.tourTitle}, ${match.round}: ${own.won ? "won" : "lost"} against ${opponent?.name ?? "unknown"}`}
-                          className="text-[11.5px] font-semibold text-[var(--link)] hover:underline"
+                          className="inline-flex items-center justify-end text-muted-foreground transition-colors hover:text-foreground"
                         >
-                          →
+                          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                         </Link>
                       </td>
                     </tr>
@@ -178,7 +179,7 @@ async function HistorySection({
           </div>
 
           {history.partial && (
-            <p className="mt-3 text-[11.5px] text-[var(--muted)]">
+            <p className="mt-3 text-xs text-muted-foreground">
               The search was capped partway through this season, so a common surname may have pushed some rows past the page limit.
             </p>
           )}
@@ -230,14 +231,15 @@ export default async function PlayerMatchesPage({ params, searchParams }: PagePr
           />
           <Link
             href={`/players/${memCode}`}
-            className="text-[12px] font-semibold text-[var(--link)] hover:underline"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:no-underline"
           >
-            ← Back to profile
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            Back to profile
           </Link>
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1300px] px-3 py-5">
+      <div className="wrap py-5">
         <Suspense key={`${memCode}-${seasonCode}`} fallback={<HistorySkeleton />}>
           <HistorySection
             memCode={memCode}
