@@ -1,25 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import localFont from "next/font/local";
+import { Geist, Geist_Mono } from "next/font/google";
 import "flag-icons/css/flag-icons.min.css";
 import "./globals.css";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
 import { siteUrl } from "@/lib/site";
 
-const ibmPlexSans = localFont({
-  src: "./fonts/ibm-plex-sans-latin.woff2",
-  weight: "400 700",
+const geistSans = Geist({
+  subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
 });
 
-const ibmPlexCondensed = localFont({
-  src: [
-    { path: "./fonts/ibm-plex-condensed-500-latin.woff2", weight: "500", style: "normal" },
-    { path: "./fonts/ibm-plex-condensed-600-latin.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/ibm-plex-condensed-700-latin.woff2", weight: "700", style: "normal" },
-  ],
-  variable: "--font-cond",
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
   display: "swap",
 });
 
@@ -61,8 +56,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#1f2933" },
-    { media: "(prefers-color-scheme: dark)", color: "#0e1217" },
+    { media: "(prefers-color-scheme: light)", color: "#0A1A30" },
+    { media: "(prefers-color-scheme: dark)", color: "#071222" },
   ],
   colorScheme: "light dark",
 };
@@ -73,7 +68,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       data-theme="light"
       suppressHydrationWarning
-      className={`${ibmPlexSans.variable} ${ibmPlexCondensed.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
