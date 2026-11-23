@@ -489,17 +489,35 @@ async function tourMatches(event: CalendarEvent, day: string, now: string): Prom
       : Promise.resolve<EventMatches>({ matches: [], failed: false }),
   ]);
 
-  const ended = perDepth.flatMap((depth) => depth.matches);
-  const seenPst = new Set(ended.map((match) => match.pstCode).filter(Boolean));
-  const seenPairs = new Set(ended.map(matchPairKey));
+  const bracketMatches = perDepth.flatMap((depth) => depth.matches);
+  // Only finalized bracket rows are authoritative over live table cards.
+  // An undecided dated row (e.g., partial scores without a winner) must yield
+  // to the live card so live scores and `?live=1` links are preserved.
+  const finalPst = new Set(
+    bracketMatches
+      .filter((match) => match.state === "final")
+      .map((match) => match.pstCode)
+      .filter(Boolean),
+  );
 
+  const livePst = new Set<string>();
+  const livePairs = new Set<string>();
   const live = liveResult.matches.filter((match) => {
-    if (match.pstCode && seenPst.has(match.pstCode)) return false;
-    seenPst.add(match.pstCode);
-    seenPairs.add(matchPairKey(match));
+    if (match.pstCode && finalPst.has(match.pstCode)) return false;
+    if (match.pstCode && livePst.has(match.pstCode)) return false;
+    if (match.pstCode) livePst.add(match.pstCode);
+    livePairs.add(matchPairKey(match));
     return true;
   });
 
+  const ended = bracketMatches.filter((match) => {
+    if (match.state === "final") return true;
+    if (match.pstCode && livePst.has(match.pstCode)) return false;
+    if (livePairs.has(matchPairKey(match))) return false;
+    return true;
+  });
+
+  const seenPairs = new Set<string>([...livePairs, ...ended.map(matchPairKey)]);
   const upcoming = upcomingResult.matches.filter((match) => {
     const key = matchPairKey(match);
     if (seenPairs.has(key)) return false;

@@ -206,18 +206,18 @@
   --color-amber-450: var(--gold);
   --color-violet-450: var(--lpba);
 
-  --font-display: var(--font-sans), "Geist", system-ui, sans-serif;
-  --font-sans: var(--font-sans), "Geist", system-ui, sans-serif;
-  --font-serif: var(--font-sans), "Geist", system-ui, sans-serif;
-  --font-mono: var(--font-mono), "Geist Mono", ui-monospace, monospace;
+  --font-display: var(--font-geist-sans), "Geist", system-ui, sans-serif;
+  --font-sans: var(--font-geist-sans), "Geist", system-ui, sans-serif;
+  --font-serif: var(--font-geist-sans), "Geist", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
 
   --radius-card: 10px;
 }
 
 :root {
-  --sans: var(--font-sans), "Geist", system-ui, sans-serif;
-  --cond: var(--font-sans), "Geist", system-ui, sans-serif;
-  --mono: var(--font-mono), "Geist Mono", ui-monospace, monospace;
+  --sans: var(--font-geist-sans), "Geist", system-ui, sans-serif;
+  --cond: var(--font-geist-sans), "Geist", system-ui, sans-serif;
+  --mono: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
 }
 
 /* =========================================================================

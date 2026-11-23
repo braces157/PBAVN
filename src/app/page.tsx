@@ -723,6 +723,7 @@ export default async function HomePage() {
   return (
     <HomeArenaHub
       initialLive={initialLive}
+      initialFeedReachable={feed.reachable}
       days={days}
       teamFallback={teamFallback}
       leadStory={leadStory}

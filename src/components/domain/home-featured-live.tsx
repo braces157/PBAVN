@@ -78,12 +78,14 @@ function DuelPortrait({ name, photo }: { name: string; photo: string | null }) {
 export function HomeFeaturedLive({
   liveCards,
   featured,
+  feedReachable = true,
   onSelectKey,
   upcomingToday,
   leadStory,
 }: {
   liveCards: HomeLiveCard[];
   featured: HomeLiveCard | null;
+  feedReachable?: boolean;
   onSelectKey: (key: string) => void;
   upcomingToday: HomeFixtureRow[];
   leadStory: HomeLeadStory | null;
@@ -114,6 +116,7 @@ export function HomeFeaturedLive({
         upcomingToday={upcomingToday}
         nextClock={nextClock}
         countdown={countdown}
+        feedReachable={feedReachable}
       />
     );
   }

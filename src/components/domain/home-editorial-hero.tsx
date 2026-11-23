@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Clock } from "lucide-react";
+import { AlertTriangle, ArrowRight, Clock } from "lucide-react";
 import { SafeImage } from "@/components/ui/safe-image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,11 +13,13 @@ export function HomeEditorialHero({
   upcomingToday,
   nextClock,
   countdown,
+  feedReachable = true,
 }: {
   leadStory: HomeLeadStory | null;
   upcomingToday: HomeFixtureRow[];
   nextClock: string;
   countdown: string | null;
+  feedReachable?: boolean;
 }) {
   const nextGroup = nextClock
     ? upcomingToday.filter((m) => m.clock === nextClock).slice(0, 3)
@@ -47,7 +49,12 @@ export function HomeEditorialHero({
 
         <div className="flex min-w-0 flex-col justify-between gap-4 p-5">
           <div>
-            {nextClock ? (
+            {!feedReachable ? (
+              <Badge variant="outline" className="gap-1.5 border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="size-3" />
+                <span>Live scoring temporarily unavailable</span>
+              </Badge>
+            ) : nextClock ? (
               <Badge variant="secondary" className="gap-1.5 px-2 py-0.5 text-[11px]">
                 <Clock className="size-3 text-[var(--pba)]" />
                 <span suppressHydrationWarning>

@@ -43,16 +43,15 @@ export function HomeFixturesCard({
 
   const filteredFixtures = useMemo(() => {
     const source = activeDay?.rows ?? [];
-    const base =
-      circuit === "TEAM" && source.every((r) => r.circuit !== "TEAM") && !liveOnly
-        ? teamFallback
-        : source;
-    return base.filter((row) => {
+    return source.filter((row) => {
       if (liveOnly && row.state !== "live") return false;
       if (circuit !== "ALL" && row.circuit !== circuit) return false;
       return true;
     });
-  }, [activeDay, circuit, liveOnly, teamFallback]);
+  }, [activeDay, circuit, liveOnly]);
+
+  const showTeamRoundFallback =
+    circuit === "TEAM" && !liveOnly && filteredFixtures.length === 0 && teamFallback.length > 0;
 
   const liveTotal = useMemo(
     () => (activeDay?.rows ?? []).filter((r) => r.state === "live").length,
@@ -249,6 +248,41 @@ export function HomeFixturesCard({
           </Link>
         </div>
       </Card>
+
+      {showTeamRoundFallback && (
+        <Card className="mt-4 overflow-hidden" aria-label="Current Team League round fixtures">
+          <div className="flex items-center justify-between border-b border-border bg-secondary/40 px-4 py-2.5 text-xs">
+            <span className="font-semibold text-foreground">
+              Current Team League Round
+              <span className="ml-1.5 font-mono font-normal text-muted-foreground">
+                ({teamFallback.length} fixtures)
+              </span>
+            </span>
+            <Link href="/teams/matches" className="font-medium text-[var(--pba)] hover:underline">
+              All round fixtures →
+            </Link>
+          </div>
+          <div className="divide-y divide-border">
+            {teamFallback.slice(0, 6).map((row) => {
+              const isFinal = row.state === "final";
+              return (
+                <Link
+                  key={row.key}
+                  href={row.href}
+                  className="group flex items-center justify-between gap-3 px-4 py-2.5 text-xs transition-colors hover:bg-accent/50"
+                >
+                  <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                    {row.home} <span className="text-muted-foreground">vs</span> {row.away}
+                  </span>
+                  <span className="mono shrink-0 font-semibold text-foreground">
+                    {isFinal ? `${row.homeScore ?? 0}–${row.awayScore ?? 0}` : row.clock}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </Card>
+      )}
     </section>
   );
 }
