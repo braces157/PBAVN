@@ -103,7 +103,7 @@ export function MatchHeader({
             <dd className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3.5 py-2 sm:gap-3 sm:px-4">
               <span
                 className={cn(
-                  "font-mono text-3xl font-semibold leading-none tabular-nums sm:text-4xl",
+                  "tnum font-mono text-3xl font-semibold leading-none tabular-nums sm:text-4xl",
                   isFinal && setsWon[0] === maxWon ? "text-emerald-600 dark:text-emerald-400" : "text-foreground",
                 )}
               >
@@ -112,7 +112,7 @@ export function MatchHeader({
               <span className="text-lg font-medium text-muted-foreground" aria-hidden="true">–</span>
               <span
                 className={cn(
-                  "font-mono text-3xl font-semibold leading-none tabular-nums sm:text-4xl",
+                  "tnum font-mono text-3xl font-semibold leading-none tabular-nums sm:text-4xl",
                   isFinal && setsWon[1] === maxWon ? "text-emerald-600 dark:text-emerald-400" : "text-foreground",
                 )}
               >

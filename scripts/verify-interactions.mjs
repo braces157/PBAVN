@@ -208,7 +208,7 @@ const before = await waitFor(`
 `);
 const clicked = await evaluate(`
   (() => {
-    const other = [...document.querySelectorAll('button[aria-pressed]')]
+    const other = [...document.querySelectorAll('table.stat-table th button[aria-pressed]')]
       .find(chip => chip.getAttribute('aria-pressed') === 'false');
     if (!other) return false;
     other.click();
@@ -243,9 +243,22 @@ check("clicking a non-link cell opens the detail page", /^\/players\//.test(path
 
 await navigate("/");
 await waitFor(
-  `location.pathname === "/" && document.readyState === "complete" && Boolean(document.querySelector('input[role="combobox"]'))`,
+  `location.pathname === "/" && document.readyState === "complete" && Boolean(document.querySelector('button[aria-label="Search players"], input[role="combobox"]'))`,
 );
-await evaluate(`document.querySelector('input[role="combobox"]').focus()`);
+await evaluate(`
+  (() => {
+    const existing = document.querySelector('input[role="combobox"]');
+    if (existing) {
+      existing.focus();
+      return true;
+    }
+    const trigger = document.querySelector('button[aria-label="Search players"]');
+    if (trigger) trigger.click();
+    return Boolean(trigger);
+  })()
+`);
+await waitFor(`Boolean(document.querySelector('input[role="combobox"]'))`, 8000);
+await evaluate(`document.querySelector('input[role="combobox"]')?.focus()`);
 await new Promise((resolve) => setTimeout(resolve, 800));
 for (const character of "gayoung") {
   await send("Input.dispatchKeyEvent", { type: "char", text: character });
