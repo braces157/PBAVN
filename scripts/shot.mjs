@@ -44,7 +44,6 @@ await send("Emulation.setDeviceMetricsOverride", {
   mobile,
 });
 await send("Page.navigate", { url });
-// Give the app time to hydrate images and fonts.
 await new Promise((resolve) => setTimeout(resolve, 5000));
 
 // The Next.js dev-tools bubble is a development aid, not part of the UI.

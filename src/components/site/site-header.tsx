@@ -135,7 +135,6 @@ export function SiteHeader() {
         </div>
       </div>
 
-      {/* Mobile horizontal navigation */}
       <div className="border-t border-border bg-card lg:hidden">
         <nav
           className="no-scrollbar mask-fade-r flex items-center gap-1 overflow-x-auto px-3 py-1.5 pr-8"

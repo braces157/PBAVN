@@ -37,7 +37,6 @@ export function TodayMatches({
     );
   }
 
-  // Group matches by event so each tournament gets one clean header bar (FotMob pattern).
   const groups: {
     key: string;
     event: DayMatch["event"];

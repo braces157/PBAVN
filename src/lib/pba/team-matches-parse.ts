@@ -16,8 +16,6 @@
  * transport.
  */
 
-/* ------------------------------------------------------- round fixtures, getPlanDetailEnd_new2 */
-
 export interface FixtureSide {
   /** T000xx, from viewRanktOther. The join key to everything else. */
   clubCode: string | null;
@@ -171,8 +169,6 @@ export function parseRoundFixtures(html: string | null): TeamFixture[] {
 
   return fixtures;
 }
-
-/* ------------------------------------------------------------- bouts, getPlanResult_new */
 
 export interface BoutSide {
   /** Split on <br>; a doubles pair yields two names. */
@@ -328,8 +324,6 @@ export function parseFixtureBouts(html: string | null): FixtureBouts | null {
   };
 }
 
-/* --------------------------------------------------- TPT variables, planResultDetail.asp */
-
 export interface TptCodes {
   tptCode1: string;
   tptCode2: string;
@@ -351,8 +345,6 @@ export function parseTptCodes(html: string | null): TptCodes | null {
   if (!code1 || !code2) return null;
   return { tptCode1: code1, tptCode2: code2, lastInning: lastInning ?? 0 };
 }
-
-/* -------------------------------------------------------------- innings, getPlanResultDetail */
 
 export interface InningSide {
   /** InnScore, this inning's points. */

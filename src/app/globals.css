@@ -1,10 +1,5 @@
 @import "tailwindcss";
 
-/* =========================================================================
-   PBA HUB — CAROM EDITORIAL DESIGN SYSTEM (DESIGN.md)
-   Warm Chalk Broadsheet (Light) + Arena Obsidian (Dark) + Simonis Cloth
-   ========================================================================= */
-
 :root,
 [data-theme="light"] {
   --background: #fafafa;
@@ -220,10 +215,6 @@
   --mono: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
 }
 
-/* =========================================================================
-   BASE LAYER
-   ========================================================================= */
-
 @layer base {
   *,
   *::before,
@@ -274,10 +265,6 @@
   outline-offset: 2px;
 }
 
-/* =========================================================================
-   KEYFRAMES
-   ========================================================================= */
-
 @keyframes bl {
   0%,
   100% {
@@ -320,12 +307,7 @@
   }
 }
 
-/* =========================================================================
-   COMPONENTS LAYER (never beats Tailwind @layer utilities)
-   ========================================================================= */
-
 @layer components {
-  /* ---------------- Layout & Typography Utilities ---------------- */
 
   .wrap {
     max-width: 1340px;
@@ -388,8 +370,6 @@
   .display-sm {
     font-size: clamp(17px, 2vw, 20px);
   }
-
-  /* ---------------- Flags, Crests, Avatars, Carom Balls ---------------- */
 
   .f {
     display: inline-block;
@@ -525,8 +505,6 @@
     display: inline-block;
     animation: bl 1.4s infinite;
   }
-
-  /* ---------------- Site Header (Editorial Broadcast Bar) ---------------- */
 
   .header-shell {
     position: sticky;
@@ -687,7 +665,6 @@
     color: var(--pba);
   }
 
-  /* Crisp Editorial Underline Navigation (zero icon bloat) */
   .nav-links {
     position: relative;
     display: inline-flex;
@@ -888,7 +865,6 @@
     border-color: var(--pba);
   }
 
-  /* Mobile Nav Strip with scroll-fade cue & generous tap height */
   .mobnav-wrap {
     display: none;
     position: relative;
@@ -930,8 +906,6 @@
       display: block;
     }
   }
-
-  /* ---------------- Compact Active Tour Strip ---------------- */
 
   .tour-ribbon {
     background: var(--surface-2);
@@ -982,8 +956,6 @@
     font-size: 11.5px;
     color: var(--ink-3);
   }
-
-  /* ---------------- Cards, Segmented Controls & Surfaces ---------------- */
 
   .b-card,
   .surface {
@@ -1118,8 +1090,6 @@
       font-size: 13px;
     }
   }
-
-  /* ---------------- Simonis Midnight Arena Heroes ---------------- */
 
   .idx-featured-live {
     background: var(--arena);
@@ -1265,7 +1235,6 @@
     opacity: 0.9;
   }
 
-  /* Rolling Odometer Score Digit */
   .rolling-num {
     display: inline-flex;
     justify-content: center;
@@ -1280,7 +1249,6 @@
     animation: digit-roll 220ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* Full-Bleed /live Arena Broadcast Hero */
   .arena-hero {
     position: relative;
     background: var(--arena);
@@ -1376,7 +1344,6 @@
     color: var(--pba);
   }
 
-  /* Split H2H Stat Bars */
   .stat-compare-list {
     display: flex;
     flex-direction: column;
@@ -1420,7 +1387,6 @@
     transition: width 260ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* Editorial Photo Story Card */
   .story-card {
     display: grid;
     grid-template-columns: 1.05fr 1fr;
@@ -1464,8 +1430,6 @@
     color: var(--ink);
     transition: color 140ms ease;
   }
-
-  /* ---------------- Shared Tables, Fields & CMS Body ---------------- */
 
   .stat-table {
     width: 100%;
@@ -1611,8 +1575,6 @@
     font: 600 11px var(--cond);
     text-transform: uppercase;
   }
-
-  /* ---------------- WST × FotMob Full-Bleed Alternating Bands & Duel Spine ---------------- */
 
   .band-obsidian {
     background: var(--arena);
@@ -1767,8 +1729,6 @@
     font-weight: 700;
   }
 
-  /* ---------------- Editorial Footer ---------------- */
-
   .site-footer-wrap {
     background: var(--surface);
     border-top: 1px solid var(--line);
@@ -1840,10 +1800,6 @@ html[data-theme-switching] *::before,
 html[data-theme-switching] *::after {
   transition: none !important;
 }
-
-/* =========================================================================
-   REDUCED MOTION
-   ========================================================================= */
 
 @media (prefers-reduced-motion: reduce) {
   html {

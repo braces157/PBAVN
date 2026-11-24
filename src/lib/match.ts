@@ -84,7 +84,6 @@ function target(gameType: string | null): number | null {
   return parsed >= 5 && parsed <= 21 ? parsed : null;
 }
 
-/** Longest run of consecutive turns that scored. */
 function bestScoringStreak(turns: Turn[]): number {
   let best = 0;
   let current = 0;
@@ -222,8 +221,6 @@ export function progression(analysed: AnalysedSet): { innings: number; series: n
   });
   return { innings, series };
 }
-
-/* --------------------------------------------------------------- published */
 
 const TOTAL_LABELS: Record<string, string> = {
   승패: "Sets",

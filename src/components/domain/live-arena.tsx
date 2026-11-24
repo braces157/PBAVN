@@ -126,7 +126,6 @@ export function LiveArena({
 
   return (
     <div>
-      {/* Full-Bleed Obsidian Broadcast Arena Header */}
       <section className="border-b border-zinc-800 bg-zinc-950 text-zinc-50" aria-label="Live arena overview">
         <div className="wrap py-6 sm:py-8">
           <div className="flex flex-wrap items-end justify-between gap-4">
@@ -256,7 +255,6 @@ export function LiveArena({
         </div>
       </section>
 
-      {/* Main Focused Live Match Centre */}
       {active && (
         <div className="wrap pt-6">
           <Card className="overflow-hidden" aria-label="Selected live match centre">
@@ -343,7 +341,6 @@ export function LiveArena({
               </div>
             </div>
 
-            {/* Set-by-set Box Score */}
             <div className="overflow-x-auto border-b border-border">
               <table className="stat-table">
                 <thead>
