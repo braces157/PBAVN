@@ -157,8 +157,6 @@ export const getEventTeamFixtures = cache(
   },
 );
 
-/* ---------------------------------------------------------- player history */
-
 export interface PlayerMatchHistory {
   matches: TourMatch[];
   /** Tours the search actually queried this render. */
@@ -259,8 +257,6 @@ export const getSeasonCircuitRanks = cache(
   },
 );
 
-/* ------------------------------------------------------------------ labels */
-
 export function seasonLabel(season: RawSeason | null | undefined): string {
   if (!season) return "—";
   return season.SeasonTitle || season.SeasonCode;
@@ -276,8 +272,6 @@ export function nextEventCountdown(event: Event | null): string {
   if (days < 30) return `In ${Math.round(days / 7)} weeks`;
   return `In ${Math.round(days / 30)} months`;
 }
-
-/* ------------------------------------------------------- English resolution */
 
 /**
  * The tour-history feed only carries Korean titles, and the team-league round

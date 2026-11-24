@@ -11,8 +11,6 @@
  *   live_info.asp           the live board, CSS-only when nothing is scored
  */
 
-/* ------------------------------------------------------------------- types */
-
 export interface SetPlayer {
   name: string;
   /** Points in the set, i.e. the race target reached or approached. */
@@ -76,8 +74,6 @@ export interface LiveMatchRef {
   watchUrl: string | null;
 }
 
-/* --------------------------------------------------------------- utilities */
-
 /** Drop markup that carries no data but does carry misleading text. */
 function clean(html: string): string {
   return html
@@ -127,8 +123,6 @@ function toNumber(value: string | null | undefined): number | null {
   const parsed = Number(cleaned);
   return Number.isFinite(parsed) ? parsed : null;
 }
-
-/* --------------------------------------------------------------- match page */
 
 /**
  * The set list from the match page.
@@ -211,8 +205,6 @@ export function parseTotals(html: string | null): MatchTotalRow[] {
   return out;
 }
 
-/* -------------------------------------------------------------- innings page */
-
 /**
  * One set, inning by inning.
  *
@@ -264,8 +256,6 @@ export function parseSetInnings(html: string | null): SetInnings {
   }
   return { players, breaker, rows: parsed };
 }
-
-/* --------------------------------------------------------------- live board */
 
 /**
  * The live board answers with the CSS-only shell whenever no table is being

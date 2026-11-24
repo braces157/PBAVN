@@ -33,8 +33,6 @@ import type {
   RawTournament,
 } from "./pba/types";
 
-/* ------------------------------------------------------------------ leagues */
-
 export interface League {
   code: string;
   name: string;
@@ -84,8 +82,6 @@ export function statLeagueCode(code: string): string {
   if (code === "LPBA9") return "LPBA1";
   return code;
 }
-
-/* -------------------------------------------------------------- tournaments */
 
 export type EventStatus = "live" | "upcoming" | "completed";
 
@@ -172,8 +168,6 @@ export function byStart(a: Event, b: Event): number {
   return at - bt;
 }
 
-/* ------------------------------------------------------------------ players */
-
 export interface Player {
   code: string;
   name: string;
@@ -232,8 +226,6 @@ export function winRate(p: { wins: number; losses: number; draws?: number }): nu
   if (!total) return 0;
   return (p.wins / total) * 100;
 }
-
-/* ---------------------------------------------------------- player statistics */
 
 export interface PlayerStatLine {
   matches: number;
@@ -355,8 +347,6 @@ export function normalizePlayerStat(raw: RawPlayerStat | null | undefined): Play
 export function hasStatData(line: PlayerStatLine): boolean {
   return line.matches > 0 || line.wins > 0 || line.innings > 0;
 }
-
-/* -------------------------------------------------------------- team league */
 
 export interface TeamStanding {
   code: string;
@@ -637,8 +627,6 @@ export function matchMatrix(
   return matrix;
 }
 
-/* -------------------------------------------------------------------- media */
-
 /** Press titles and bodies are CMS HTML; titles must be flattened before display. */
 export interface Article {
   seq: string;
@@ -662,8 +650,6 @@ export function normalizeArticle(raw: RawPress): Article {
     date: toDate(raw.VIEW_DATE ?? raw.UPDATE_DATE),
   };
 }
-
-/* ------------------------------------------------------------------- records */
 
 /** The 26 `Category` values the season-leader feed reports. */
 export const LEADER_CATEGORIES: { key: string; label: string; unit: "avg" | "int" | "pct" }[] = [

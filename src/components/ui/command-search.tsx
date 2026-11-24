@@ -84,7 +84,6 @@ export function CommandSearch() {
         if (Array.isArray(data.rows)) setRows(data.rows);
       }
     } catch {
-      // ignore transient errors
     } finally {
       inFlightRef.current = false;
       setLoading(false);
@@ -120,7 +119,6 @@ export function CommandSearch() {
 
   return (
     <>
-      {/* Desktop search trigger */}
       <Button
         type="button"
         variant="outline"
@@ -137,7 +135,6 @@ export function CommandSearch() {
         </kbd>
       </Button>
 
-      {/* Mobile icon trigger */}
       <Button
         type="button"
         variant="outline"

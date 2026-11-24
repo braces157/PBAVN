@@ -181,7 +181,6 @@ export default async function HomePage() {
     teamBundlePromise,
   ]);
 
-  // Nation, player code, and portrait lookup across PBA + LPBA rankings
   const nationByKey = new Map<string, string>();
   const codeByName = new Map<string, string>();
   const photoByKey = new Map<string, string>();
@@ -451,7 +450,6 @@ export default async function HomePage() {
     return grouped(value);
   };
 
-  // LEFT RAIL: Active Tournaments + Circuits + Team League + Season Leaders
   const leftRailSlot = (
     <>
       <Card className="overflow-hidden" aria-label="Active tournaments and circuits">
@@ -632,7 +630,6 @@ export default async function HomePage() {
     ? articles.filter((a) => a.seq !== railLeadArticle.seq && (initialLive.length > 0 || a.seq !== leadArticle?.seq))
     : remainingArticles;
 
-  // RIGHT RAIL: World Rankings + Photo-Led Newsroom
   const rightRailSlot = (
     <>
       <HomeRankingsCard pba={pbaRankItems} lpba={lpbaRankItems} prize={prizeRankItems} />

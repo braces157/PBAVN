@@ -250,8 +250,6 @@ check("the idle live board yields no matches", () => {
   assert.deepEqual(parseLiveBoard('<style>\n\t.pt5 { padding: 5px 1px !important; }\n</style>'), []);
 });
 
-/* --------------------------------------------------------------- brackets */
-
 const final = parseBracketRows(fixture("bracket-final.html"), 2);
 const lastSixteen = parseBracketRows(fixture("bracket-r16.html"), 16);
 const englishFinal = parseBracketRows(fixture("bracket-english.html"), 2);
@@ -327,8 +325,6 @@ check("a bracket that did not answer yields no matches", () => {
   assert.deepEqual(parseBracketRows(null, 8), []);
   assert.deepEqual(parseBracketRows("<html><body>maintenance</body></html>", 8), []);
 });
-
-/* ------------------------------------------------------------ name search */
 
 const searchRows = parseSearchRows(fixture("search-tour271-cho.html"));
 
@@ -432,8 +428,6 @@ check("a row without its own heading inherits the round above it", () => {
   assert.equal(rows[1].round, "Quarter-final");
   assert.equal(rows[1].pstCode, "102");
 });
-
-/* ------------------------------------------------------------ team league */
 
 const playedRound = parseRoundFixtures(fixture("team-fixtures-93.html"));
 const scheduledRound = parseRoundFixtures(fixture("team-fixtures-94-scheduled.html"));
@@ -656,8 +650,6 @@ check("the season fallback is gated on the feed answering, not just on emptiness
   );
 });
 
-// ---------------------------------------------------------------- dated bracket rows
-//
 // The "what happened on this day" read depends on two facts about the Korean
 // bracket response that the English one silently drops: the full kickoff, and
 // the win mark. Both are asserted here against saved markup, because a
@@ -716,8 +708,6 @@ check("the Korean and English responses agree on the match codes", () => {
   const en = parseBracketRows(undatedHtml, 4).map((row) => row.pstCode).sort();
   assert.deepEqual(ko, en);
 });
-// ------------------------------------------------ the Team League live board
-//
 // The tour live board answers an empty fragment for a team-league round, so the
 // only surface that publishes a running franchise fixture is
 // team.pbatour.org/mob/ko/live.asp. A site that reads only the tour board says

@@ -33,8 +33,6 @@ import { GLOBALSIGN_GCCR46_ALPHASSLCA2025_PEM } from "./certs";
  *     shares the same cached path over `node:http`.
  */
 
-
-
 /**
  * Set `PBA_OFFLINE=1` to make every call fail. Used to exercise the degraded-data
  * path and the partial-data banner without touching the network.
@@ -52,8 +50,8 @@ export const ASSET_ORIGIN = "https://pbatour.org/resources/upload";
 const LANG = "en";
 
 const DEFAULT_TIMEOUT_MS = 12_000;
-const MAX_TEXT_BYTES = 10 * 1024 * 1024; // 10 MB cap on JSON/HTML upstream responses
-const MAX_BINARY_BYTES = 15 * 1024 * 1024; // 15 MB cap on binary image fetches
+const MAX_TEXT_BYTES = 10 * 1024 * 1024;
+const MAX_BINARY_BYTES = 15 * 1024 * 1024;
 
 const ALLOWED_UPSTREAM_HOSTS = new Set([
   "pbatour.org",
@@ -103,8 +101,6 @@ export interface PbaEnvelope<T> {
   page?: { totcnt?: number; curPage?: number; nTotalPageSize?: number };
   [key: string]: unknown;
 }
-
-/* ------------------------------------------------------------------- TLS */
 
 /**
  * Every root `node:https` should trust here: Node's bundled store, any roots a
@@ -421,11 +417,6 @@ async function cachedText(
   }
 }
 
-/* ----------------------------------------------------------- failure signal */
-
-
-/* ------------------------------------------------------------------ helpers */
-
 /** Join a query object into a search string, dropping empty values. */
 export function qs(params: Record<string, string | number | undefined | null>): string {
   const search = new URLSearchParams();
@@ -476,8 +467,6 @@ async function getText(
     revalidate,
   });
 }
-
-/* ---------------------------------------------------------------- binary */
 
 export interface BinaryAsset {
   body: Buffer;
@@ -582,8 +571,6 @@ export async function fetchBinary(
   return pending;
 }
 
-/* -------------------------------------------------------------------- calls */
-
 /** Call the JSON API. Returns `null` on any transport or parse failure. */
 export async function fetchJson<T = PbaEnvelope<unknown>>(
   path: string,
@@ -645,8 +632,6 @@ export async function fetchDatedHtmlFragment(
     allowEmpty: options.allowEmpty,
   });
 }
-
-/* ------------------------------------------------------------ team terminal */
 
 /**
  * Fragment transport for the team-league terminal at `team.pbatour.org`.

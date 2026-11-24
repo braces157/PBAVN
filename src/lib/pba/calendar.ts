@@ -145,8 +145,6 @@ export function seasonTitle(code: string): string {
   return `${code}-${Number(code) + 1}`;
 }
 
-/* ------------------------------------------------------------ day queries */
-
 /** Events overlapping one calendar day (`YYYY-MM-DD`). */
 export function eventsOnDay(day: string, events = calendarEvents()): CalendarEvent[] {
   return events.filter((event) => {

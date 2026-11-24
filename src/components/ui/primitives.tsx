@@ -5,8 +5,6 @@ import { cn } from "@/lib/utils";
 
 export { cn };
 
-/* ------------------------------------------------------------- headings */
-
 export function SectionHeading({
   eyebrow,
   title,
@@ -45,8 +43,6 @@ export function TextLink({ href, children }: { href: string; children: ReactNode
     </Link>
   );
 }
-
-/* ----------------------------------------------------------------- chips */
 
 const TONE: Record<string, string> = {
   carom: "border-blue-500/25 bg-blue-500/10 text-blue-600 dark:text-blue-400",
@@ -98,8 +94,6 @@ export function StatusPill({ status }: { status: "live" | "upcoming" | "complete
   return <Chip tone="neutral">Final</Chip>;
 }
 
-/* ------------------------------------------------------------------ rank */
-
 export function RankBadge({ rank, size = "md" }: { rank: number; size?: "sm" | "md" }) {
   const top3 = rank > 0 && rank <= 3;
   return (
@@ -118,8 +112,6 @@ export function RankBadge({ rank, size = "md" }: { rank: number; size?: "sm" | "
     </span>
   );
 }
-
-/* ------------------------------------------------------------------ stats */
 
 export function Stat({
   label,
@@ -150,8 +142,6 @@ export function Stat({
   );
 }
 
-/* -------------------------------------------------------------- empty state */
-
 export function EmptyState({
   title,
   description,
@@ -178,8 +168,6 @@ export function EmptyState({
     </div>
   );
 }
-
-/* --------------------------------------------------------------- pagination */
 
 export function Pagination({
   page,
@@ -274,8 +262,6 @@ export function Pagination({
   );
 }
 
-/* ------------------------------------------------------------------ tabs */
-
 export function TabLinks({
   items,
   active,
@@ -314,8 +300,6 @@ export function TabLinks({
   );
 }
 
-/* ------------------------------------------------------------------ misc */
-
 export function Rule({ className }: { className?: string }) {
   return <div className={cn("h-px w-full bg-border", className)} />;
 }
@@ -328,8 +312,6 @@ export function KeyValue({ label, children }: { label: string; children: ReactNo
     </div>
   );
 }
-
-/* ------------------------------------------------------- panel building blocks */
 
 export function Panel({
   title,

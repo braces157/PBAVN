@@ -144,7 +144,6 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
 
   return (
     <>
-      {/* ------------------------------------------------------------ hero */}
       <section
         id="overview"
         className="relative scroll-mt-24 border-b border-zinc-800/80 bg-zinc-950 text-zinc-50"
@@ -239,7 +238,6 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
 
       <div className="wrap py-6">
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          {/* ------------------------------------------------------ main column */}
           <div className="min-w-0 space-y-6">
             <div id="season" className="scroll-mt-24 space-y-4">
               <div className="flex min-w-0 flex-wrap items-end justify-between gap-3">
@@ -385,7 +383,6 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
             )}
           </div>
 
-          {/* ---------------------------------------------------------- sidebar */}
           <aside id="career" className="min-w-0 scroll-mt-24 space-y-4">
             {seasonRank && (
               <Panel title="Season standing" meta={seasonTitle}>
@@ -483,8 +480,6 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
     </>
   );
 }
-
-/* ------------------------------------------------------------------ pieces */
 
 function HeroButton({ href, children, primary = false }: { href: string; children: ReactNode; primary?: boolean }) {
   return (

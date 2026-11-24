@@ -175,7 +175,6 @@ check("the published comparison table ranks the better side per row", () => {
   const innings = rows.find((row) => row.label === "Innings");
   assert.equal(average?.better, "right");
   assert.equal(highRun?.better, "left");
-  // Both players needed 41 innings, so neither is better.
   assert.equal(innings?.better, "none");
 });
 

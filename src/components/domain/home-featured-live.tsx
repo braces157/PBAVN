@@ -148,7 +148,6 @@ export function HomeFeaturedLive({
       className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-50 shadow-sm"
       aria-label="Live Arena stage"
     >
-      {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 px-4 py-3 sm:px-5">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="inline-flex items-center gap-1.5 font-medium text-red-400">
@@ -194,12 +193,10 @@ export function HomeFeaturedLive({
         </div>
       </div>
 
-      {/* Center symmetric 1v1 duel */}
       <h1 className="sr-only">
         Live: {fA?.name ?? "Player 1"} vs {fB?.name ?? "Player 2"}
       </h1>
       <div className="grid grid-cols-1 items-center gap-4 px-4 py-6 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-5 sm:px-5">
-        {/* Player A */}
         <div className="flex items-center justify-center gap-3 sm:justify-end">
           <div className="min-w-0 text-center sm:text-right">
             {nameA.given && (
@@ -227,7 +224,6 @@ export function HomeFeaturedLive({
           <DuelPortrait name={fA?.name ?? "P1"} photo={fA?.photo ?? null} />
         </div>
 
-        {/* NumberFlow live score */}
         <div className="flex flex-col items-center gap-1.5">
           <div className="inline-flex items-center gap-2" aria-live="polite">
             <span
@@ -266,7 +262,6 @@ export function HomeFeaturedLive({
           </div>
         </div>
 
-        {/* Player B */}
         <div className="flex flex-row-reverse items-center justify-center gap-3 sm:flex-row sm:justify-start">
           <DuelPortrait name={fB?.name ?? "P2"} photo={fB?.photo ?? null} />
           <div className="min-w-0 text-center sm:text-left">
@@ -295,7 +290,6 @@ export function HomeFeaturedLive({
         </div>
       </div>
 
-      {/* Multi-table selector */}
       {liveCards.length > 1 && (
         <div
           className="no-scrollbar mask-fade-r flex items-center gap-1.5 overflow-x-auto border-t border-zinc-800/80 bg-zinc-900/40 px-4 py-2.5 pr-8"

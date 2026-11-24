@@ -60,7 +60,6 @@ export function HomeFixturesCard({
 
   return (
     <section aria-label="Daily matches and fixtures">
-      {/* Header row with Radix Day Tabs */}
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-foreground">
@@ -86,7 +85,6 @@ export function HomeFixturesCard({
         </Tabs>
       </div>
 
-      {/* Circuit Tabs + Live Filter */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Tabs value={circuit} onValueChange={(v) => setCircuit(v as CircuitFilter)}>
           <TabsList>
@@ -110,7 +108,6 @@ export function HomeFixturesCard({
         </Button>
       </div>
 
-      {/* Clean shadcn Card containing symmetric duel rows */}
       <Card className="overflow-hidden">
         {filteredFixtures.length > 0 ? (
           <div className="divide-y divide-border">
@@ -124,7 +121,6 @@ export function HomeFixturesCard({
                   href={row.href}
                   className="group flex flex-col gap-1.5 px-4 py-3 transition-colors hover:bg-accent/50 sm:grid sm:grid-cols-[88px_minmax(0,1fr)] sm:items-center sm:gap-3 md:grid-cols-[96px_minmax(0,1fr)_116px] md:px-5"
                 >
-                  {/* Status / Time + Circuit (top meta row on mobile, left col on sm+) */}
                   <div className="flex items-center justify-between gap-2 sm:flex-col sm:items-start sm:gap-0.5">
                     <div className="flex items-center gap-2 sm:flex-col sm:items-start sm:gap-0.5">
                       {isLive ? (
@@ -148,7 +144,6 @@ export function HomeFixturesCard({
                     </span>
                   </div>
 
-                  {/* Center: Symmetric 1v1 Duel Spine */}
                   <div className="duel-spine min-w-0">
                     <div className="flex min-w-0 items-center justify-end gap-2 text-right">
                       <span
@@ -203,7 +198,6 @@ export function HomeFixturesCard({
                     </div>
                   </div>
 
-                  {/* Right: Round + Chevron */}
                   <div className="hidden items-center justify-end gap-1.5 text-right text-xs text-muted-foreground md:flex">
                     <span className="truncate">{row.round}</span>
                     <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
