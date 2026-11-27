@@ -109,8 +109,6 @@ function ttlFor(day: string, today: string): number {
   return day >= today ? TODAY_TTL : PAST_TTL;
 }
 
-/* --------------------------------------------------------------- team league */
-
 function fixtureState(fixture: TeamFixture, day: string, now: string): MatchState {
   if (fixture.played) return "final";
   const at = fixture.playedAt;
@@ -173,8 +171,6 @@ async function teamLeagueMatches(
     .map((fixture) => fixtureToDayMatch(fixture, event, day, now));
   return { matches, failed: false };
 }
-
-/* ---------------------------------------------------------------- tour events */
 
 const PARSED_CACHE_LIMIT = 300;
 const parsedCache = new Map<string, { value: unknown; expires: number }>();
@@ -530,8 +526,6 @@ async function tourMatches(event: CalendarEvent, day: string, now: string): Prom
     failed: perDepth.some((depth) => depth.failed) || liveResult.failed || upcomingResult.failed,
   };
 }
-
-/* --------------------------------------------------------------------- glue */
 
 /**
  * The tour code behind an event sequence number.

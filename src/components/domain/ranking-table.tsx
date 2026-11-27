@@ -9,7 +9,6 @@ export function rankingPhoto(row: RawRankingRow): string | null {
   return photoUrl(row.ImgURL, 96) ?? (isRealAsset(row.ImgURL) ? asset(row.ImgURL) : null);
 }
 
-/** ₩216.0M for dense cards, ₩216,000,000 for a dedicated column. */
 function money(value: number): string {
   if (!value) return "—";
   const trim = (input: string) => input.replace(/\.0$/, "");

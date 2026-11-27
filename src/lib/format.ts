@@ -3,8 +3,6 @@ import type { PbaDate } from "./pba/types";
 /** Anything date-shaped the API or our own models can hand us. */
 export type DateLike = PbaDate | Date;
 
-/* ------------------------------------------------------------------- dates */
-
 export function toDate(value: DateLike): Date | null {
   if (!value) return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
@@ -80,12 +78,9 @@ export function daysUntil(value: DateLike, now = new Date()): number | null {
   return diffIsoDays(kstDay(now), key);
 }
 
-/* ------------------------------------------------------------ calendar rails */
-
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WEEKDAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-/** Monday-first, which is how a European tour calendar is read. */
 const WEEKDAYS_MON = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** The first day of the week containing `value`, Monday. */
@@ -236,8 +231,6 @@ export function stampDay(value: string | null | undefined): string | null {
   return match ? match[1] : null;
 }
 
-/* ------------------------------------------------------------------ numbers */
-
 /**
  * Parse a number, or `null` when the text was never one.
  *
@@ -328,8 +321,6 @@ export function ordinal(value: number | string | null | undefined): string {
       return `${n}th`;
   }
 }
-
-/* -------------------------------------------------------------------- text */
 
 export function isPlaceholder(value: string | null | undefined): boolean {
   if (!value) return true;

@@ -45,21 +45,15 @@ export interface PbaResultResponse<T> {
   resultCode?: string;
 }
 
-/* ------------------------------------------------------------------ leagues */
-
 export interface RawLeague {
   LeagueName: string;
   LeagueCode: string;
 }
 
-/* ------------------------------------------------------------------ seasons */
-
 export interface RawSeason {
   SeasonCode: string;
   SeasonTitle: string;
 }
-
-/* --------------------------------------------------------------- tournaments */
 
 export interface RawTournament {
   SEQ: string;
@@ -106,8 +100,6 @@ export interface RawTournamentDetail extends RawTournament {
   AWARD?: unknown;
 }
 
-/* ------------------------------------------------------------------- player */
-
 export interface RawPlayer {
   MemCode: string;
   PlayerNameKO: string;
@@ -133,8 +125,6 @@ export interface RawPlayer {
   num?: number;
   tcnt?: number;
 }
-
-/* ------------------------------------------------------------------ ranking */
 
 export interface RawRankingRow {
   Rank: number;
@@ -179,8 +169,6 @@ export interface RawRankTour {
   TourTitleEn: string;
   StartDay?: PbaDate;
 }
-
-/* ------------------------------------------------------- player stats (서비스) */
 
 /** Korean-keyed season / tour statistics row. */
 export interface RawPlayerStat {
@@ -230,7 +218,6 @@ export interface RawPlayerStat {
   총점?: number;
   상금?: number;
   랭킹포인트?: number;
-  /* ranks */
   에버리지순위?: number;
   하이런순위?: number;
   승률순위?: number;
@@ -353,8 +340,6 @@ export interface RawPeriodStat {
   "승부치기 후공 승률"?: number;
   "승부치기 하이런": number;
 }
-
-/* ------------------------------------------------------------- team league */
 
 export interface RawTeamSeason {
   시즌명: string;
@@ -502,8 +487,6 @@ export interface RawTeamMatch {
   세트무: number;
 }
 
-/* ------------------------------------------------------------------- media */
-
 export interface RawPress {
   SEQ: string;
   TITLE: string;
@@ -543,8 +526,6 @@ export interface RawGallery {
   VIEW_DATE: PbaDate;
   ROWNUM?: number;
 }
-
-/* ------------------------------------------------------------------ awards */
 
 export interface RawAward {
   SEASON: string;
@@ -627,8 +608,6 @@ export interface RawHeadToHead {
   player2_set_wins: number;
   player2_set_diff: number;
 }
-
-/* ------------------------------------------------------------ home payload */
 
 export interface RawHomeInfo {
   pressList: RawPress[];

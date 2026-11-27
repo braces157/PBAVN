@@ -72,7 +72,6 @@ export function MatchHeader({
         </div>
       </div>
 
-      {/* Centered Scoreboard */}
       {sides === 2 ? (
         <dl className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 bg-card px-4 py-5 sm:gap-5 sm:px-6">
           <div className="min-w-0">

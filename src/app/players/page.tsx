@@ -82,7 +82,6 @@ function sortPlayers(rows: RawPlayer[], sort: SortOption): RawPlayer[] {
     if (sort === "name") {
       return (a.PlayerNameEN || a.PlayerNameKO || "").localeCompare(b.PlayerNameEN || b.PlayerNameKO || "");
     }
-    // Default "rank" order: ranked players first, then highest prize / average
     const ra = Number(a.PrizeRank) > 0 ? Number(a.PrizeRank) : 999_999;
     const rb = Number(b.PrizeRank) > 0 ? Number(b.PrizeRank) : 999_999;
     if (ra !== rb) return ra - rb;

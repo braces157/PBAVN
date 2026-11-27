@@ -174,8 +174,6 @@ export function HomeArenaHub({
     [liveCards, focusedKey],
   );
 
-  // Reconcile polled liveCards into today's fixture board so matches entering or
-  // leaving live play immediately sync with the Live filter and duel scores.
   const reconciledDays = useMemo(() => {
     const byPst = new Map<string, HomeLiveCard>();
     const byPair = new Map<string, HomeLiveCard>();
@@ -249,9 +247,7 @@ export function HomeArenaHub({
 
   return (
     <div className="wrap py-5 pb-12">
-      {/* Classic 3-Column Sports Portal Grid (Center renders first on mobile) */}
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)_316px]">
-        {/* LEFT RAIL: Tournaments, Circuits, Team League, Season Leaders */}
         <aside
           className="order-3 flex min-w-0 flex-col gap-5 lg:order-1"
           aria-label="Tournaments and league overview"
@@ -259,7 +255,6 @@ export function HomeArenaHub({
           {leftRailSlot}
         </aside>
 
-        {/* CENTER MAIN FEED: Live Arena Stage + Symmetric 1v1 Matches & Results */}
         <div className="order-1 flex min-w-0 flex-col gap-5 lg:order-2">
           <HomeFeaturedLive
             liveCards={liveCards}
@@ -274,7 +269,6 @@ export function HomeArenaHub({
           <HomeFixturesCard days={reconciledDays} teamFallback={teamFallback} />
         </div>
 
-        {/* RIGHT RAIL: World Rankings + Photo-Led Newsroom */}
         <aside
           className="order-2 flex min-w-0 flex-col gap-5 lg:order-3"
           aria-label="Rankings and news"

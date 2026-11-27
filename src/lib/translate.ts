@@ -5,7 +5,7 @@ import { excerpt, stripTags } from "./format";
 import type { Article } from "./normalize";
 
 const HANGUL_RE = /[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/;
-const TRANSLATE_TTL_SECONDS = 604_800; // 7 days
+const TRANSLATE_TTL_SECONDS = 604_800;
 const MEMORY_CACHE_LIMIT = 2000;
 const REQUEST_TIMEOUT_MS = 6_000;
 const COOLDOWN_MS = 120_000; // 2 minutes on 429/quota

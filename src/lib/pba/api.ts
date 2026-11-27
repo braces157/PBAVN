@@ -35,8 +35,6 @@ import type {
   RawVideo,
 } from "./types";
 
-/* --------------------------------------------------------------- primitives */
-
 const CACHE = {
   /** Leagues and seasons change once a year. */
   static: 86_400,
@@ -65,8 +63,6 @@ function rows<T>(envelope: PbaEnvelope<T> | null): T[] {
  */
 export { trackFailures } from "./failures";
 
-/* ------------------------------------------------------------------ leagues */
-
 export async function getLeagues(): Promise<RawLeague[]> {
   const data = await fetchJson<PbaEnvelope<RawLeague>>("/ajax/leagueInfoList", {
     revalidate: CACHE.static,
@@ -80,8 +76,6 @@ export async function getSeasons(): Promise<RawSeason[]> {
   });
   return rows(data);
 }
-
-/* -------------------------------------------------------------- tournaments */
 
 export async function getTournaments(params: {
   season?: string;
@@ -104,8 +98,6 @@ export async function getTournamentDetail(seq: string): Promise<RawTournamentDet
   );
   return data?.data ?? null;
 }
-
-/* ------------------------------------------------------------------ players */
 
 export interface PlayerQuery {
   page?: number;
@@ -148,8 +140,6 @@ export async function getPlayer(memCode: string): Promise<RawPlayer | null> {
   );
   return data?.data ?? null;
 }
-
-/* ----------------------------------------------------------------- rankings */
 
 export type RankingKind = "prize" | "point" | "welcome";
 
@@ -208,8 +198,6 @@ export async function getRankingTours(params: {
   );
   return rows(data);
 }
-
-/* -------------------------------------------------------- player statistics */
 
 /**
  * Reads one player's season line.
@@ -288,8 +276,6 @@ export async function getPlayerCareerRank(memCode: string): Promise<RawTotalRank
   return rows(data)[0] ?? null;
 }
 
-/* ----------------------------------------------------------------- records */
-
 export async function getSeasonLeaders(params: {
   seasonCode: string;
   pbaType: string;
@@ -338,8 +324,6 @@ export async function getTourHistory(): Promise<RawTour[]> {
   return rows(data);
 }
 
-/* ------------------------------------------------------------ head to head */
-
 export async function getHeadToHead(params: {
   memberCode1: string;
   memberCode2: string;
@@ -354,8 +338,6 @@ export async function getHeadToHead(params: {
   );
   return data?.result?.data?.[0] ?? null;
 }
-
-/* -------------------------------------------------------------- team league */
 
 export async function getTeamLeagueSeasons(): Promise<RawTeamSeason[]> {
   const data = await fetchJson<PbaEnvelope<RawTeamSeason>>("/teamLeague/ajax/season", {
@@ -461,8 +443,6 @@ export async function getTeamMatchMatrix(params: {
   return rows(data);
 }
 
-/* ------------------------------------------------------------------- media */
-
 export async function getPressList(page = 1, pageSize = 12): Promise<{
   list: RawPress[];
   total: number;
@@ -499,8 +479,6 @@ export async function getGalleries(page = 1, pageSize = 12): Promise<RawGallery[
   return rows(data);
 }
 
-/* ------------------------------------------------------------------ awards */
-
 export async function getAwards(params: {
   category: string;
   season: string;
@@ -511,8 +489,6 @@ export async function getAwards(params: {
   );
   return rows(data);
 }
-
-/* -------------------------------------------------------------------- home */
 
 export async function getHomeInfo(seasonCode: string): Promise<RawHomeInfo | null> {
   const data = await fetchJson<PbaEnvelope<RawHomeInfo>>(
