@@ -59,12 +59,15 @@ live board, which fits. Traffic would have to be large before CPU-hours bind.
 
 **Deploy it:**
 
+- **Automatic deploys (Vercel Git Integration):** `pba-hub` is connected to `braces157/PBAVN` — every push to `main` deploys to production and PRs get preview deployments automatically.
+- **Manual CLI deploy:**
+
 ```bash
 npx vercel login          # opens the browser
 npx vercel --prod         # from this folder, no git repo required
 ```
 
-Then set the function region to Seoul, `icn1`, in Project Settings. Every page fans out
+`vercel.json` pins serverless functions to Seoul (`icn1`). Every page fans out
 several sequential calls to a Korean origin, and the default `iad1` in Virginia makes each
 one cross the Pacific. Seoul is listed in the
 [region table](https://vercel.com/docs/regions), and Hobby plans may pick one.
