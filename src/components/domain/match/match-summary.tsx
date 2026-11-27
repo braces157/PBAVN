@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, ExternalLink, Radio } from "lucide-react";
-import { Chip, cn } from "@/components/ui/primitives";
+import { Chip, LiveChip, cn } from "@/components/ui/primitives";
 import type { AnalysedSet, ComparisonRow, MatchSummary } from "@/lib/match";
 
 const TONES = ["text-foreground", "text-foreground", "text-foreground", "text-foreground"];
@@ -67,6 +67,7 @@ export function MatchHeader({
         </div>
         <div className="flex items-center gap-2">
           {summary.playedOn && <span className="font-mono text-xs tabular-nums text-muted-foreground">{summary.playedOn}</span>}
+          {live && <LiveChip label="Live" />}
           {isFinal && <Chip tone="carom">FT</Chip>}
         </div>
       </div>
@@ -281,8 +282,9 @@ export function MatchTotals({
       </div>
       <ul className="divide-y divide-border/60">
         {rows.map((row) => {
-          const leftNum = parseSingleNumber(String(row.left));
-          const rightNum = parseSingleNumber(String(row.right));
+          const isCategorical = /result|win|lose|outcome/i.test(row.label);
+          const leftNum = isCategorical ? Number.NaN : parseSingleNumber(String(row.left));
+          const rightNum = isCategorical ? Number.NaN : parseSingleNumber(String(row.right));
           const bothNumeric = Number.isFinite(leftNum) && Number.isFinite(rightNum) && leftNum + rightNum > 0;
           const leftPct = bothNumeric ? (leftNum / (leftNum + rightNum)) * 100 : 50;
 

@@ -38,7 +38,19 @@ export function buildRankingColumns(metric: "prize" | "point", dense: boolean): 
   return columns;
 }
 
-export function buildRankingRows(rows: RawRankingRow[], metric: "prize" | "point", dense: boolean): TableRow[] {
+export interface RankingCutline {
+  afterIndex: number;
+  label: string;
+  tone?: "carom" | "amber" | "rose";
+}
+
+export function buildRankingRows(
+  rows: RawRankingRow[],
+  metric: "prize" | "point",
+  dense: boolean,
+  cutlines: RankingCutline[] = [],
+): TableRow[] {
+  const cutlineByIndex = new Map(cutlines.map((c) => [c.afterIndex, c]));
   return rows.map((row, index) => {
     const cleanName = cleanPlayerName(pick(row.PlayerNameEN, row.PlayerNameKO));
     const cells: Record<string, CellValue> = {
@@ -49,15 +61,19 @@ export function buildRankingRows(rows: RawRankingRow[], metric: "prize" | "point
         sub: dense ? undefined : row.PlayerNameKO,
         photo: rankingPhoto(row),
       },
-      nation: row.NationCode || null,
+      nation: row.NationCode ? { kind: "nation", code: row.NationCode } : null,
       prize: money(row.Prize),
       points: row.RankingPoint ? row.RankingPoint.toLocaleString("en-US") : "—",
     };
+    const cut = cutlineByIndex.get(index);
     return {
       key: `${row.MemCode}-${row.Rank}-${index}`,
       href: `/players/${row.MemCode}`,
       linkLabel: `Open ${cleanName}`,
       cells,
+      searchText: `${cleanName} ${row.PlayerNameKO ?? ""} ${row.NationCode ?? ""}`,
+      nationCode: row.NationCode || "",
+      ...(cut ? { dividerBefore: { label: cut.label, tone: cut.tone } } : {}),
       sortValues: {
         prize: row.Prize || 0,
         points: row.RankingPoint || 0,
@@ -74,6 +90,9 @@ export function RankingTable({
   className,
   maxHeight,
   hideSortBar = false,
+  searchable = false,
+  nationFilter = false,
+  cutlines = [],
 }: {
   rows: RawRankingRow[];
   metric?: "prize" | "point";
@@ -82,6 +101,9 @@ export function RankingTable({
   className?: string;
   maxHeight?: string;
   hideSortBar?: boolean;
+  searchable?: boolean;
+  nationFilter?: boolean;
+  cutlines?: RankingCutline[];
 }) {
   const visible = typeof limit === "number" ? rows.slice(0, limit) : rows;
 
@@ -91,10 +113,14 @@ export function RankingTable({
       hideSortBar={hideSortBar}
       payload={{
         columns: buildRankingColumns(metric, dense),
-        rows: buildRankingRows(visible, metric, dense),
-        ranks: Object.fromEntries(visible.map((row, index) => [`${row.MemCode}-${row.Rank}-${index}`, row.Rank])),
+        rows: buildRankingRows(visible, metric, dense, cutlines),
+        ranks: Object.fromEntries(visible.map((row, index) => [`${row.MemCode}-${row.Rank}-${index}`, row.Rank || index + 1])),
+        preserveRanks: true,
         initialSort: metric === "prize" ? { id: "prize", direction: "desc" } : { id: "points", direction: "desc" },
         maxHeight,
+        searchable,
+        searchPlaceholder: "Search player in table (EN / KO)…",
+        nationFilter,
       }}
     />
   );

@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 };
 
 interface PageProps {
-  searchParams: Promise<{ season?: string; round?: string }>;
+  searchParams: Promise<{ season?: string; round?: string; club?: string }>;
 }
 
 export default async function TeamFixturesPage({ searchParams }: PageProps) {
@@ -96,6 +96,16 @@ export default async function TeamFixturesPage({ searchParams }: PageProps) {
   });
 
   const { seasons, season, rounds, selectedRound, fixtures, clubs, failures } = loaded;
+  const selectedClub = params.club && clubs.has(params.club) ? params.club : "";
+  const visibleFixtures = selectedClub
+    ? fixtures.filter((f) => f.home.clubCode === selectedClub || f.away.clubCode === selectedClub)
+    : fixtures;
+  const clubOptions = [
+    { value: "", label: "All clubs" },
+    ...[...clubs.entries()]
+      .sort((a, b) => a[1].name.localeCompare(b[1].name))
+      .map(([code, club]) => ({ value: code, label: club.name })),
+  ];
 
   return (
     <>
@@ -105,7 +115,7 @@ export default async function TeamFixturesPage({ searchParams }: PageProps) {
         title="Round Fixtures"
         description={
           season && selectedRound
-            ? `${teamLeagueTitle(season.시즌명)} · Round ${selectedRound.라운드} · ${fixtures.length} fixtures`
+            ? `${teamLeagueTitle(season.시즌명)} · Round ${selectedRound.라운드} · ${visibleFixtures.length} fixtures`
             : "Played results and scheduled fixtures by round"
         }
       >
@@ -125,13 +135,26 @@ export default async function TeamFixturesPage({ searchParams }: PageProps) {
                 basePath="/teams/matches"
                 paramKey="round"
                 active={selectedRound ? String(selectedRound.라운드코드) : ""}
-                params={{ season: season.시즌코드 }}
+                params={{ season: season.시즌코드, club: selectedClub || undefined }}
                 options={[...rounds]
                   .sort((a, b) => a.라운드 - b.라운드)
                   .map((r) => ({
                     value: String(r.라운드코드),
                     label: `${r.포스트여부 === "Y" ? "PO " : ""}R${r.라운드}`,
                   }))}
+              />
+            )}
+            {clubs.size > 1 && (
+              <FilterRow
+                label="Club"
+                basePath="/teams/matches"
+                paramKey="club"
+                active={selectedClub}
+                params={{
+                  season: season.시즌코드,
+                  round: selectedRound ? String(selectedRound.라운드코드) : undefined,
+                }}
+                options={clubOptions}
               />
             )}
           </div>
@@ -158,17 +181,17 @@ export default async function TeamFixturesPage({ searchParams }: PageProps) {
                 {selectedRound.시작일자} → {selectedRound.종료일자}
               </p>
               <p className="font-mono text-xs font-semibold tabular-nums text-foreground">
-                {fixtures.length} fixtures
+                {visibleFixtures.length} {visibleFixtures.length === 1 ? "fixture" : "fixtures"}
               </p>
             </div>
 
             <FixtureList
-              fixtures={fixtures}
+              fixtures={visibleFixtures}
               clubs={clubs}
               season={season.시즌코드}
               round={String(selectedRound.라운드코드)}
-              emptyTitle="No fixtures published for this round"
-              emptyDescription="An undrawn round publishes no fixture blocks yet. Try another round above."
+              emptyTitle="No fixtures published for this filter"
+              emptyDescription="Try another club or round above."
             />
           </>
         )}

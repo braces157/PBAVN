@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowRight, ExternalLink, Radio } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink, Radio, RefreshCw } from "lucide-react";
 import { flagClass } from "@/lib/flag";
 import { SafeImage } from "@/components/ui/safe-image";
 import { RollingNumber } from "@/components/ui/rolling-number";
@@ -79,6 +79,8 @@ export function HomeFeaturedLive({
   liveCards,
   featured,
   feedReachable = true,
+  refreshing = false,
+  onRefresh,
   onSelectKey,
   upcomingToday,
   leadStory,
@@ -86,13 +88,20 @@ export function HomeFeaturedLive({
   liveCards: HomeLiveCard[];
   featured: HomeLiveCard | null;
   feedReachable?: boolean;
+  refreshing?: boolean;
+  onRefresh?: () => void;
   onSelectKey: (key: string) => void;
   upcomingToday: HomeFixtureRow[];
   leadStory: HomeLeadStory | null;
 }) {
   const [countdown, setCountdown] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const railRef = useRef<HTMLDivElement>(null);
   const nextClock = upcomingToday[0]?.clock ?? "";
+
+  const scrollTables = (dir: -1 | 1) => {
+    railRef.current?.scrollBy({ left: dir * 240, behavior: "smooth" });
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -169,6 +178,20 @@ export function HomeFeaturedLive({
         </div>
 
         <div className="flex items-center gap-1.5">
+          {onRefresh && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onRefresh}
+              disabled={refreshing}
+              aria-label="Refresh live scores"
+              className="h-7 px-2 text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white"
+            >
+              <RefreshCw className={`size-3 ${refreshing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">{refreshing ? "Syncing…" : "Refresh"}</span>
+            </Button>
+          )}
           {featured.watchUrl && (
             <Button
               variant="ghost"
@@ -291,51 +314,74 @@ export function HomeFeaturedLive({
       </div>
 
       {liveCards.length > 1 && (
-        <div
-          className="no-scrollbar mask-fade-r flex items-center gap-1.5 overflow-x-auto border-t border-zinc-800/80 bg-zinc-900/40 px-4 py-2.5 pr-8"
-          role="tablist"
-          aria-label="Live tables"
-        >
-          {liveCards.map((m, idx) => {
-            const active = m.key === featured.key;
-            const sA = m.sides[0];
-            const sB = m.sides[1];
-            const pA = sA?.points ?? sA?.setsWon ?? 0;
-            const pB = sB?.points ?? sB?.setsWon ?? 0;
-            return (
-              <button
-                key={m.key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => onSelectKey(m.key)}
-                className={`relative flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                  active ? "text-white" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
-                }`}
-              >
-                {active &&
-                  (mounted ? (
-                    <motion.span
-                      layoutId="live-table-active"
-                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                      className="absolute inset-0 -z-0 rounded-md border border-zinc-700 bg-zinc-800"
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    <span
-                      className="absolute inset-0 -z-0 rounded-md border border-zinc-700 bg-zinc-800"
-                      aria-hidden="true"
-                    />
-                  ))}
-                <span className="mono relative z-10 text-[10px] text-zinc-500">T{idx + 1}</span>
-                <span className="relative z-10">{splitNameParts(sA?.name ?? "P1").surname}</span>
-                <span className="mono relative z-10 rounded bg-zinc-950/70 px-1.5 py-0.5 text-[11px] font-semibold text-amber-400">
-                  {pA}–{pB}
-                </span>
-                <span className="relative z-10">{splitNameParts(sB?.name ?? "P2").surname}</span>
-              </button>
-            );
-          })}
+        <div className="relative flex items-center border-t border-zinc-800/80 bg-zinc-900/40">
+          {liveCards.length > 3 && (
+            <button
+              type="button"
+              onClick={() => scrollTables(-1)}
+              aria-label="Scroll live tables left"
+              className="hidden h-full shrink-0 cursor-pointer items-center justify-center border-r border-zinc-800/80 px-2 text-zinc-400 transition-colors hover:bg-zinc-800/60 hover:text-zinc-100 sm:inline-flex"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+          )}
+          <div
+            ref={railRef}
+            className="no-scrollbar mask-fade-r flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto px-3 py-2.5 pr-8"
+            role="tablist"
+            aria-label="Live tables"
+          >
+            {liveCards.map((m, idx) => {
+              const active = m.key === featured.key;
+              const sA = m.sides[0];
+              const sB = m.sides[1];
+              const pA = sA?.points ?? sA?.setsWon ?? 0;
+              const pB = sB?.points ?? sB?.setsWon ?? 0;
+              return (
+                <button
+                  key={m.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => onSelectKey(m.key)}
+                  className={`relative flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    active ? "text-white" : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
+                  }`}
+                >
+                  {active &&
+                    (mounted ? (
+                      <motion.span
+                        layoutId="live-table-active"
+                        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                        className="absolute inset-0 -z-0 rounded-md border border-zinc-700 bg-zinc-800"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <span
+                        className="absolute inset-0 -z-0 rounded-md border border-zinc-700 bg-zinc-800"
+                        aria-hidden="true"
+                      />
+                    ))}
+                  <span className="mono relative z-10 text-[10px] text-zinc-500">T{idx + 1}</span>
+                  <span className="relative z-10">{splitNameParts(sA?.name ?? "P1").surname}</span>
+                  <span className="mono relative z-10 rounded bg-zinc-950/70 px-1.5 py-0.5 text-[11px] font-semibold text-amber-400">
+                    {pA}–{pB}
+                  </span>
+                  <span className="relative z-10">{splitNameParts(sB?.name ?? "P2").surname}</span>
+                </button>
+              );
+            })}
+          </div>
+          {liveCards.length > 3 && (
+            <button
+              type="button"
+              onClick={() => scrollTables(1)}
+              aria-label="Scroll live tables right"
+              className="hidden h-full shrink-0 cursor-pointer items-center justify-center border-l border-zinc-800/80 px-2 text-zinc-400 transition-colors hover:bg-zinc-800/60 hover:text-zinc-100 sm:inline-flex"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          )}
         </div>
       )}
     </section>

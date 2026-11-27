@@ -7,7 +7,7 @@ import { PLAYER_LEAGUES, leagueByCode } from "@/lib/normalize";
 import { cleanDisplayText, cleanPlayerName, grouped, wonCompact, pick } from "@/lib/format";
 import { asset, isRealAsset } from "@/lib/pba/http";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
-import { RankingTable } from "@/components/domain/ranking-table";
+import { RankingTable, type RankingCutline } from "@/components/domain/ranking-table";
 import { PlayerAvatar, NationPlate } from "@/components/ui/media";
 import { Badge } from "@/components/ui/badge";
 import { FollowButton } from "@/components/ui/follow-button";
@@ -41,7 +41,7 @@ export default async function RankingsPage({ searchParams }: PageProps) {
   const { tours, rows, tourCode, failures } = await trackFailures(async () => {
     const tours = await getRankingTours({ leagueCode, season });
     const validTour =
-      requestedTour !== "0" && tours.some((t) => t.TourCode === requestedTour)
+      requestedTour !== "0" && tours.some((t) => String(t.TourCode) === requestedTour)
         ? requestedTour
         : "0";
     const [rawRows, pointRows] = await Promise.all([
@@ -65,8 +65,54 @@ export default async function RankingsPage({ searchParams }: PageProps) {
   });
 
   const podium = rows.slice(0, 3);
-  const matchedTour = tours.find((t) => t.TourCode === tourCode);
+  const matchedTour = tours.find((t) => String(t.TourCode) === tourCode);
   const tourName = matchedTour ? cleanDisplayText(matchedTour.TourTitleEn || matchedTour.TourTitle) : "";
+
+  // PBA-specific qualification & survival cutlines (full-season tables only).
+  const isFullSeason = tourCode === "0";
+  const cutlines: RankingCutline[] = [];
+  let stakesSummary: string | null = null;
+  if (isFullSeason) {
+    if ((leagueCode === "PBA1" || leagueCode === "LPBA1") && metric === "prize") {
+      const cutRow = rows[31];
+      stakesSummary = `World Championship race: Top 32 in full-season prize money qualify${
+        cutRow ? ` (current #32 cutline: ${wonCompact(cutRow.Prize)})` : ""
+      }.`;
+      if (rows.length > 32) {
+        cutlines.push({
+          afterIndex: 32,
+          label: `▲ Top 32 · World Championship qualification cutline${cutRow ? ` (${wonCompact(cutRow.Prize)})` : ""}`,
+          tone: "carom",
+        });
+      }
+    } else if (leagueCode === "PBA1" && metric === "point") {
+      const cutRow = rows[59];
+      stakesSummary = `Division 1 tour survival: Top ~60 in season ranking points retain their PBA Tour card; lower finishers enter Q-School${
+        cutRow ? ` (current #60: ${grouped(cutRow.RankingPoint)} pts)` : ""
+      }.`;
+      if (rows.length > 60) {
+        cutlines.push({
+          afterIndex: 60,
+          label: `▲ Top 60 · PBA Tour retention cutline · Below enters Q-School${cutRow ? ` (${grouped(cutRow.RankingPoint)} pts)` : ""}`,
+          tone: "rose",
+        });
+      }
+    } else if (leagueCode === "PBA2") {
+      const cutRow = rows[19];
+      stakesSummary = `Dream Tour promotion: Top 20 earn direct promotion to the 1st-division PBA Tour; the next tier advances to Q-School${
+        cutRow
+          ? ` (current #20: ${metric === "prize" ? wonCompact(cutRow.Prize) : `${grouped(cutRow.RankingPoint)} pts`})`
+          : ""
+      }.`;
+      if (rows.length > 20) {
+        cutlines.push({
+          afterIndex: 20,
+          label: "▲ Top 20 · Direct promotion to PBA Division 1",
+          tone: "amber",
+        });
+      }
+    }
+  }
 
   return (
     <>
@@ -124,7 +170,7 @@ export default async function RankingsPage({ searchParams }: PageProps) {
                     .trim();
                   const label = raw || cleanDisplayText(tour.TourTitleEn || tour.TourTitle);
                   return {
-                    value: tour.TourCode,
+                    value: String(tour.TourCode),
                     label: label.length > 24 ? `${label.slice(0, 22).trimEnd()}…` : label,
                   };
                 }),
@@ -207,7 +253,18 @@ export default async function RankingsPage({ searchParams }: PageProps) {
               })}
             </div>
 
-            <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
+            {stakesSummary && (
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-secondary/40 px-4 py-3 text-xs text-muted-foreground">
+                <p>
+                  <strong className="font-semibold text-foreground">PBA Stakes:</strong> {stakesSummary}
+                </p>
+                <Link href="/about#rules" className="shrink-0 font-medium text-[var(--pba)] hover:underline">
+                  How PBA rankings work →
+                </Link>
+              </div>
+            )}
+
+            <div className="mt-5 overflow-hidden rounded-xl border border-border bg-card">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-secondary/40 px-4 py-3">
                 <p className="text-sm font-semibold text-foreground">
                   Full Standings
@@ -215,12 +272,15 @@ export default async function RankingsPage({ searchParams }: PageProps) {
                     {rows.length} players
                   </span>
                 </p>
-                <p className="text-xs text-muted-foreground">Click any column header to sort</p>
+                <p className="text-xs text-muted-foreground">Official # rank stays pinned when sorting</p>
               </div>
               <RankingTable
                 key={`${season}-${leagueCode}-${tourCode}-${metric}`}
                 rows={rows}
                 metric={metric}
+                searchable
+                nationFilter
+                cutlines={cutlines}
                 className="rounded-none border-0"
               />
             </div>

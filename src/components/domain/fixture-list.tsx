@@ -102,7 +102,19 @@ export function FixtureList({
             {link && (
               <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2.5 text-xs">
                 <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-                  {fixture.played ? (fixture.playedAt ?? "") : fixture.playedAt ? `Kickoff ${fixture.playedAt}` : ""}
+                  {fixture.played
+                    ? (() => {
+                        const h = fixture.home.sets ?? 0;
+                        const a = fixture.away.sets ?? 0;
+                        if (h === 4 && a === 3) return "Pts: 2 – 1 (full 7 sets)";
+                        if (a === 4 && h === 3) return "Pts: 1 – 2 (full 7 sets)";
+                        if (h === 4) return "Pts: 3 – 0";
+                        if (a === 4) return "Pts: 0 – 3";
+                        return "Final";
+                      })()
+                    : fixture.playedAt
+                      ? `Kickoff ${fixture.playedAt} KST`
+                      : "Scheduled"}
                 </span>
                 <span className="inline-flex items-center gap-1 font-medium text-foreground">
                   {fixture.played ? "Bouts & innings" : "Fixture details"}

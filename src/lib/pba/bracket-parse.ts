@@ -105,7 +105,10 @@ export function parseBracketRows(html: string | null, bracketSize: number): Brac
     const spans = [...block.matchAll(/<span class="t14"[^>]*>([\s\S]*?)<\/span>/gi)].map((match) =>
       text(match[1]),
     );
-    const scheduledAt = spans.find((value) => /^\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}$/.test(value)) ?? null;
+    const scheduledAt =
+      spans.find((value) => /^\d{2,4}-\d{2}-\d{2}\s+\d{2}:\d{2}$/.test(value)) ??
+      spans.find((value) => /^\d{1,2}:\d{2}$/.test(value)) ??
+      null;
     const table = spans.find((value) => /^[A-Z]{0,2}\d{1,3}$/i.test(value)) ?? null;
 
     const members = [...block.matchAll(/matchlayer\(\s*'([^']*)'\s*,\s*'([^']*)'\s*\)/gi)][0];
@@ -151,4 +154,47 @@ export function parseBracketRows(html: string | null, bracketSize: number): Brac
   }
 
   return matches;
+}
+
+export interface DatedBracketInfo {
+  pstCode: string;
+  at: string | null;
+  table: string | null;
+  sides: { memCode: string | null; won: boolean }[];
+}
+
+/**
+ * Enrich English bracket rows (which drop the date, table code, and sometimes
+ * the win flag) with timestamps, table labels, and winners from the dated feed,
+ * joined strictly by `pstCode`.
+ */
+export function mergeDatedBracketRows(
+  english: BracketMatch[],
+  dated: DatedBracketInfo[],
+): BracketMatch[] {
+  if (english.length === 0 || dated.length === 0) return english;
+  const byPst = new Map(dated.map((row) => [row.pstCode, row]));
+
+  return english.map((row) => {
+    const match = byPst.get(row.pstCode);
+    if (!match) return row;
+
+    const scheduledAt = match.at ?? row.scheduledAt;
+    const table = row.table ?? match.table;
+    const missingWon =
+      row.sides.every((side) => !side.won) &&
+      match.sides.some((side) => side.won) &&
+      match.sides.length === row.sides.length;
+
+    const sides = missingWon
+      ? row.sides.map((side, idx) => {
+          const datedSide =
+            (side.memCode ? match.sides.find((candidate) => candidate.memCode === side.memCode) : undefined) ??
+            match.sides[idx];
+          return datedSide ? { ...side, won: datedSide.won } : side;
+        })
+      : row.sides;
+
+    return { ...row, scheduledAt, table, sides };
+  });
 }

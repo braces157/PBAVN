@@ -6,10 +6,12 @@ import { Command } from "cmdk";
 import {
   ArrowRight,
   Calendar,
+  GitCompareArrows,
   Newspaper,
   Radio,
   Search,
   Trophy,
+  UserSearch,
   Users,
   BarChart3,
 } from "lucide-react";
@@ -22,46 +24,64 @@ interface IndexRow {
   e: string;
   k: string;
   l: string;
+  r?: number;
+  n?: string;
 }
 
 const QUICK_ROUTES = [
   { href: "/live", label: "Live Arena", hint: "Real-time tables & scorecards", icon: Radio },
   { href: "/schedule", label: "Schedule", hint: "Daily matches & tour calendar", icon: Calendar },
-  { href: "/rankings", label: "World Rankings", hint: "PBA, LPBA & prize money", icon: Trophy },
-  { href: "/teams", label: "Team League", hint: "Club standings & fixtures", icon: Users },
-  { href: "/records", label: "Season Stats", hint: "Averages, high runs & leaders", icon: BarChart3 },
+  { href: "/players", label: "Player Directory", hint: "Browse 1,700+ pros by circuit & nation", icon: UserSearch },
+  { href: "/rankings", label: "World Rankings", hint: "PBA, LPBA, World Champ & Q-School cutlines", icon: Trophy },
+  { href: "/teams", label: "Team League", hint: "Club standings, rounds & fixtures", icon: Users },
+  { href: "/compare", label: "Head-to-Head Compare", hint: "Compare any two pros side by side", icon: GitCompareArrows },
+  { href: "/records", label: "Season Stats & Awards", hint: "Averages, high runs, Perfect Q & leaders", icon: BarChart3 },
   { href: "/news", label: "Newsroom", hint: "Press dispatches & galleries", icon: Newspaper },
 ];
+
+const TIER_BONUS: Record<string, number> = {
+  PBA1: 28,
+  LPBA1: 26,
+  PBA2: 10,
+  PBA3: 4,
+};
 
 function squeeze(value: string): string {
   return value
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFC")
     .replace(/[^a-z0-9가-힣]/g, "");
 }
 
 function searchPlayers(rows: IndexRow[], query: string): IndexRow[] {
   const needle = squeeze(query);
-  if (needle.length < 2) return [];
+  const isHangul = /[가-힣]/.test(needle);
+  if (needle.length < (isHangul ? 1 : 2)) return [];
   const scored: { row: IndexRow; score: number }[] = [];
   for (const row of rows) {
     const en = squeeze(row.e);
     const ko = squeeze(row.k);
     const family = squeeze((row.e.split(/\s+/).pop() ?? "") || "");
     let score = 0;
-    if (family === needle) score = 120;
+    if (ko === needle) score = 140;
+    else if (family === needle) score = 120;
+    else if (ko.startsWith(needle)) score = 115;
     else if (family.startsWith(needle)) score = 110;
-    else if (ko === needle) score = 115;
-    else if (ko.startsWith(needle)) score = 105;
-    else if (en.startsWith(needle)) score = 80;
-    else if (en.includes(needle) || ko.includes(needle)) score = 50;
-    else if (squeeze(row.c).startsWith(needle)) score = 40;
-    if (score > 0) scored.push({ row, score: score - Math.min(row.e.length, 40) * 0.1 });
+    else if (en === needle) score = 135;
+    else if (en.startsWith(needle)) score = 95;
+    else if (en.includes(needle) || ko.includes(needle)) score = 60;
+    else if (squeeze(row.c).startsWith(needle)) score = 45;
+    if (score > 0) {
+      const tier = TIER_BONUS[row.l] ?? 0;
+      const rankBoost = row.r && row.r > 0 ? Math.max(0, 32 - Math.log2(row.r + 1) * 5.2) : 0;
+      scored.push({ row, score: score + tier + rankBoost - Math.min(row.e.length, 40) * 0.05 });
+    }
   }
   return scored
-    .sort((a, b) => b.score - a.score || a.row.e.localeCompare(b.row.e))
-    .slice(0, 8)
+    .sort((a, b) => b.score - a.score || (a.row.r || 9999) - (b.row.r || 9999) || a.row.e.localeCompare(b.row.e))
+    .slice(0, 10)
     .map((x) => x.row);
 }
 
@@ -160,15 +180,15 @@ export function CommandSearch() {
                 value={term}
                 onValueChange={setTerm}
                 placeholder="Search PBA & LPBA players (English or Korean)…"
-                className="flex h-12 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                className="flex h-12 w-full bg-transparent text-sm text-foreground outline-none focus:outline-none focus-visible:outline-none placeholder:text-muted-foreground"
               />
               <kbd className="mono hidden rounded border border-border bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline-block">
                 ESC
               </kbd>
             </div>
 
-            <Command.List className="max-h-[360px] overflow-y-auto p-2">
-              {term.trim().length >= 2 ? (
+            <Command.List className="max-h-[380px] overflow-y-auto p-2">
+              {(/[가-힣]/.test(term) ? term.trim().length >= 1 : term.trim().length >= 2) ? (
                 loading && !rows ? (
                   <div className="py-8 text-center text-xs text-muted-foreground">Indexing player directory…</div>
                 ) : matches.length === 0 ? (
@@ -201,9 +221,14 @@ export function CommandSearch() {
                             {row.k && <div className="truncate text-xs text-muted-foreground">{row.k}</div>}
                           </div>
                         </div>
-                        <Badge variant="outline" className="shrink-0 text-[10px]">
-                          {row.l}
-                        </Badge>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {row.r && row.r > 0 ? (
+                            <span className="mono text-[11px] font-medium text-muted-foreground">#{row.r}</span>
+                          ) : null}
+                          <Badge variant="outline" className="text-[10px]">
+                            {row.l}
+                          </Badge>
+                        </div>
                       </Command.Item>
                     ))}
                   </Command.Group>

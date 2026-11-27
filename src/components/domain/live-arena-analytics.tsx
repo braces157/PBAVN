@@ -9,6 +9,7 @@ interface LiveDetailPayload {
   sets: MatchSet[];
   totals: MatchTotalRow[];
   latestSetNo: number;
+  displaySetNo?: number;
   latestTarget: number | null;
   innings: SetInnings;
 }
@@ -25,8 +26,13 @@ export function LiveArenaAnalytics({
   refreshKey: string;
 }) {
   const [tab, setTab] = useState<AnalyticsTab>("race");
+  const [selectedSet, setSelectedSet] = useState<number | null>(null);
   const [detail, setDetail] = useState<LiveDetailPayload | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setSelectedSet(null);
+  }, [pstCode]);
 
   useEffect(() => {
     if (!pstCode) {
@@ -35,7 +41,8 @@ export function LiveArenaAnalytics({
     }
     const controller = new AbortController();
     setLoading(true);
-    fetch(`/api/live/detail?pstCode=${encodeURIComponent(pstCode)}`, {
+    const setQuery = selectedSet !== null ? `&set=${selectedSet}` : "";
+    fetch(`/api/live/detail?pstCode=${encodeURIComponent(pstCode)}${setQuery}`, {
       signal: controller.signal,
     })
       .then((res) => (res.ok ? res.json() : null))
@@ -48,12 +55,18 @@ export function LiveArenaAnalytics({
       });
 
     return () => controller.abort();
-  }, [pstCode, refreshKey]);
+  }, [pstCode, refreshKey, selectedSet]);
 
   const rows = detail?.innings?.rows ?? [];
   const target = detail?.latestTarget ?? 15;
   const p1 = detail?.innings?.players?.[0] || playerNames[0];
   const p2 = detail?.innings?.players?.[1] || playerNames[1];
+  const shownSetNo = detail?.displaySetNo || detail?.latestSetNo || 0;
+  const isPriorFallback =
+    selectedSet === null &&
+    Boolean(detail?.latestSetNo && detail?.displaySetNo && detail.displaySetNo < detail.latestSetNo);
+  const setList = detail?.sets ?? [];
+  const totals = detail?.totals ?? [];
 
   return (
     <div>
@@ -65,9 +78,36 @@ export function LiveArenaAnalytics({
             <TabsTrigger value="innings">Inning Log</TabsTrigger>
           </TabsList>
         </Tabs>
-        <span className="text-xs text-muted-foreground">
-          {detail?.latestSetNo ? `Set ${detail.latestSetNo} turn-by-turn` : "Live match telemetry"}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {setList.length > 1 && (
+            <div className="flex items-center gap-1" role="group" aria-label="Select set">
+              {setList.map((s) => {
+                const active = shownSetNo === s.setNo;
+                return (
+                  <button
+                    key={s.setNo}
+                    type="button"
+                    onClick={() => setSelectedSet(s.setNo)}
+                    className={`mono cursor-pointer rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                      active
+                        ? "bg-foreground text-background"
+                        : "bg-background text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    S{s.setNo}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <span className="text-xs text-muted-foreground">
+            {shownSetNo
+              ? isPriorFallback
+                ? `Showing Set ${shownSetNo} (Set ${detail?.latestSetNo} inning sheet pending)`
+                : `Set ${shownSetNo} turn-by-turn`
+              : "Live match telemetry"}
+          </span>
+        </div>
       </div>
 
       <div className="p-4">
@@ -77,9 +117,30 @@ export function LiveArenaAnalytics({
           </p>
         ) : loading && !detail ? (
           <div className="h-[168px] animate-pulse rounded-md bg-[var(--surface-2)]" aria-hidden="true" />
+        ) : rows.length === 0 && tab === "stats" && totals.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="stat-table">
+              <thead>
+                <tr>
+                  <th className="!text-left">{p1}</th>
+                  <th className="text-center">Match stat</th>
+                  <th className="text-right">{p2}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {totals.map((row) => (
+                  <tr key={row.label}>
+                    <td className="mono !text-left font-medium text-foreground">{row.left}</td>
+                    <td className="text-center text-xs text-muted-foreground">{row.label}</td>
+                    <td className="mono text-right font-medium text-foreground">{row.right}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : rows.length === 0 ? (
           <p className="text-[12.5px] text-[var(--ink-3)]">
-            Waiting for the first completed inning of this set…
+            Live turn-by-turn inning data has not been published by the scoring terminal for this set yet.
           </p>
         ) : tab === "race" ? (
           <PointRaceSvg rows={rows} p1={p1} p2={p2} target={target} />

@@ -17,6 +17,8 @@ import { asset, isRealAsset } from "@/lib/pba/http";
 import { PlayerAvatar, NationPlate } from "@/components/ui/media";
 import { Chip, EmptyState, SectionHeading, cn } from "@/components/ui/primitives";
 import { FilterRow, PageHeader } from "@/components/domain/filter-bar";
+import { ComparePicker } from "@/components/domain/compare-picker";
+import type { RawHeadToHead } from "@/lib/pba/types";
 
 export const revalidate = 900;
 
@@ -30,12 +32,107 @@ interface PageProps {
   searchParams: Promise<{ a?: string; b?: string; q1?: string; q2?: string; season?: string }>;
 }
 
+function squeezeName(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFC")
+    .replace(/[^a-z0-9가-힣]/g, "");
+}
+
+const COMPARE_TIER: Record<string, number> = { PBA1: 30, LPBA1: 28, PBA2: 10, PBA3: 4 };
+
 async function resolveCode(code?: string, query?: string): Promise<string | null> {
   if (code) return code;
   const term = (query ?? "").trim();
   if (!term) return null;
-  const { list } = await getPlayers({ page: 1, pageSize: 1, name: term });
-  return list[0]?.MemCode ?? null;
+  const needle = squeezeName(term);
+  if (!needle) return null;
+  const { list } = await getPlayers({ page: 1, pageSize: 2000 });
+  let best: { code: string; score: number } | null = null;
+  for (const p of list) {
+    const en = squeezeName(p.PlayerNameEN || "");
+    const ko = squeezeName(p.PlayerNameKO || "");
+    const family = squeezeName((p.PlayerNameEN || "").split(/\s+/).pop() ?? "");
+    let score = 0;
+    if (ko === needle || en === needle) score = 140;
+    else if (family === needle) score = 120;
+    else if (ko.startsWith(needle) || family.startsWith(needle)) score = 110;
+    else if (en.startsWith(needle)) score = 90;
+    else if (en.includes(needle) || ko.includes(needle)) score = 60;
+    if (score > 0) {
+      const rank = Number(p.PrizeRank) || Number(p.RankingPointRank) || 0;
+      const total =
+        score +
+        (COMPARE_TIER[p.LeagueCode] ?? 0) +
+        (rank > 0 ? Math.max(0, 32 - Math.log2(rank + 1) * 5.2) : 0);
+      if (!best || total > best.score) best = { code: p.MemCode, score: total };
+    }
+  }
+  return best?.code ?? null;
+}
+
+function aggregateH2H(rows: RawHeadToHead[]): RawHeadToHead | null {
+  const active = rows.filter((r) => (Number(r.player1_wins) || 0) + (Number(r.player2_wins) || 0) > 0 || (Number(r.total_matches) || 0) > 0);
+  if (active.length === 0) return null;
+  const sum = (pickField: (r: RawHeadToHead) => number) =>
+    active.reduce((acc, r) => acc + (Number(pickField(r)) || 0), 0);
+  const max = (pickField: (r: RawHeadToHead) => number) =>
+    active.reduce((acc, r) => Math.max(acc, Number(pickField(r)) || 0), 0);
+  const weighted = (valField: (r: RawHeadToHead) => number, weightField: (r: RawHeadToHead) => number) => {
+    let wSum = 0;
+    let total = 0;
+    for (const r of active) {
+      const w = Number(weightField(r)) || 0;
+      total += (Number(valField(r)) || 0) * w;
+      wSum += w;
+    }
+    return wSum > 0 ? total / wSum : 0;
+  };
+  const inn1 = sum((r) => r.player1_inn);
+  const inn2 = sum((r) => r.player2_inn);
+  const score1 = sum((r) => r.player1_total_score);
+  const score2 = sum((r) => r.player2_total_score);
+  const p1Wins = sum((r) => r.player1_wins);
+  const p2Wins = sum((r) => r.player2_wins);
+  const p1SetWins = sum((r) => r.player1_set_wins);
+  const p2SetWins = sum((r) => r.player2_set_wins);
+  const two1 = sum((r) => r.player1_2point);
+  const two2 = sum((r) => r.player2_2point);
+  const base = active[0];
+  return {
+    ...base,
+    total_matches: p1Wins + p2Wins > 0 ? p1Wins + p2Wins : sum((r) => r.total_matches),
+    player1_wins: p1Wins,
+    player2_wins: p2Wins,
+    player1_set_wins: p1SetWins,
+    player2_set_wins: p2SetWins,
+    player1_inn: inn1,
+    player2_inn: inn2,
+    player1_total_score: score1,
+    player2_total_score: score2,
+    player1_average: inn1 > 0 ? score1 / inn1 : weighted((r) => r.player1_average, (r) => r.player1_inn || 1),
+    player2_average: inn2 > 0 ? score2 / inn2 : weighted((r) => r.player2_average, (r) => r.player2_inn || 1),
+    player1_hr: max((r) => r.player1_hr),
+    player2_hr: max((r) => r.player2_hr),
+    player1_1point: sum((r) => r.player1_1point),
+    player2_1point: sum((r) => r.player2_1point),
+    player1_2point: two1,
+    player2_2point: two2,
+    player1_2point_rate: score1 > 0 ? ((two1 * 2) / score1) * 100 : weighted((r) => r.player1_2point_rate, (r) => r.player1_inn || 1),
+    player2_2point_rate: score2 > 0 ? ((two2 * 2) / score2) * 100 : weighted((r) => r.player2_2point_rate, (r) => r.player2_inn || 1),
+    player1_long_cnt: sum((r) => r.player1_long_cnt),
+    player2_long_cnt: sum((r) => r.player2_long_cnt),
+    player1_long_rate: weighted((r) => r.player1_long_rate, (r) => r.player1_inn || 1),
+    player2_long_rate: weighted((r) => r.player2_long_rate, (r) => r.player2_inn || 1),
+    player1_closing_rate: weighted((r) => r.player1_closing_rate, (r) => r.player1_inn || 1),
+    player2_closing_rate: weighted((r) => r.player2_closing_rate, (r) => r.player2_inn || 1),
+    player1_success_rate: weighted((r) => r.player1_success_rate, (r) => r.player1_inn || 1),
+    player2_success_rate: weighted((r) => r.player2_success_rate, (r) => r.player2_inn || 1),
+    player1_first_shot_rate: weighted((r) => r.player1_first_shot_rate, (r) => r.player1_inn || 1),
+    player2_first_shot_rate: weighted((r) => r.player2_first_shot_rate, (r) => r.player2_inn || 1),
+  };
 }
 
 export default async function ComparePage({ searchParams }: PageProps) {
@@ -50,8 +147,13 @@ export default async function ComparePage({ searchParams }: PageProps) {
       resolveCode(params.a, q1),
       resolveCode(params.b, q2),
     ]);
-    const seasonCode =
-      params.season && seasons.some((s) => s.SeasonCode === params.season) ? params.season : current.SeasonCode;
+    const isAllSeasons = params.season === "all";
+    const seasonCode = isAllSeasons
+      ? current.SeasonCode
+      : params.season && seasons.some((s) => s.SeasonCode === params.season)
+        ? params.season
+        : current.SeasonCode;
+    const seasonParam = isAllSeasons ? "all" : seasonCode;
 
     const [rawA, rawB] = await Promise.all([
       codeA ? getPlayerCached(codeA) : null,
@@ -69,7 +171,18 @@ export default async function ComparePage({ searchParams }: PageProps) {
       codeA ? getPlayerSeasonStats({ memCode: codeA, seasonCode, pbaType: pbaTypeA }) : null,
       codeB ? getPlayerSeasonStats({ memCode: codeB, seasonCode, pbaType: pbaTypeB }) : null,
       codeA && codeB && sharedType
-        ? getHeadToHead({ memberCode1: codeA, memberCode2: codeB, seasonCode, pbaType: sharedType })
+        ? isAllSeasons
+          ? Promise.all(
+              seasons.map((s) =>
+                getHeadToHead({
+                  memberCode1: codeA,
+                  memberCode2: codeB,
+                  seasonCode: s.SeasonCode,
+                  pbaType: sharedType,
+                }),
+              ),
+            ).then((all) => aggregateH2H(all.filter((x): x is RawHeadToHead => Boolean(x))))
+          : getHeadToHead({ memberCode1: codeA, memberCode2: codeB, seasonCode, pbaType: sharedType })
         : null,
       !playerA && !playerB
         ? getRankingBoard({ kind: "prize", leagueCode: "PBA1", season: seasonCode }).then((r) => r.slice(0, 4))
@@ -79,6 +192,8 @@ export default async function ComparePage({ searchParams }: PageProps) {
     return {
       seasons,
       seasonCode,
+      seasonParam,
+      isAllSeasons,
       codeA,
       codeB,
       playerA,
@@ -95,6 +210,8 @@ export default async function ComparePage({ searchParams }: PageProps) {
   const {
     seasons,
     seasonCode,
+    seasonParam,
+    isAllSeasons,
     codeA,
     codeB,
     playerA,
@@ -106,8 +223,18 @@ export default async function ComparePage({ searchParams }: PageProps) {
     suggestions,
     failures,
   } = data;
-  const seasonTitle = seasons.find((s) => s.SeasonCode === seasonCode)?.SeasonTitle ?? seasonCode;
+  const seasonTitle = isAllSeasons
+    ? "all seasons"
+    : seasons.find((s) => s.SeasonCode === seasonCode)?.SeasonTitle ?? seasonCode;
+  const statsSeasonTitle = seasons.find((s) => s.SeasonCode === seasonCode)?.SeasonTitle ?? seasonCode;
   const missedSearch = Boolean((q1 && !playerA) || (q2 && !playerB));
+
+  const h2hWinsA = Number(h2h?.player1_wins) || 0;
+  const h2hWinsB = Number(h2h?.player2_wins) || 0;
+  const h2hMatchesPlayed =
+    h2hWinsA + h2hWinsB > 0 ? h2hWinsA + h2hWinsB : Number(h2h?.total_matches) || 0;
+  const h2hSetsPlayed =
+    (Number(h2h?.player1_set_wins) || 0) + (Number(h2h?.player2_set_wins) || 0);
 
   return (
     <>
@@ -118,45 +245,28 @@ export default async function ComparePage({ searchParams }: PageProps) {
         description="Compare career averages, season statistics, and direct head-to-head records."
       >
         <div className="flex flex-col gap-2.5">
-          <form action="/compare" className="grid max-w-2xl gap-2 sm:grid-cols-[1fr_1fr_auto]">
-            {params.season && <input type="hidden" name="season" value={seasonCode} />}
-            <input
-              type="search"
-              name="q1"
-              defaultValue={q1 || (playerA ? playerA.name : "")}
-              placeholder="Player one — name"
-              aria-label="First player"
-              className="h-8 rounded-md border border-border bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            <input
-              type="search"
-              name="q2"
-              defaultValue={q2 || (playerB ? playerB.name : "")}
-              placeholder="Player two — name"
-              aria-label="Second player"
-              className="h-8 rounded-md border border-border bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            <button
-              type="submit"
-              className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              Compare
-            </button>
-          </form>
+          <ComparePicker
+            initialA={{ code: playerA?.code ?? "", label: playerA ? playerA.name : q1 }}
+            initialB={{ code: playerB?.code ?? "", label: playerB ? playerB.name : q2 }}
+            seasonParam={params.season ? seasonParam : undefined}
+          />
 
           {(playerA || playerB) && seasons.length > 0 && (
             <FilterRow
               label="Season"
               basePath="/compare"
               paramKey="season"
-              active={seasonCode}
+              active={seasonParam}
               params={{
                 a: playerA?.code ?? params.a,
                 b: playerB?.code ?? params.b,
                 q1: !playerA && q1 ? q1 : undefined,
                 q2: !playerB && q2 ? q2 : undefined,
               }}
-              options={seasons.map((s) => ({ value: s.SeasonCode, label: s.SeasonTitle || s.SeasonCode }))}
+              options={[
+                { value: "all", label: "All-Time" },
+                ...seasons.map((s) => ({ value: s.SeasonCode, label: s.SeasonTitle || s.SeasonCode })),
+              ]}
             />
           )}
         </div>
@@ -241,7 +351,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
                 <SectionHeading
                   eyebrow="Head-to-Head Record"
                   title="Direct Meetings"
-                  description={`${h2h.total_matches} recorded meetings in the ${seasonTitle} season.`}
+                  description={`${h2hMatchesPlayed} ${h2hMatchesPlayed === 1 ? "match" : "matches"}${h2hSetsPlayed > 0 ? ` (${h2hSetsPlayed} sets)` : ""} ${isAllSeasons ? "across all recorded seasons" : `in the ${seasonTitle} season`}.`}
                 />
 
                 <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
@@ -251,7 +361,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
                         {playerA.name.split(" ").slice(-1)[0]}
                       </p>
                       <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-                        {h2h.player1_wins ?? 0}
+                        {h2hWinsA}
                       </p>
                     </div>
                     <div className="text-center">
@@ -259,7 +369,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
                         Matches won
                       </p>
                       <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
-                        {h2h.total_matches} played
+                        {h2hMatchesPlayed} played{h2hSetsPlayed > 0 ? ` · ${h2hSetsPlayed} sets` : ""}
                       </p>
                     </div>
                     <div className="text-right">
@@ -267,7 +377,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
                         {playerB.name.split(" ").slice(-1)[0]}
                       </p>
                       <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
-                        {h2h.player2_wins ?? 0}
+                        {h2hWinsB}
                       </p>
                     </div>
                   </div>
@@ -349,7 +459,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
 
             {hasStatData(lineA) || hasStatData(lineB) ? (
               <section className="mt-8">
-                <SectionHeading eyebrow="Season Comparison" title={`Season Statistics · ${seasonTitle}`} />
+                <SectionHeading eyebrow="Season Comparison" title={`Season Statistics · ${statsSeasonTitle}`} />
                 <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
                   <table className="stat-table">
                     <thead>
@@ -472,7 +582,7 @@ function CompareCard({
           {cleanPlayerName(pick(player.name, player.nameKo))}
         </p>
         <p className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground">
-          AVG {average(player.average)} · HR {player.highRun} · {percent(winRate(player), 0)} win
+          Career · AVG {average(player.average)} · HR {player.highRun} · {percent(winRate(player), 0)} win
         </p>
       </div>
     </Link>

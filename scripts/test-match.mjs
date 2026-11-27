@@ -19,6 +19,7 @@ import {
   setsWon,
   summariseMatch,
 } from "../src/lib/match.ts";
+import { buildBracketTree, indexBracketPlayers } from "../src/lib/bracket-tree.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(join(here, "..", "tests", "fixtures", name), "utf8");
@@ -195,6 +196,85 @@ check("an empty scorecard summarises without throwing", () => {
   assert.deepEqual(empty.average, []);
   assert.equal(empty.coveredSets, 0);
   assert.deepEqual(compareTotals([]), []);
+});
+
+check("PBA 128-draw binary bracket maps R128 pairs into R64 and propagates winners", () => {
+  const tree = buildBracketTree(
+    [
+      {
+        pstCode: "1003",
+        matchNo: "3",
+        table: "T1",
+        scheduledAt: null,
+        round: "Round of 128",
+        bracketSize: 128,
+        sides: [
+          { name: "SW Ko", memCode: "M1", sets: 3, average: 1.8, highRun: 6, won: true },
+          { name: "DS Jung", memCode: "M2", sets: 0, average: 1.2, highRun: 5, won: false },
+        ],
+      },
+      {
+        pstCode: "1004",
+        matchNo: "4",
+        table: "T2",
+        scheduledAt: null,
+        round: "Round of 128",
+        bracketSize: 128,
+        sides: [
+          { name: "SM Kim2", memCode: "M3", sets: 1, average: 1.4, highRun: 11, won: false },
+          { name: "SP Eom", memCode: "M4", sets: 3, average: 2.2, highRun: 9, won: true },
+        ],
+      },
+    ],
+    { league: "PBA1", entrants: 128 },
+  );
+  assert.equal(tree.drawSize, 128);
+  assert.equal(tree.defaultSectionId, "q1");
+  const r64Slot1 = tree.byRound[64][1];
+  assert.equal(r64Slot1.displayMatchNo, 66);
+  assert.equal(r64Slot1.sides[0].name, "SW Ko");
+  assert.equal(r64Slot1.sides[0].projected, true);
+  assert.equal(r64Slot1.sides[1].name, "SP Eom");
+  assert.equal(r64Slot1.sides[1].projected, true);
+  const players = indexBracketPlayers(tree);
+  assert.ok(players.some((p) => p.name === "SW Ko" && p.sectionId === "q1" && p.stillAlive));
+});
+
+check("LPBA 64-draw pairs R64 (#65..96) cleanly into R32 (#1..16) -> Final (#31)", () => {
+  const tree = buildBracketTree(
+    [
+      {
+        pstCode: "2093",
+        matchNo: "93",
+        table: "T1",
+        scheduledAt: null,
+        round: "Round of 64",
+        bracketSize: 64,
+        sides: [
+          { name: "YJ Kang", memCode: "L1", sets: 25, average: 1.1, highRun: 5, won: true },
+          { name: "YW Park", memCode: "L2", sets: 18, average: 0.8, highRun: 4, won: false },
+        ],
+      },
+      {
+        pstCode: "2094",
+        matchNo: "94",
+        table: "T2",
+        scheduledAt: null,
+        round: "Round of 64",
+        bracketSize: 64,
+        sides: [
+          { name: "AR Jun", memCode: "L3", sets: 19, average: 0.7, highRun: 3, won: false },
+          { name: "SY Lee", memCode: "L4", sets: 25, average: 1.0, highRun: 6, won: true },
+        ],
+      },
+    ],
+    { league: "LPBA1", entrants: 64 },
+  );
+  assert.equal(tree.drawSize, 64);
+  const r32Slot14 = tree.byRound[32][14];
+  assert.equal(r32Slot14.displayMatchNo, 15);
+  assert.equal(r32Slot14.sides[0].name, "YJ Kang");
+  assert.equal(r32Slot14.sides[1].name, "SY Lee");
 });
 
 console.log(`\n${passed}/${passed + failures.length} match checks passed`);

@@ -84,7 +84,13 @@ export default async function LivePage() {
     circuit: finished[index].PBA타입,
   }));
 
-  const currentEvent = snapshot.current;
+  const liveCircuit =
+    feed.origin === "team-terminal"
+      ? "TLG"
+      : feed.matches.find((m) => m.circuit)?.circuit ?? null;
+  const currentEvent =
+    (liveCircuit ? snapshot.live.find((e) => e.league === liveCircuit) : null) ??
+    snapshot.current;
   const tomorrow = shiftIsoDay(today, 1);
 
   return (

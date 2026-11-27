@@ -26,6 +26,27 @@ interface TeamBoutListProps {
   playerMap?: Record<string, ResolvedBoutPlayer>;
 }
 
+function boutDiscipline(setNo: number, isSingles: boolean): string {
+  switch (setNo) {
+    case 1:
+      return isSingles ? "Men's Singles" : "Men's Doubles";
+    case 2:
+      return isSingles ? "Women's Singles" : "Women's Doubles";
+    case 3:
+      return "Men's Singles · Ace Set";
+    case 4:
+      return isSingles ? "Singles" : "Mixed Doubles";
+    case 5:
+      return "Men's Singles";
+    case 6:
+      return "Women's Singles";
+    case 7:
+      return "Men's Singles · Decider";
+    default:
+      return isSingles ? "Singles" : "Doubles";
+  }
+}
+
 export function TeamBoutList({
   bouts,
   gameNo,
@@ -208,12 +229,16 @@ export function TeamBoutList({
                 <span className="font-display text-[12.5px] font-bold uppercase tracking-wide text-fog-100">
                   Set {bout.setNo}
                 </span>
-                {bout.format && <Chip tone="neutral">{bout.format}</Chip>}
-                <span className="text-[10.5px] font-medium text-fog-500">
-                  {isSingles ? "Singles" : "Doubles"}
+                <span className="text-[11px] font-semibold text-fog-300">
+                  {boutDiscipline(bout.setNo, isSingles)}
                 </span>
+                {bout.format && (
+                  <Chip tone="neutral" title={`Race to ${bout.format.replace(/^GP/i, "")} points`}>
+                    {/^GP(\d+)$/i.test(bout.format) ? `Race to ${bout.format.slice(2)}` : bout.format}
+                  </Chip>
+                )}
                 {bout.playedAt && (
-                  <span className="tnum text-[11px] text-fog-500">{bout.playedAt}</span>
+                  <span className="tnum text-[11px] text-fog-500">{bout.playedAt} KST</span>
                 )}
                 <span className="flex-1" />
                 {h2hHref && (

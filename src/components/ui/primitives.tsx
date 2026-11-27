@@ -61,13 +61,16 @@ export function Chip({
   children,
   tone = "neutral",
   className,
+  title,
 }: {
   children: ReactNode;
   tone?: keyof typeof TONE | string;
   className?: string;
+  title?: string;
 }) {
   return (
     <span
+      title={title}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-medium",
         TONE[tone] ?? TONE.neutral,

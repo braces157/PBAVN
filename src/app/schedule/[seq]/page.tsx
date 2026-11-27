@@ -26,7 +26,7 @@ import {
 import { ArrowRight, ExternalLink, Radio } from "lucide-react";
 import { EventCrest } from "@/components/ui/media";
 import { Chip, EmptyState, LiveChip, Panel, TabStrip, TextLink, cn } from "@/components/ui/primitives";
-import { BracketView } from "@/components/domain/bracket-view";
+import { BracketTree } from "@/components/domain/bracket-tree";
 import { FixtureBoard, type FixtureClub } from "@/components/domain/fixture-board";
 import { NowNextStrip, LiveIdle, type NextFixture } from "@/components/domain/now-next";
 
@@ -37,10 +37,8 @@ interface PageProps {
   searchParams: Promise<{ all?: string; tab?: string }>;
 }
 
-const TABS = ["results", "bracket", "overview"] as const;
+const TABS = ["fixtures", "bracket", "overview"] as const;
 type Tab = (typeof TABS)[number];
-
-const ROUND_PREVIEW = 5;
 
 const loadDetail = cache((seq: string) => getTournamentDetail(seq));
 
@@ -88,8 +86,14 @@ export default async function EventPage({ params, searchParams }: PageProps) {
   if (!entry) notFound();
 
   const showAll = search.all === "1";
-  const tab: Tab = TABS.includes(search.tab as Tab) ? (search.tab as Tab) : "results";
   const isTeamLeague = entry.league === "TLG";
+  const defaultTab: Tab = isTeamLeague ? "fixtures" : "bracket";
+  const tab: Tab =
+    search.tab === "overview"
+      ? "overview"
+      : isTeamLeague && (search.tab === "fixtures" || search.tab === "results")
+        ? "fixtures"
+        : defaultTab;
 
   const matchCode = detail && /^\d+$/.test(detail.MATCH_CODE ?? "") ? detail.MATCH_CODE : "";
 
@@ -108,7 +112,25 @@ export default async function EventPage({ params, searchParams }: PageProps) {
   ]);
 
   const liveMatch =
-    feed?.matches.find((match) => (isTeamLeague ? Boolean(match.competition) : !match.competition)) ?? null;
+    feed?.matches.find((match) =>
+      isTeamLeague
+        ? Boolean(match.competition)
+        : !match.competition && (!match.circuit || match.circuit === entry.league),
+    ) ?? null;
+
+  const sisterLeague = entry.league === "PBA1" ? "LPBA1" : entry.league === "LPBA1" ? "PBA1" : null;
+  const sisterEvent =
+    sisterLeague && entry.start && entry.end
+      ? calendarEvents().find(
+          (candidate) =>
+            candidate.league === sisterLeague &&
+            candidate.season === entry.season &&
+            candidate.start &&
+            candidate.end &&
+            candidate.start <= entry.end! &&
+            candidate.end >= entry.start!,
+        ) ?? null
+      : null;
 
   const fixtures = teamEvent?.fixtures ?? [];
   const days = dayCount(entry.start, entry.end);
@@ -133,6 +155,7 @@ export default async function EventPage({ params, searchParams }: PageProps) {
         bracketCount={matches.length}
         today={today}
         keys={keys}
+        sisterEvent={sisterEvent}
       />
 
       <div className="wrap py-5">
@@ -142,39 +165,62 @@ export default async function EventPage({ params, searchParams }: PageProps) {
             liveMatch ? (
               <LiveBlock match={liveMatch} />
             ) : (
-              <LiveIdle unavailable={entry.status === "live" && (!feed || !feed.reachable)} />
+              <LiveIdle
+                status={entry.status}
+                unavailable={entry.status === "live" && (!feed || !feed.reachable)}
+              />
             )
           }
           next={next}
         />
 
-        <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_308px]">
-          <div className="min-w-0">
-            {tab === "overview" ? (
-              <OverviewPanel event={entry} facts={facts} days={days} />
-            ) : tab === "bracket" && matches.length > 0 ? (
-              <Panel title="Bracket" meta={`${matches.length} matches`} stickyHead>
-                <BracketView matches={matches} tourCode={matchCode} eventSeq={seq} />
-              </Panel>
-            ) : (
-              <ResultsPanel
-                entry={entry}
-                seq={seq}
-                showAll={showAll}
-                teamEvent={teamEvent}
-                matches={matches}
-                matchCode={matchCode}
-                today={today}
-              />
-            )}
+        {!isTeamLeague && tab === "bracket" && matches.length > 0 ? (
+          <div className="mt-5">
+            <BracketTree
+              matches={matches}
+              tourCode={matchCode}
+              eventSeq={seq}
+              league={entry.league}
+              entrants={entry.entrants.players}
+              livePstCodes={(feed?.matches ?? []).map((m) => m.pstCode).filter(Boolean)}
+              initialShowAll={showAll}
+            />
           </div>
+        ) : (
+          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_308px]">
+            <div className="min-w-0">
+              {tab === "overview" ? (
+                <OverviewPanel event={entry} facts={facts} days={days} />
+              ) : isTeamLeague ? (
+                <TeamFixturesPanel
+                  seq={seq}
+                  showAll={showAll}
+                  teamEvent={teamEvent}
+                  matchCode={matchCode}
+                  today={today}
+                />
+              ) : (
+                <Panel title="Bracket">
+                  <EmptyState
+                    className="border-0"
+                    title={entry.status === "upcoming" ? "Draw not published yet" : "No bracket published"}
+                    description={
+                      entry.status === "upcoming"
+                        ? "Match brackets appear here as soon as the draw opens and scoring begins."
+                        : "No bracket records were found under this event code."
+                    }
+                  />
+                </Panel>
+              )}
+            </div>
 
-          <aside className="space-y-4">
-            <EventQuickFacts event={entry} days={days} />
-            <DaysPanel entry={entry} keys={keys} today={today} />
-            <SiblingsPanel entry={entry} />
-          </aside>
-        </div>
+            <aside className="space-y-4">
+              <EventQuickFacts event={entry} days={days} />
+              <DaysPanel entry={entry} keys={keys} today={today} />
+              <SiblingsPanel entry={entry} />
+            </aside>
+          </div>
+        )}
       </div>
     </>
   );
@@ -188,6 +234,7 @@ function EventHeader({
   bracketCount,
   today,
   keys,
+  sisterEvent,
 }: {
   entry: CalendarEvent;
   seq: string;
@@ -196,6 +243,7 @@ function EventHeader({
   bracketCount: number;
   today: string;
   keys: string[];
+  sisterEvent: CalendarEvent | null;
 }) {
   const league = leagueByCode(entry.league);
   const days = dayCount(entry.start, entry.end);
@@ -220,7 +268,7 @@ function EventHeader({
             href={`/schedule?season=${entry.season}&league=${entry.league}`}
             className="transition-colors hover:text-foreground"
           >
-            {entry.season}
+            {entry.season}–{Number(entry.season) + 1}
           </Link>
           <Separator />
           <span className="max-w-[260px] truncate text-foreground">{entry.title}</span>
@@ -255,7 +303,16 @@ function EventHeader({
             </p>
           </div>
 
-          <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
+          <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
+            {sisterEvent && (
+              <Link
+                href={`/schedule/${sisterEvent.id}`}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-secondary px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:no-underline"
+              >
+                {sisterEvent.league === "LPBA1" ? "LPBA sister event" : "PBA sister event"}
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              </Link>
+            )}
             {entry.guideUrl && (
               <a
                 href={entry.guideUrl}
@@ -281,15 +338,19 @@ function EventHeader({
 
         <TabStrip
           items={[
-            {
-              href: `/schedule/${seq}`,
-              label: "Results",
-              active: tab === "results",
-              count: matchCount || undefined,
-            },
-            ...(bracketCount > 0
-              ? [{ href: `/schedule/${seq}?tab=bracket`, label: "Bracket", active: tab === "bracket" }]
-              : []),
+            entry.league === "TLG"
+              ? {
+                  href: `/schedule/${seq}`,
+                  label: "Fixtures",
+                  active: tab === "fixtures",
+                  count: matchCount || undefined,
+                }
+              : {
+                  href: `/schedule/${seq}`,
+                  label: "Bracket",
+                  active: tab === "bracket",
+                  count: bracketCount || undefined,
+                },
             { href: `/schedule/${seq}?tab=overview`, label: "Overview", active: tab === "overview" },
           ]}
         />
@@ -324,118 +385,62 @@ function StatusChip({ status, dayNumber }: { status: EventStatus; dayNumber: num
   );
 }
 
-function ResultsPanel({
-  entry,
+function TeamFixturesPanel({
   seq,
   showAll,
   teamEvent,
-  matches,
   matchCode,
   today,
 }: {
-  entry: CalendarEvent;
   seq: string;
   showAll: boolean;
   teamEvent: Awaited<ReturnType<typeof getEventTeamFixtures>>;
-  matches: BracketMatch[];
   matchCode: string;
   today: string;
 }) {
-  if (entry.league === "TLG") {
-    if (!teamEvent || teamEvent.fixtures.length === 0) {
-      return (
-        <Panel title="Fixtures" meta="0">
-          <EmptyState
-            className="border-0"
-            title="Fixtures not published yet"
-            description={
-              matchCode
-                ? "The team-league terminal has no fixture list for this round."
-                : "This round's fixtures appear here once published."
-            }
-          />
-        </Panel>
-      );
-    }
-
-    const { fixtures, clubs, seasonCode, round } = teamEvent;
-    const played = fixtures.filter((fixture) => fixture.played).length;
-
+  if (!teamEvent || teamEvent.fixtures.length === 0) {
     return (
-      <Panel
-        title="Round fixtures"
-        meta={`${fixtures.length} · ${played} played · ${fixtures.length - played} upcoming`}
-        stickyHead
-        action={
-          <Link
-            href={`/teams/matches?season=${encodeURIComponent(seasonCode)}&round=${round.라운드코드}`}
-            className="text-[11.5px] font-semibold text-carom-300 transition-colors hover:text-carom-400"
-          >
-            Team League view →
-          </Link>
-        }
-      >
-        <FixtureBoard
-          fixtures={fixtures}
-          clubs={new Map<string, FixtureClub>(clubs)}
-          season={seasonCode}
-          round={String(round.라운드코드)}
-          today={today}
-          playedOpen={showAll}
-          playedHref={`/schedule/${seq}?all=1`}
-        />
-      </Panel>
-    );
-  }
-
-  if (matches.length === 0) {
-    return (
-      <Panel title="Matches">
+      <Panel title="Fixtures" meta="0">
         <EmptyState
           className="border-0"
-          title={entry.status === "upcoming" ? "Draw not published yet" : "No match cards published"}
+          title="Fixtures not published yet"
           description={
-            entry.status === "upcoming"
-              ? "Match cards appear here as soon as the draw opens and scoring begins."
-              : "No bracket records were found under this event code."
+            matchCode
+              ? "The team-league terminal has no fixture list for this round."
+              : "This round's fixtures appear here once published."
           }
         />
       </Panel>
     );
   }
 
-  const shown = showAll ? matches : matches.slice(0, ROUND_PREVIEW);
-  const hidden = matches.length - shown.length;
-  const moreHref = `/schedule/${seq}?all=1`;
+  const { fixtures, clubs, seasonCode, round } = teamEvent;
+  const played = fixtures.filter((fixture) => fixture.played).length;
 
   return (
-    <>
-      {hidden > 0 && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
-          <p className="text-xs text-muted-foreground">
-            Showing the <span className="font-semibold text-foreground">closing {shown.length} matches</span> of{" "}
-            {matches.length}.
-          </p>
-          <div className="flex items-center gap-2">
-            <Link
-              href={moreHref}
-              className="inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:no-underline"
-            >
-              Show all rounds
-            </Link>
-            <Link
-              href={`/schedule/${seq}?tab=bracket`}
-              className="inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:no-underline"
-            >
-              Full bracket
-            </Link>
-          </div>
-        </div>
-      )}
-      <Panel title="Results" meta={`${matches.length} matches`} stickyHead>
-        <BracketView matches={shown} tourCode={matchCode} eventSeq={seq} />
-      </Panel>
-    </>
+    <Panel
+      title="Round fixtures"
+      meta={`${fixtures.length} · ${played} played · ${fixtures.length - played} upcoming`}
+      stickyHead
+      action={
+        <Link
+          href={`/teams/matches?season=${encodeURIComponent(seasonCode)}&round=${round.라운드코드}`}
+          className="text-[11.5px] font-semibold text-carom-300 transition-colors hover:text-carom-400"
+        >
+          Team League view →
+        </Link>
+      }
+    >
+      <FixtureBoard
+        fixtures={fixtures}
+        clubs={new Map<string, FixtureClub>(clubs)}
+        season={seasonCode}
+        round={String(round.라운드코드)}
+        today={today}
+        playedOpen={showAll}
+        playedHref={`/schedule/${seq}?all=1`}
+      />
+    </Panel>
   );
 }
 
@@ -556,7 +561,7 @@ function OverviewPanel({
 }) {
   const rows = [
     { label: "Circuit", value: leagueByCode(event.league).name },
-    { label: "Season", value: event.season },
+    { label: "Season", value: `${event.season}–${Number(event.season) + 1}` },
     { label: "Venue", value: event.venue },
     { label: "Dates", value: fmtRange(event.start, event.end) },
     { label: "Duration", value: days ? `${days} days` : "—" },

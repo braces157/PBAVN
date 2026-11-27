@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getPeriodStats, getSeasonLeaders, getTourHistory, trackFailures } from "@/lib/pba/api";
+import { getPeriodStats, getSeasonLeaders, getTourHistory, getWelcomeTopRanking, trackFailures } from "@/lib/pba/api";
 import { getRequestFailures } from "@/lib/pba/failures";
 import {
   getCurrentSeason,
@@ -35,6 +35,7 @@ const CIRCUITS = [
   { value: "PBA1", label: "PBA Tour" },
   { value: "LPBA1", label: "LPBA Tour" },
   { value: "PBA2", label: "Dream Tour" },
+  { value: "PBA3", label: "Challenge Tour" },
 ];
 
 interface PageProps {
@@ -52,13 +53,16 @@ export default async function RecordsPage({ searchParams }: PageProps) {
   const category = periodCategory(params.stat);
   const window = seasonWindow(seasonCode);
 
-  const { leaders, tours, period, failures } = await trackFailures(async () => {
-    const [leaders, tours, period] = await Promise.all([
+  const { leaders, tours, period, welcomeTop, failures } = await trackFailures(async () => {
+    const [leaders, tours, period, welcomeTop] = await Promise.all([
       getSeasonLeaders({ seasonCode, pbaType: circuit }),
       getTourHistory(),
       getPeriodStats({ startDate: window.startDate, endDate: window.endDate, pbaType: circuit }),
+      circuit === "PBA1" || circuit === "LPBA1"
+        ? getWelcomeTopRanking({ leagueCode: circuit, season: seasonCode })
+        : Promise.resolve([]),
     ]);
-    return { leaders, tours, period, failures: getRequestFailures() };
+    return { leaders, tours, period, welcomeTop, failures: getRequestFailures() };
   });
 
   const ranked = rankPeriod(period.map(normalizePeriodStat), category);
@@ -173,6 +177,74 @@ export default async function RecordsPage({ searchParams }: PageProps) {
               </div>
             ))}
           </div>
+        )}
+
+        {welcomeTop.length > 0 && (
+          <section className="mt-10">
+            <SectionHeading
+              eyebrow="Special Award · ₩4M per tournament"
+              title="Welcome Top Ranking Leaders"
+              description="Official highest single-match average award standings for this circuit and season."
+            />
+            <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
+              <table className="stat-table">
+                <thead>
+                  <tr>
+                    <th className="!w-10">#</th>
+                    <th className="!text-left">Player</th>
+                    <th className="hidden sm:table-cell">Nation</th>
+                    <th className="hidden sm:table-cell">Round</th>
+                    <th>Match AVG</th>
+                    <th>HR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {welcomeTop.slice(0, 10).map((row, idx) => {
+                    const rawName = cleanPlayerName(
+                      row.NameFullEn || row.NameShortEn || row.NameFull || row.NameShort || "",
+                    );
+                    const display = hasHangul(rawName) ? resolveKoreanName(rawName, nameIndex) : rawName;
+                    const roundLabel = row.Round
+                      ? row.Round === 2
+                        ? "Final"
+                        : row.Round === 4
+                          ? "SF"
+                          : row.Round === 8
+                            ? "QF"
+                            : `R${row.Round}`
+                      : "—";
+                    return (
+                      <tr key={`${row.MemCode}-${idx}`}>
+                        <td className="font-mono text-xs font-semibold tabular-nums text-muted-foreground">
+                          {row.Rank || idx + 1}
+                        </td>
+                        <td className="!text-left">
+                          <Link
+                            href={`/players/${encodeURIComponent(row.MemCode)}`}
+                            className="text-[13px] font-medium text-foreground hover:underline"
+                          >
+                            {display || row.MemCode}
+                          </Link>
+                        </td>
+                        <td className="hidden font-mono text-xs text-muted-foreground sm:table-cell">
+                          {row.NationCode || "—"}
+                        </td>
+                        <td className="hidden font-mono text-xs text-muted-foreground sm:table-cell">
+                          {roundLabel}
+                        </td>
+                        <td className="font-mono text-xs font-semibold tabular-nums text-foreground">
+                          {Number.isFinite(Number(row.Average)) ? Number(row.Average).toFixed(3) : "—"}
+                        </td>
+                        <td className="font-mono text-xs tabular-nums text-muted-foreground">
+                          {row.HighRun ?? "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
 
         <section className="mt-10">

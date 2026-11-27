@@ -294,7 +294,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
           <div className="mt-3 flex flex-col gap-2">
             <FilterRow
               label="Season"
-              basePath={`/teams/matches/${gameNo}`}
+              basePath="/teams/matches"
               paramKey="season"
               active={season.시즌코드}
               params={{}}
@@ -303,7 +303,7 @@ export default async function FixturePage({ params, searchParams }: PageProps) {
             {roundChips.length > 0 && (
               <FilterRow
                 label="Round"
-                basePath={`/teams/matches/${gameNo}`}
+                basePath="/teams/matches"
                 paramKey="round"
                 active={roundCode}
                 params={{ season: season.시즌코드 }}

@@ -72,6 +72,7 @@ export function HomeRankingsCard({
 
               <Link
                 href={`/players/${encodeURIComponent(row.code)}`}
+                title={row.name}
                 className="group flex min-w-0 items-center gap-2"
               >
                 <span className="relative inline-grid size-7 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-secondary text-[10px] font-semibold text-muted-foreground">
@@ -86,7 +87,7 @@ export function HomeRankingsCard({
                     />
                   )}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground group-hover:text-[var(--pba)]">
+                <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-foreground group-hover:text-[var(--pba)]">
                   {row.name}
                 </span>
               </Link>
@@ -102,7 +103,7 @@ export function HomeRankingsCard({
                 }}
               />
 
-              <span className="mono min-w-[56px] text-right text-xs font-semibold text-foreground">
+              <span className="mono min-w-[48px] text-right text-xs font-semibold text-foreground">
                 {row.value}
               </span>
             </li>

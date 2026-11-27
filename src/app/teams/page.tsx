@@ -52,39 +52,68 @@ export default async function TeamsPage({ searchParams }: PageProps) {
     );
   }
 
-  const { rounds, selectedRound, roundCode, standingsRaw, playersRaw, rosterRaw, fixtures, failures } =
-    await trackFailures(async () => {
-      const rounds = await getTeamLeagueRounds(season.리그코드);
-      const selectedRound =
-        rounds.find((r) => String(r.라운드코드) === params.round) ??
+  const {
+    rounds,
+    selectedRound,
+    isOverall,
+    roundCode,
+    standingsRaw,
+    playersRaw,
+    rosterRaw,
+    fixtures,
+    roundWinners,
+    failures,
+  } = await trackFailures(async () => {
+    const rounds = await getTeamLeagueRounds(season.리그코드);
+    const isOverall = params.round === "0";
+    const selectedRound = isOverall
+      ? null
+      : rounds.find((r) => String(r.라운드코드) === params.round) ??
         rounds.find((r) => r.진행상황 === "진행중") ??
         rounds[0] ??
         null;
-      const roundCode = selectedRound ? String(selectedRound.라운드코드) : "0";
+    const roundCode = selectedRound ? String(selectedRound.라운드코드) : "0";
 
-      const [standingsRaw, playersRaw, rosterRaw, fixtures] = await Promise.all([
-        getTeamStandings({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
-        getTeamPlayerStats({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
-        getTeamRoster({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
-        selectedRound
-          ? getRoundFixtures(
-              String(selectedRound.라운드코드),
-              selectedRound.라운드,
-              selectedRound.진행상황 === "진행중" ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
-            )
-          : Promise.resolve([]),
-      ]);
-      return {
-        rounds,
-        selectedRound,
-        roundCode,
-        standingsRaw,
-        playersRaw,
-        rosterRaw,
-        fixtures,
-        failures: getRequestFailures(),
-      };
-    });
+    const completedRegularRounds = [...rounds]
+      .filter((r) => r.포스트여부 !== "Y" && r.진행상황 === "종료")
+      .sort((a, b) => a.라운드 - b.라운드);
+
+    const [standingsRaw, playersRaw, rosterRaw, fixtures, roundLeaders] = await Promise.all([
+      getTeamStandings({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
+      getTeamPlayerStats({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
+      getTeamRoster({ seasonCode: season.시즌코드, leagueCode: String(season.리그코드), roundCode }),
+      selectedRound
+        ? getRoundFixtures(
+            String(selectedRound.라운드코드),
+            selectedRound.라운드,
+            selectedRound.진행상황 === "진행중" ? FIXTURES_IN_PLAY_TTL : FIXTURES_ARCHIVE_TTL,
+          )
+        : Promise.resolve([]),
+      Promise.all(
+        completedRegularRounds.map(async (r) => {
+          const table = await getTeamStandings({
+            seasonCode: season.시즌코드,
+            leagueCode: String(season.리그코드),
+            roundCode: String(r.라운드코드),
+          });
+          const winner = table.length > 0 ? normalizeTeam(table[0]) : null;
+          return winner ? { roundNo: r.라운드, roundCode: String(r.라운드코드), winner } : null;
+        }),
+      ),
+    ]);
+    return {
+      rounds,
+      selectedRound,
+      isOverall,
+      roundCode,
+      standingsRaw,
+      playersRaw,
+      rosterRaw,
+      fixtures,
+      roundWinners: roundLeaders.filter((x): x is NonNullable<typeof x> => Boolean(x)),
+      failures: getRequestFailures(),
+    };
+  });
 
   const nameIndex = getPlayerNameIndex();
   const standings = standingsRaw.map(normalizeTeam);
@@ -136,21 +165,24 @@ export default async function TeamsPage({ searchParams }: PageProps) {
               label="Round"
               basePath="/teams"
               paramKey="round"
-              active={selectedRound ? String(selectedRound.라운드코드) : ""}
+              active={isOverall ? "0" : selectedRound ? String(selectedRound.라운드코드) : "0"}
               params={{ season: season.시즌코드 }}
-              options={[...rounds]
-                .sort((a, b) => a.라운드 - b.라운드)
-                .map((r) => ({
-                  value: String(r.라운드코드),
-                  label: `${r.포스트여부 === "Y" ? "PO " : ""}R${r.라운드}`,
-                }))}
+              options={[
+                { value: "0", label: "Overall" },
+                ...[...rounds]
+                  .sort((a, b) => a.라운드 - b.라운드)
+                  .map((r) => ({
+                    value: String(r.라운드코드),
+                    label: `${r.포스트여부 === "Y" ? "PO " : ""}R${r.라운드}`,
+                  })),
+              ]}
             />
           )}
         </div>
       </PageHeader>
 
       <div className="wrap py-6">
-        {selectedRound && (
+        {selectedRound ? (
           <div className="mb-6 flex flex-wrap items-center justify-between gap-x-8 gap-y-3 rounded-xl border border-border bg-card px-5 py-4">
             <div className="flex items-center gap-3">
               {selectedRound.진행상황 === "진행중" ? (
@@ -174,13 +206,58 @@ export default async function TeamsPage({ searchParams }: PageProps) {
               <Stat label="Players" value={grouped(players.length)} />
             </div>
           </div>
+        ) : (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-x-8 gap-y-3 rounded-xl border border-border bg-card px-5 py-4">
+            <div>
+              <Chip tone="carom">Full Season</Chip>
+              <p className="mt-1.5 text-base font-semibold text-foreground">
+                Overall Standings · {season.시즌명}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Cumulative table across all rounds. Each round winner clinches Postseason; duplicate winners open Wild Card spots by overall rank.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-x-7 gap-y-2">
+              <Stat label="Rounds" value={grouped(rounds.length)} />
+              <Stat label="Clubs" value={grouped(standings.length)} />
+              <Stat label="Players" value={grouped(players.length)} />
+            </div>
+          </div>
+        )}
+
+        {roundWinners.length > 0 && (
+          <div className="mb-6 rounded-xl border border-border bg-secondary/35 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Postseason Qualifiers · Round Winners
+              </p>
+              <span className="text-[11px] text-muted-foreground">
+                7-set matches · 4–0/1/2 = 3 pts · 4–3 = 2 pts (loser 1 pt)
+              </span>
+            </div>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {roundWinners.map((rw) => (
+                <Link
+                  key={rw.roundCode}
+                  href={`/teams/${encodeURIComponent(rw.winner.code)}?season=${season.시즌코드}&round=${rw.roundCode}`}
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs transition-colors hover:bg-accent/50 hover:no-underline"
+                >
+                  <span className="font-mono text-[10.5px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    R{rw.roundNo} ✓
+                  </span>
+                  <TeamLogo src={rw.winner.logo} name={rw.winner.name} size="xs" />
+                  <span className="font-medium text-foreground">{rw.winner.shortName || rw.winner.name}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
         )}
 
         <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr] lg:gap-8">
           <section className="min-w-0">
             <SectionHeading
               eyebrow="Standings"
-              title="Club Standings"
+              title={isOverall ? "Overall Season Standings" : `Round ${selectedRound?.라운드 ?? ""} Standings`}
               action={<TextLink href={teamPlayersHref}>Player statistics</TextLink>}
             />
             <div className="mt-3 overflow-hidden rounded-xl border border-border bg-card">
@@ -230,17 +307,22 @@ export default async function TeamsPage({ searchParams }: PageProps) {
             <SectionHeading
               eyebrow="Fixtures"
               title={`Round ${selectedRound.라운드} Fixtures`}
+              description={
+                fixtures.length > 12
+                  ? `Showing 12 of ${fixtures.length} round fixtures.`
+                  : `${fixtures.length} fixtures`
+              }
               action={
                 <TextLink
                   href={`/teams/matches?season=${season.시즌코드}&round=${roundCode}`}
                 >
-                  All round fixtures
+                  All {fixtures.length} round fixtures
                 </TextLink>
               }
             />
             <div className="mt-4">
               <FixtureList
-                fixtures={fixtures}
+                fixtures={fixtures.slice(0, 12)}
                 clubs={clubs}
                 season={season.시즌코드}
                 round={roundCode}

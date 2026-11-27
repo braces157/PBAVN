@@ -36,6 +36,8 @@ const REVALIDATE = 1800;
 export interface TourMatch extends SearchedMatch {
   tourCode: string;
   tourTitle: string;
+  /** Tour start date (`YYYY-MM-DD`) when available from tour history. */
+  tourStartDate?: string | null;
 }
 
 export interface SeasonMatchQuery {

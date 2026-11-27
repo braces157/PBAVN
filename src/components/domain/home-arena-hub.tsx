@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LiveFeed, LiveMatch } from "@/lib/pba/live";
 import { HomeFeaturedLive } from "./home-featured-live";
 import { HomeFixturesCard } from "./home-fixtures-card";
 import type { HomeDaySlice, HomeFixtureRow, HomeLeadStory, HomeLiveCard } from "./home-types";
+
+const STATE_ORDER = { live: 0, next: 1, final: 2 } as const;
 
 function pairKey(a: string, b: string): string {
   return [a.trim().toLowerCase(), b.trim().toLowerCase()].sort().join("::");
@@ -12,30 +14,48 @@ function pairKey(a: string, b: string): string {
 
 function liveMatchToCard(m: LiveMatch, idx: number, prev?: HomeLiveCard): HomeLiveCard {
   const isTeam = Boolean(m.competition);
+  const prevRound =
+    prev?.roundLabel && !/^Set \d+$|^In Play$/i.test(prev.roundLabel)
+      ? prev.roundLabel
+      : null;
   return {
     key: m.key,
     pstCode: m.pstCode,
     watchUrl: m.watchUrl,
-    circuit: isTeam ? "TEAM" : prev?.circuit ?? (m.latestSet.target === 11 ? "LPBA" : "PBA"),
+    circuit: isTeam
+      ? "TEAM"
+      : m.circuit === "LPBA1"
+        ? "LPBA"
+        : m.circuit === "PBA1"
+          ? "PBA"
+          : prev?.circuit ?? (m.latestSet.target === 11 ? "LPBA" : "PBA"),
     tableLabel: isTeam ? m.venue || "Team Arena" : prev?.tableLabel || `Table ${idx + 1}`,
     roundLabel: isTeam
       ? "Team League"
-      : prev?.roundLabel || (m.latestSet.setNo > 0 ? `Set ${m.latestSet.setNo}` : "In Play"),
+      : prevRound || (m.latestSet.setNo > 0 ? `Set ${m.latestSet.setNo}` : "In Play"),
     latestSetNo: m.latestSet.setNo,
     raceTarget: m.latestSet.target,
     completedSets: m.completedSets,
     isTeam,
-    sides: m.sides.map((s, si) => ({
-      name: s.name,
-      memCode: prev?.sides[si]?.memCode ?? null,
-      nation: prev?.sides[si]?.nation ?? null,
-      photo: prev?.sides[si]?.photo ?? null,
-      setsWon: m.fixtureScore ? m.fixtureScore[si] ?? s.setsWon : s.setsWon,
-      points: s.points,
-      innings: s.innings,
-      average: s.average ?? prev?.sides[si]?.average ?? null,
-      highRun: s.highRun ?? prev?.sides[si]?.highRun ?? null,
-    })),
+    sides: m.sides.map((s, si) => {
+      const normName = s.name.trim().toLowerCase();
+      const prevSide = prev
+        ? (s.memCode ? prev.sides.find((p) => p.memCode === s.memCode) : undefined) ??
+          prev.sides.find((p) => p.name.trim().toLowerCase() === normName) ??
+          prev.sides[si]
+        : undefined;
+      return {
+        name: s.name,
+        memCode: s.memCode ?? prevSide?.memCode ?? null,
+        nation: prevSide?.nation ?? null,
+        photo: prevSide?.photo ?? null,
+        setsWon: m.fixtureScore ? m.fixtureScore[si] ?? s.setsWon : s.setsWon,
+        points: s.points,
+        innings: s.innings,
+        average: s.average ?? prevSide?.average ?? null,
+        highRun: s.highRun ?? prevSide?.highRun ?? null,
+      };
+    }),
   };
 }
 
@@ -88,51 +108,66 @@ export function HomeArenaHub({
   const [liveCards, setLiveCards] = useState<HomeLiveCard[]>(initialLive);
   const [feedReachable, setFeedReachable] = useState<boolean>(initialFeedReachable);
   const [focusedKey, setFocusedKey] = useState<string>(initialLive[0]?.key ?? "");
+  const [refreshing, setRefreshing] = useState(false);
   const pollSeqRef = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
+
+  const poll = useCallback(async (force = false) => {
+    if (!force && typeof document !== "undefined" && document.hidden) return;
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    const seq = ++pollSeqRef.current;
+    setRefreshing(true);
+
+    try {
+      const res = await fetch("/api/live", { cache: "no-store", signal: controller.signal });
+      if (!mountedRef.current || seq !== pollSeqRef.current) return;
+      if (!res.ok) {
+        setFeedReachable(false);
+        return;
+      }
+      const data = (await res.json()) as LiveFeed;
+      if (!mountedRef.current || seq !== pollSeqRef.current) return;
+      if (data.reachable === false || !Array.isArray(data.matches)) {
+        setFeedReachable(false);
+        return;
+      }
+      setFeedReachable(true);
+      setLiveCards((prev) => {
+        const prevByKey = new Map(prev.map((c) => [c.key, c]));
+        return data.matches.map((m, i) => liveMatchToCard(m, i, prevByKey.get(m.key)));
+      });
+    } catch (err) {
+      if ((err as { name?: string })?.name === "AbortError") return;
+      if (mountedRef.current && seq === pollSeqRef.current) {
+        setFeedReachable(false);
+      }
+    } finally {
+      if (mountedRef.current && controllerRef.current === controller) {
+        controllerRef.current = null;
+        setRefreshing(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    const poll = async () => {
-      if (typeof document !== "undefined" && document.hidden) return;
-      controllerRef.current?.abort();
-      const controller = new AbortController();
-      controllerRef.current = controller;
-      const seq = ++pollSeqRef.current;
-
-      try {
-        const res = await fetch("/api/live", { cache: "no-store", signal: controller.signal });
-        if (!active || seq !== pollSeqRef.current) return;
-        if (!res.ok) {
-          setFeedReachable(false);
-          return;
-        }
-        const data = (await res.json()) as LiveFeed;
-        if (!active || seq !== pollSeqRef.current) return;
-        if (data.reachable === false || !Array.isArray(data.matches)) {
-          setFeedReachable(false);
-          return;
-        }
-        setFeedReachable(true);
-        setLiveCards((prev) => {
-          const prevByKey = new Map(prev.map((c) => [c.key, c]));
-          return data.matches.map((m, i) => liveMatchToCard(m, i, prevByKey.get(m.key)));
-        });
-      } catch (err) {
-        if ((err as { name?: string })?.name === "AbortError") return;
-        if (active && seq === pollSeqRef.current) {
-          setFeedReachable(false);
-        }
-      }
-    };
+    mountedRef.current = true;
+    void poll();
     const timer = setInterval(() => void poll(), 20_000);
+    const onVisibilityChange = () => {
+      if (!document.hidden) void poll();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
-      active = false;
+      mountedRef.current = false;
       clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       controllerRef.current?.abort();
       controllerRef.current = null;
     };
-  }, []);
+  }, [poll]);
 
   const featured = useMemo(
     () => liveCards.find((c) => c.key === focusedKey) ?? liveCards[0] ?? null,
@@ -158,8 +193,16 @@ export function HomeArenaHub({
         if (card) {
           matchedKeys.add(card.key);
           const swapped =
-            card.sides[0]?.name.trim().toLowerCase() === row.away.trim().toLowerCase() &&
-            card.sides[1]?.name.trim().toLowerCase() === row.home.trim().toLowerCase();
+            Boolean(
+              (card.sides[0]?.memCode &&
+                row.awayMemCode &&
+                card.sides[0].memCode === row.awayMemCode) ||
+                (card.sides[1]?.memCode &&
+                  row.homeMemCode &&
+                  card.sides[1].memCode === row.homeMemCode) ||
+                (card.sides[0]?.name.trim().toLowerCase() === row.away.trim().toLowerCase() &&
+                  card.sides[1]?.name.trim().toLowerCase() === row.home.trim().toLowerCase()),
+            );
           const hSide = swapped ? card.sides[1] : card.sides[0];
           const aSide = swapped ? card.sides[0] : card.sides[1];
           return {
@@ -185,7 +228,11 @@ export function HomeArenaHub({
         .filter((card) => !matchedKeys.has(card.key))
         .map(liveCardToFixtureRow);
 
-      return extraLive.length > 0 ? { ...slice, rows: [...extraLive, ...updated] } : { ...slice, rows: updated };
+      const combined = [...extraLive, ...updated].sort(
+        (a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state],
+      );
+
+      return { ...slice, rows: combined };
     });
   }, [days, liveCards, feedReachable]);
 
@@ -213,6 +260,8 @@ export function HomeArenaHub({
             liveCards={liveCards}
             featured={featured}
             feedReachable={feedReachable}
+            refreshing={refreshing}
+            onRefresh={() => void poll(true)}
             onSelectKey={setFocusedKey}
             upcomingToday={upcomingToday}
             leadStory={leadStory}

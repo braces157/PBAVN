@@ -22,16 +22,18 @@ export const metadata: Metadata = {
 const INITIALS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
 const VALID_PLAYER_LEAGUES = new Set([...PLAYER_LEAGUES.map((l) => l.code), "PBA9", "LPBA9"]);
 
-type SortOption = "rank" | "avg" | "hr" | "name";
+type SortOption = "rank" | "prize" | "winRate" | "avg" | "hr" | "name";
 const SORT_LABELS: Record<SortOption, string> = {
   rank: "Rank",
+  prize: "Prize",
+  winRate: "Win %",
   avg: "Average",
   hr: "High run",
   name: "A–Z",
 };
 
 interface PageProps {
-  searchParams: Promise<{ league?: string; q?: string; initial?: string; sort?: string; page?: string }>;
+  searchParams: Promise<{ league?: string; q?: string; initial?: string; nation?: string; sort?: string; page?: string }>;
 }
 
 function squeeze(value: string): string {
@@ -39,6 +41,7 @@ function squeeze(value: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFC")
     .replace(/[^a-z0-9가-힣]/g, "");
 }
 
@@ -58,6 +61,18 @@ function searchDirectoryList(rows: RawPlayer[], query: string): RawPlayer[] {
 
 function sortPlayers(rows: RawPlayer[], sort: SortOption): RawPlayer[] {
   return [...rows].sort((a, b) => {
+    if (sort === "prize") {
+      return (Number(b.Prize) || 0) - (Number(a.Prize) || 0) || (Number(b.Average) || 0) - (Number(a.Average) || 0);
+    }
+    if (sort === "winRate") {
+      const wa = Number(a.Win) || 0;
+      const ta = wa + (Number(a.Lose) || 0);
+      const wb = Number(b.Win) || 0;
+      const tb = wb + (Number(b.Lose) || 0);
+      const ra = ta >= 5 ? wa / ta : -1;
+      const rb = tb >= 5 ? wb / tb : -1;
+      return rb - ra || wb - wa;
+    }
     if (sort === "avg") {
       return (Number(b.Average) || 0) - (Number(a.Average) || 0) || (Number(b.Win) || 0) - (Number(a.Win) || 0);
     }
@@ -85,6 +100,7 @@ export default async function PlayersPage({ searchParams }: PageProps) {
   const league = explicitLeague ?? (query ? "" : "PBA1");
   const rawInitial = (params.initial ?? "").toUpperCase();
   const initial = INITIALS.includes(rawInitial) ? rawInitial : "";
+  const nation = (params.nation ?? "").trim().toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
   const requestedSort = params.sort;
   const sort: SortOption =
     requestedSort && Object.prototype.hasOwnProperty.call(SORT_LABELS, requestedSort)
@@ -97,73 +113,54 @@ export default async function PlayersPage({ searchParams }: PageProps) {
   const pageSize = 24;
 
   const result = await trackFailures(async () => {
-    const [season, data] = await Promise.all([
+    const [season, directory] = await Promise.all([
       getCurrentSeason(),
-      query
-        ? getPlayers({ page: 1, pageSize: 2000 }).then((directory) => {
-            const hits = sortPlayers(
-              searchDirectoryList(directory.list, query).filter(
-                (player) => !league || player.LeagueCode === league,
-              ),
-              sort,
-            );
-            const pageCount = Math.max(1, Math.ceil(hits.length / pageSize));
-            const page = Math.min(requestedPage, pageCount);
-            const start = (page - 1) * pageSize;
-            return { list: hits.slice(start, start + pageSize), total: hits.length, page, pageCount };
-          })
-        : sort === "name"
-          ? getPlayers({
-              page: requestedPage,
-              pageSize,
-              leagueCode: league,
-              name: "",
-              initial,
-            }).then(async (browsed) => {
-              const pageCount = Math.max(1, Math.ceil(browsed.total / pageSize));
-              const page = Math.min(requestedPage, pageCount);
-              if (page !== requestedPage) {
-                const clamped = await getPlayers({
-                  page,
-                  pageSize,
-                  leagueCode: league,
-                  name: "",
-                  initial,
-                });
-                return {
-                  list: clamped.list,
-                  total: clamped.total,
-                  page,
-                  pageCount: Math.max(1, Math.ceil(clamped.total / pageSize)),
-                };
-              }
-              return { list: browsed.list, total: browsed.total, page, pageCount };
-            })
-          : getPlayers({ page: 1, pageSize: 2000 }).then((directory) => {
-              const scoped = sortPlayers(
-                directory.list.filter(
-                  (player) =>
-                    (!league || player.LeagueCode === league) &&
-                    (!initial || (player.PlayerNameEN || "").trim().toUpperCase().startsWith(initial)),
-                ),
-                sort,
-              );
-              const pageCount = Math.max(1, Math.ceil(scoped.length / pageSize));
-              const page = Math.min(requestedPage, pageCount);
-              const start = (page - 1) * pageSize;
-              return { list: scoped.slice(start, start + pageSize), total: scoped.length, page, pageCount };
-            }),
+      getPlayers({ page: 1, pageSize: 2000 }),
     ]);
-    return { season, ...data, failures: getRequestFailures() };
+
+    const leagueFiltered = directory.list.filter((player) => !league || player.LeagueCode === league);
+    const nationCounts = new Map<string, number>();
+    for (const p of leagueFiltered) {
+      const code = (p.NationCode || "").trim().toUpperCase();
+      if (!code) continue;
+      nationCounts.set(code, (nationCounts.get(code) ?? 0) + 1);
+    }
+    const nations = [...nationCounts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 8);
+
+    const matched = query
+      ? searchDirectoryList(leagueFiltered, query)
+      : leagueFiltered.filter(
+          (player) => !initial || (player.PlayerNameEN || "").trim().toUpperCase().startsWith(initial),
+        );
+    const nationScoped = nation
+      ? matched.filter((player) => (player.NationCode || "").trim().toUpperCase() === nation)
+      : matched;
+    const sorted = sortPlayers(nationScoped, sort);
+    const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
+    const page = Math.min(requestedPage, pageCount);
+    const start = (page - 1) * pageSize;
+
+    return {
+      season,
+      nations,
+      list: sorted.slice(start, start + pageSize),
+      total: sorted.length,
+      page,
+      pageCount,
+      failures: getRequestFailures(),
+    };
   });
 
-  const { season, list, total, page, pageCount, failures } = result;
+  const { season, nations, list, total, page, pageCount, failures } = result;
   const players = list.map(normalizePlayer);
 
   const baseParams = {
     league: explicitLeague ?? (query ? undefined : league),
     q: query || undefined,
     initial: initial || undefined,
+    nation: nation || undefined,
     sort: sort !== "rank" ? sort : undefined,
   };
 
@@ -186,7 +183,7 @@ export default async function PlayersPage({ searchParams }: PageProps) {
               basePath="/players"
               paramKey="league"
               active={league}
-              params={{ q: query || undefined, initial: initial || undefined, sort: baseParams.sort }}
+              params={{ q: query || undefined, initial: initial || undefined, nation: nation || undefined, sort: baseParams.sort }}
               options={[
                 ...(query ? [{ value: "", label: "All circuits" }] : []),
                 ...PLAYER_LEAGUES.map((l) => ({ value: l.code, label: l.name })),
@@ -198,6 +195,7 @@ export default async function PlayersPage({ searchParams }: PageProps) {
 
             <form action="/players" className="flex items-center gap-1.5">
               {explicitLeague && <input type="hidden" name="league" value={explicitLeague} />}
+              {nation && <input type="hidden" name="nation" value={nation} />}
               <input
                 type="search"
                 name="q"
@@ -223,13 +221,27 @@ export default async function PlayersPage({ searchParams }: PageProps) {
             </form>
           </div>
 
+          {nations.length > 1 && (
+            <FilterRow
+              label="Nation"
+              basePath="/players"
+              paramKey="nation"
+              active={nation}
+              params={{ league, q: query || undefined, initial: initial || undefined, sort: baseParams.sort }}
+              options={[
+                { value: "", label: "All nations" },
+                ...nations.map(([code, count]) => ({ value: code, label: `${code} (${count})` })),
+              ]}
+            />
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-2">
             <FilterRow
               label="Sort"
               basePath="/players"
               paramKey="sort"
               active={sort}
-              params={{ league, q: query || undefined, initial: initial || undefined }}
+              params={{ league, q: query || undefined, initial: initial || undefined, nation: nation || undefined }}
               options={(Object.keys(SORT_LABELS) as SortOption[]).map((key) => ({
                 value: key,
                 label: SORT_LABELS[key],
@@ -237,12 +249,12 @@ export default async function PlayersPage({ searchParams }: PageProps) {
             />
 
             {!query && (
-              <div className="flex flex-wrap items-center gap-0.5">
-                <span className="mr-1.5 text-xs font-medium text-muted-foreground">Index</span>
+              <div className="no-scrollbar flex max-w-full items-center gap-0.5 overflow-x-auto py-0.5">
+                <span className="mr-1.5 shrink-0 text-xs font-medium text-muted-foreground">Index</span>
                 <Link
-                  href={`/players?league=${league}`}
+                  href={`/players?league=${league}${nation ? `&nation=${nation}` : ""}`}
                   className={cn(
-                    "grid h-6 min-w-6 place-items-center rounded-md px-1.5 text-[11px] font-medium transition-colors hover:no-underline",
+                    "grid h-7 min-w-7 shrink-0 place-items-center rounded-md px-2 text-[11px] font-medium transition-colors hover:no-underline",
                     !initial
                       ? "bg-foreground text-background"
                       : "text-muted-foreground hover:bg-secondary hover:text-foreground",
@@ -253,9 +265,9 @@ export default async function PlayersPage({ searchParams }: PageProps) {
                 {INITIALS.map((letter) => (
                   <Link
                     key={letter}
-                    href={`/players?league=${league}&initial=${letter}&sort=name`}
+                    href={`/players?league=${league}${nation ? `&nation=${nation}` : ""}&initial=${letter}&sort=name`}
                     className={cn(
-                      "grid h-6 w-6 place-items-center rounded-md font-mono text-[11px] font-medium transition-colors hover:no-underline",
+                      "grid h-7 w-7 shrink-0 place-items-center rounded-md font-mono text-[11px] font-medium transition-colors hover:no-underline",
                       initial === letter
                         ? "bg-foreground text-background"
                         : "text-muted-foreground hover:bg-secondary hover:text-foreground",
@@ -295,7 +307,7 @@ export default async function PlayersPage({ searchParams }: PageProps) {
                 of <span className="font-mono font-semibold tabular-nums text-foreground">{grouped(total)}</span>
               </p>
               <p className="hidden text-xs text-muted-foreground sm:block">
-                Sorted by {SORT_LABELS[sort]}
+                Career stats shown on cards · Sorted by {SORT_LABELS[sort]}
               </p>
             </div>
 
@@ -313,6 +325,7 @@ export default async function PlayersPage({ searchParams }: PageProps) {
                 if (baseParams.league) search.set("league", baseParams.league);
                 if (baseParams.q) search.set("q", baseParams.q);
                 if (baseParams.initial) search.set("initial", baseParams.initial);
+                if (baseParams.nation) search.set("nation", baseParams.nation);
                 if (baseParams.sort) search.set("sort", baseParams.sort);
                 if (nextPage > 1) search.set("page", String(nextPage));
                 const qs = search.toString();
@@ -366,10 +379,11 @@ function PlayerCard({ player }: { player: Player }) {
 
       <Link
         href={`/players/${player.code}`}
+        title="Career totals"
         className="grid grid-cols-4 divide-x divide-border/60 border-t border-border/60 bg-secondary/40 text-center transition-colors hover:bg-secondary/70 hover:no-underline"
       >
         <div className="px-1.5 py-2.5">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">AVG</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Career AVG</p>
           <p className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-foreground">
             {average(player.average)}
           </p>
@@ -381,16 +395,16 @@ function PlayerCard({ player }: { player: Player }) {
           </p>
         </div>
         <div className="px-1.5 py-2.5">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">W–L</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Career W–L</p>
           <p
-            title={player.wins || player.losses ? `${percent(rate, 0)} win rate` : undefined}
+            title={player.wins || player.losses ? `${percent(rate, 0)} career win rate` : undefined}
             className="mt-0.5 whitespace-nowrap font-mono text-xs font-medium tabular-nums text-foreground"
           >
             {player.wins || player.losses ? `${player.wins}–${player.losses}` : "—"}
           </p>
         </div>
         <div className="px-1.5 py-2.5">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Prize</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Career Prize</p>
           <p className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-foreground">
             {wonCompact(player.prize)}
           </p>

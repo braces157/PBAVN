@@ -53,7 +53,7 @@ export {
 /** An archived match never changes once its set list is read. */
 const ARCHIVE = 86_400;
 /** A match still on the table can change between reads. */
-const IN_PLAY = 30;
+const IN_PLAY = 10;
 /** The live board itself. */
 const LIVE = 10;
 

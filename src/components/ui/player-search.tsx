@@ -11,15 +11,25 @@ interface IndexRow {
   e: string;
   k: string;
   l: string;
+  r?: number;
+  n?: string;
 }
 
-const MAX_RESULTS = 7;
+const MAX_RESULTS = 8;
+
+const TIER_BONUS: Record<string, number> = {
+  PBA1: 28,
+  LPBA1: 26,
+  PBA2: 10,
+  PBA3: 4,
+};
 
 function squeeze(value: string): string {
   return value
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFC")
     .replace(/[^a-z0-9가-힣]/g, "");
 }
 
@@ -30,7 +40,8 @@ interface Scored {
 
 function search(rows: IndexRow[], term: string): IndexRow[] {
   const needle = squeeze(term);
-  if (needle.length < 2) return [];
+  const isHangul = /[가-힣]/.test(needle);
+  if (needle.length < (isHangul ? 1 : 2)) return [];
   const scored: Scored[] = [];
 
   for (const row of rows) {
@@ -39,19 +50,24 @@ function search(rows: IndexRow[], term: string): IndexRow[] {
     const family = squeeze((row.e.split(/\s+/).pop() ?? "") || "");
     let score = 0;
 
-    if (family === needle) score = 120;
+    if (ko === needle) score = 140;
+    else if (family === needle) score = 120;
+    else if (ko.startsWith(needle)) score = 115;
     else if (family.startsWith(needle)) score = 110;
-    else if (ko === needle) score = 115;
-    else if (ko.startsWith(needle)) score = 105;
-    else if (en.startsWith(needle)) score = 80;
-    else if (en.includes(needle) || ko.includes(needle)) score = 50;
-    else if (squeeze(row.c).startsWith(needle)) score = 40;
+    else if (en === needle) score = 135;
+    else if (en.startsWith(needle)) score = 95;
+    else if (en.includes(needle) || ko.includes(needle)) score = 60;
+    else if (squeeze(row.c).startsWith(needle)) score = 45;
 
-    if (score > 0) scored.push({ row, score: score - Math.min(row.e.length, 40) * 0.1 });
+    if (score > 0) {
+      const tier = TIER_BONUS[row.l] ?? 0;
+      const rankBoost = row.r && row.r > 0 ? Math.max(0, 32 - Math.log2(row.r + 1) * 5.2) : 0;
+      scored.push({ row, score: score + tier + rankBoost - Math.min(row.e.length, 40) * 0.05 });
+    }
   }
 
   return scored
-    .sort((a, b) => b.score - a.score || a.row.e.localeCompare(b.row.e))
+    .sort((a, b) => b.score - a.score || (a.row.r || 9999) - (b.row.r || 9999) || a.row.e.localeCompare(b.row.e))
     .slice(0, MAX_RESULTS)
     .map((entry) => entry.row);
 }

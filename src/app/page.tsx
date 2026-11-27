@@ -285,6 +285,21 @@ export default async function HomePage() {
   const initialLive: HomeLiveCard[] = feed.matches.map((m: LiveMatch, idx: number) => {
     const enriched = m.pstCode ? todayLiveByPst.get(m.pstCode) : undefined;
     const isTeam = Boolean(m.competition);
+    const s0 = m.sides[0];
+    const s1 = m.sides[1];
+    const s0Code = s0?.memCode ?? codeFor(s0?.name);
+    const s1Code = s1?.memCode ?? codeFor(s1?.name);
+    const s0Name = (s0?.name ?? "").trim().toLowerCase();
+    const s1Name = (s1?.name ?? "").trim().toLowerCase();
+    const eHomeName = (enriched?.home ?? "").trim().toLowerCase();
+    const eAwayName = (enriched?.away ?? "").trim().toLowerCase();
+    const enrichedSwapped = Boolean(
+      enriched &&
+        ((s0Code && enriched.awayMemCode && s0Code === enriched.awayMemCode) ||
+          (s1Code && enriched.homeMemCode && s1Code === enriched.homeMemCode) ||
+          (s0Name && eAwayName && s0Name === eAwayName && s0Name !== eHomeName) ||
+          (s1Name && eHomeName && s1Name === eHomeName && s1Name !== eAwayName)),
+    );
     return {
       key: m.key,
       pstCode: m.pstCode,
@@ -305,9 +320,10 @@ export default async function HomePage() {
       completedSets: m.completedSets,
       isTeam,
       sides: m.sides.map((s, si) => {
-        const eCode =
-          si === 0 ? enriched?.homeMemCode : si === 1 ? enriched?.awayMemCode : null;
-        const resolvedCode = eCode ?? codeFor(s.name);
+        const useHome = enrichedSwapped ? si === 1 : si === 0;
+        const useAway = enrichedSwapped ? si === 0 : si === 1;
+        const eCode = useHome ? enriched?.homeMemCode : useAway ? enriched?.awayMemCode : null;
+        const resolvedCode = s.memCode ?? codeFor(s.name) ?? eCode ?? null;
         return {
           name: s.name,
           memCode: resolvedCode,
@@ -316,8 +332,10 @@ export default async function HomePage() {
           setsWon: m.fixtureScore ? m.fixtureScore[si] ?? s.setsWon : s.setsWon,
           points: s.points,
           innings: s.innings,
-          average: s.average ?? (si === 0 ? enriched?.homeAverage : enriched?.awayAverage) ?? null,
-          highRun: s.highRun ?? (si === 0 ? enriched?.homeHighRun : enriched?.awayHighRun) ?? null,
+          average:
+            s.average ?? (useHome ? enriched?.homeAverage : useAway ? enriched?.awayAverage : null) ?? null,
+          highRun:
+            s.highRun ?? (useHome ? enriched?.homeHighRun : useAway ? enriched?.awayHighRun : null) ?? null,
         };
       }),
     };

@@ -149,9 +149,23 @@ function MatchLine({ match }: { match: DayMatch }) {
           {match.clock ? `${match.clock} KST` : "Scheduled"}
         </Badge>
       ) : (
-        <span className="flex w-[28px] shrink-0 flex-col items-end justify-center gap-1">
-          <ScoreCell value={match.homeSets} won={match.homeWon} />
-          <ScoreCell value={match.awaySets} won={match.awayWon} />
+        <span className="flex shrink-0 items-center gap-1.5">
+          {!upcoming &&
+            match.homeSets !== null &&
+            match.awaySets !== null &&
+            match.homeSets === 2 &&
+            match.awaySets === 2 && (
+              <span
+                title="Decided by sudden-death shootout (2–2 tie)"
+                className="rounded bg-amber-500/15 px-1 py-0.5 font-mono text-[9.5px] font-semibold uppercase text-amber-700 dark:text-amber-300"
+              >
+                SO
+              </span>
+            )}
+          <span className="flex w-[28px] flex-col items-end justify-center gap-1">
+            <ScoreCell value={match.homeSets} won={match.homeWon} />
+            <ScoreCell value={match.awaySets} won={match.awayWon} />
+          </span>
         </span>
       )}
     </>
