@@ -116,7 +116,7 @@ export function normalizePeriodStat(raw: RawPeriodStat): PeriodStat {
     longRuns: n(raw.장타),
     longRunRate: ratio(n(raw.장타), n(raw.공격시도횟수)),
     bankShots: n(raw["뱅크샷 횟수"]),
-    bankShotRate: ratio(n(raw["뱅크샷 횟수"]), n(raw.공격시도횟수)),
+    bankShotRate: ratio(n(raw["뱅크샷 횟수"]) * 2, n(raw.점수)),
     firstShotRate: raw["초구 성공율"] === undefined ? null : n(raw["초구 성공율"]) / 100,
 
     expectedPoints: raw["기대 득점"] === undefined ? null : n(raw["기대 득점"]),
@@ -190,7 +190,7 @@ export const PERIOD_CATEGORIES: PeriodCategory[] = [
     unit: "pct",
     column: "BS%",
     value: (stat) => stat.bankShotRate,
-    hint: "Bank shots as a share of all attempts.",
+    hint: "Share of total points scored via 2-point bank shots (min. 3 matches).",
   },
   {
     key: "firstShotRate",
@@ -266,19 +266,39 @@ export function formatPeriodValue(unit: PeriodUnit, value: number | null | undef
   }
 }
 
+const RATE_CATEGORY_KEYS = new Set([
+  "average",
+  "longRunRate",
+  "bankShotRate",
+  "firstShotRate",
+  "attackRate",
+  "closingRate",
+  "expectedPoints",
+]);
+
 /**
  * Rank a window.
  *
  * Players with no sample for the chosen category are dropped rather than shown
- * at the bottom with a zero: a missing average is not a bad average.
+ * at the bottom with a zero: a missing average is not a bad average. Rate and
+ * average leaderboards also require at least 3 matches once the season has a
+ * meaningful field, preventing 1-match outliers from topping regular tour pros.
  */
 export function rankPeriod(rows: PeriodStat[], category: PeriodCategory, limit = 25): PeriodStat[] {
-  return rows
-    .filter((row) => {
-      const value = category.value(row);
-      return value !== null && Number.isFinite(value);
-    })
-    .sort((a, b) => (category.value(b) ?? 0) - (category.value(a) ?? 0))
+  const valid = rows.filter((row) => {
+    const value = category.value(row);
+    return value !== null && Number.isFinite(value);
+  });
+
+  const qualified =
+    RATE_CATEGORY_KEYS.has(category.key)
+      ? valid.filter((row) => row.matches >= 3)
+      : valid;
+
+  const pool = qualified.length >= 5 ? qualified : valid;
+
+  return pool
+    .sort((a, b) => (category.value(b) ?? 0) - (category.value(a) ?? 0) || b.matches - a.matches)
     .slice(0, limit);
 }
 

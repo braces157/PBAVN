@@ -18,6 +18,7 @@ import type {
   RawPress,
   RawRankTour,
   RawRankingRow,
+  RawWelcomeTopRow,
   RawSeason,
   RawSeasonRank,
   RawTeamInfo,
@@ -179,6 +180,19 @@ export async function getRanking(params: {
   const { kind = "prize", leagueCode, season, tourCode = "0" } = params;
   const data = await fetchJson<PbaEnvelope<RawRankingRow>>(
     `${RANKING_PATHS[kind]}${qs(rankingParams(leagueCode, season, tourCode))}`,
+    { revalidate: CACHE.stats },
+  );
+  return rows(data);
+}
+
+export async function getWelcomeTopRanking(params: {
+  leagueCode: string;
+  season: string;
+  tourCode?: string;
+}): Promise<RawWelcomeTopRow[]> {
+  const { leagueCode, season, tourCode = "0" } = params;
+  const data = await fetchJson<PbaEnvelope<RawWelcomeTopRow>>(
+    `${RANKING_PATHS.welcome}${qs(rankingParams(leagueCode, season, tourCode))}`,
     { revalidate: CACHE.stats },
   );
   return rows(data);

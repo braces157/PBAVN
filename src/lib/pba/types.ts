@@ -156,6 +156,23 @@ export interface RawRankingRow {
   tcnt?: number;
 }
 
+export interface RawWelcomeTopRow {
+  Rank: number;
+  MemCode: string;
+  NameFullEn?: string;
+  NameFull?: string;
+  NameShortEn?: string;
+  NameShort?: string;
+  NationCode?: string;
+  NationNameEng?: string;
+  Average: number;
+  HighRun?: number;
+  Round?: number;
+  GameType?: string;
+  ImgURL?: string;
+  ImgURLBig?: string;
+}
+
 export interface RawRankTour {
   TourCode: string;
   TourTitle: string;

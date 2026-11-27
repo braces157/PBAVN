@@ -14,11 +14,12 @@
  * only exists here.
  */
 
-import { fetchHtmlFragment } from "./http";
-import { parseBracketRows, type BracketMatch } from "./bracket-parse";
+import { fetchDatedHtmlFragment, fetchHtmlFragment } from "./http";
+import { mergeDatedBracketRows, parseBracketRows, type BracketMatch } from "./bracket-parse";
+import { parseDatedBracketRows } from "./bracket-dated-parse";
 
 export type { BracketMatch, BracketSide } from "./bracket-parse";
-export { parseBracketRows, bracketRound } from "./bracket-parse";
+export { mergeDatedBracketRows, parseBracketRows, bracketRound } from "./bracket-parse";
 
 /** Deepest bracket the association has run. */
 export const BRACKET_SIZES = [128, 64, 32, 16, 8, 4, 2] as const;
@@ -39,14 +40,14 @@ async function fetchBracketPage(
   page: number,
   revalidate: number,
 ): Promise<BracketMatch[]> {
-  const html = await fetchHtmlFragment(
-    // `LangCode=en` publishes player names in Latin script. `txt_Search` must be
-    // present even when empty or the service refuses the request. Unstarted rounds
-    // return HTTP 200 with an empty body, which is normal rather than an error.
-    `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(tourCode)}&iBLCode=${bracketSize}&iPage=${page}&txt_Search=&LangCode=en`,
-    { revalidate, timeoutMs: 12_000, allowEmpty: true },
-  );
-  return parseBracketRows(html, bracketSize);
+  const basePath = `/mob/contest_new/code_behind/contest_result_sur.asp?TourCode=${encodeURIComponent(tourCode)}&iBLCode=${bracketSize}&iPage=${page}&txt_Search=`;
+  const [enHtml, koHtml] = await Promise.all([
+    fetchHtmlFragment(`${basePath}&LangCode=en`, { revalidate, timeoutMs: 12_000, allowEmpty: true }),
+    fetchDatedHtmlFragment(basePath, { revalidate, timeoutMs: 12_000, allowEmpty: true }),
+  ]);
+  const english = parseBracketRows(enHtml, bracketSize);
+  const dated = parseDatedBracketRows(koHtml, bracketSize);
+  return mergeDatedBracketRows(english, dated);
 }
 
 /** One bracket, paged until a short page or the page cap. */

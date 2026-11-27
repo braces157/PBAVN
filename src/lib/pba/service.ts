@@ -218,7 +218,12 @@ export const getPlayerMatchHistory = cache(async (params: {
     })),
   }), getTourHistory()]);
   const dates = new Map(tourHistory.map((tour) => [String(tour.투어코드), tour.투어시작일자]));
-  const ordered = [...result.matches].sort((a, b) => (dates.get(b.tourCode) ?? "").localeCompare(dates.get(a.tourCode) ?? ""));
+  const ordered = [...result.matches]
+    .map((m) => ({
+      ...m,
+      tourStartDate: dates.get(m.tourCode) ?? null,
+    }))
+    .sort((a, b) => (dates.get(b.tourCode) ?? "").localeCompare(dates.get(a.tourCode) ?? ""));
 
   return {
     matches: ordered,
@@ -228,6 +233,35 @@ export const getPlayerMatchHistory = cache(async (params: {
     searchTerm,
   };
 });
+
+/**
+ * Active Team League club lookup by player `MemCode` (current season, overall roster).
+ * Cached per request and revalidated on the standard team-board schedule.
+ */
+export const getPlayerTeamClub = cache(
+  async (memCode: string): Promise<{ teamCode: string; teamName: string; seasonCode: string } | null> => {
+    if (!memCode) return null;
+    try {
+      const active = await getActiveTeamSeason();
+      if (!active) return null;
+      const board = await getTeamBoard(active.season.시즌코드, String(active.season.리그코드), "0");
+      const hit = board.players.find((p) => String(p.선수코드) === memCode);
+      if (!hit || !hit.팀코드) return null;
+      const standing = board.standings.find((t) => String(t.팀코드) === String(hit.팀코드));
+      const teamName =
+        cleanDisplayText(standing?.이름 || standing?.팀단축명) ||
+        cleanDisplayText(hit.팀명 || hit.팀단축명) ||
+        String(hit.팀코드);
+      return {
+        teamCode: String(hit.팀코드),
+        teamName,
+        seasonCode: active.season.시즌코드,
+      };
+    } catch {
+      return null;
+    }
+  },
+);
 
 export const getRankingBoard = cache(
   async (params: { kind: RankingKind; leagueCode: string; season: string; tourCode?: string }) => {
@@ -430,6 +464,32 @@ export function getPlayerCodeIndex(): Map<string, string> {
   return playerCodeIndex;
 }
 
+let initialsCodeIndex: Map<string, string | null> | null = null;
+
+function getInitialsCodeIndex(): Map<string, string | null> {
+  if (initialsCodeIndex) return initialsCodeIndex;
+  const index = new Map<string, string | null>();
+  for (const [key, code] of getPlayerCodeIndex()) {
+    if (hasHangul(key)) continue;
+    const parts = key.split(/\s+/).filter(Boolean);
+    if (parts.length < 2) continue;
+    const surname = parts[parts.length - 1];
+    const givenParts = parts
+      .slice(0, -1)
+      .flatMap((part) => part.split("-"))
+      .filter(Boolean);
+    if (givenParts.length < 2) continue;
+    const initials = givenParts.map((part) => part[0]).join("");
+    if (initials.length < 2 || initials.length > 4) continue;
+    const alias = `${initials} ${surname}`;
+    const existing = index.get(alias);
+    if (existing === undefined) index.set(alias, code);
+    else if (existing !== code) index.set(alias, null);
+  }
+  initialsCodeIndex = index;
+  return index;
+}
+
 export function resolvePlayerCode(name: string | null | undefined): string | null {
   const cleaned = cleanDisplayText(name);
   if (!cleaned || isPlaceholder(cleaned)) return null;
@@ -437,6 +497,12 @@ export function resolvePlayerCode(name: string | null | undefined): string | nul
   const key = cleaned.toLowerCase().replace(/\s+/g, " ");
   const direct = codes.get(key);
   if (direct) return direct;
+
+  // Handle abbreviated English scoreboard names like "KH Cho" -> "keon-hwi cho" when unique.
+  if (/^[a-z]{2,4}\s+[a-z][a-z'-]+$/i.test(key)) {
+    const byInitials = getInitialsCodeIndex().get(key);
+    if (byInitials) return byInitials;
+  }
 
   // Handle abbreviated Korean names like "Q.응우옌" by resolving to official EN name first.
   if (hasHangul(cleaned)) {
@@ -448,6 +514,66 @@ export function resolvePlayerCode(name: string | null | undefined): string | nul
   }
   return null;
 }
+
+const DIRECTORY_TIER_SCORE: Record<string, number> = {
+  PBA1: 100,
+  LPBA1: 95,
+  PBA2: 40,
+  PBA3: 20,
+};
+
+/**
+ * Resolve scoreboard player names (including abbreviated forms like "KH Cho"
+ * that collide across divisions) by falling back to the cached player directory
+ * weighted by active circuit tier and career prize/wins.
+ */
+export const resolveMatchPlayerCodes = cache(async (names: string[]): Promise<(string | null)[]> => {
+  const direct = names.map((name) => resolvePlayerCode(name));
+  if (direct.every(Boolean)) return direct;
+
+  const { list } = await getPlayers({ page: 1, pageSize: 2000 });
+  const norm = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
+
+  return direct.map((code, idx) => {
+    if (code) return code;
+    const cleaned = cleanDisplayText(names[idx]);
+    if (!cleaned || isPlaceholder(cleaned)) return null;
+    const key = norm(cleaned);
+
+    let best: { code: string; score: number } | null = null;
+    for (const player of list) {
+      const en = norm(player.PlayerNameEN || "");
+      const enShort = norm(player.PlayerNameENShort || "");
+      const ko = norm(player.PlayerNameKO || "");
+      let matchScore = 0;
+
+      if (en === key || enShort === key || ko === key) {
+        matchScore = 200;
+      } else if (/^[a-z]{2,4}\s+[a-z][a-z'-]+$/.test(key) && en) {
+        const parts = en.split(" ").filter(Boolean);
+        if (parts.length >= 2) {
+          const surname = parts[parts.length - 1];
+          const given = parts
+            .slice(0, -1)
+            .flatMap((part) => part.split("-"))
+            .filter(Boolean);
+          const initials = given.map((p) => p[0]).join("");
+          if (`${initials} ${surname}` === key) matchScore = 150;
+        }
+      }
+
+      if (matchScore > 0) {
+        const tier = DIRECTORY_TIER_SCORE[player.LeagueCode] ?? 0;
+        const merit =
+          (Number(player.Prize) > 0 ? Math.log10(Number(player.Prize) + 1) * 5 : 0) +
+          (Number(player.Win) || 0) * 0.25;
+        const total = matchScore + tier + merit;
+        if (!best || total > best.score) best = { code: player.MemCode, score: total };
+      }
+    }
+    return best?.code ?? null;
+  });
+});
 
 /**
  * The winner field uses a display abbreviation ("Q.응우옌") that never matches the

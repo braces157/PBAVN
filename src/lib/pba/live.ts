@@ -22,13 +22,14 @@
 import { IN_PLAY, getLiveBoard, getScorecard } from "./scoreboard";
 import { fetchTeamFragment } from "./http";
 import { parseLiveTeamFixtures, type LiveBout, type LiveTeamFixture } from "./team-live-parse";
-import { getPlayerNameIndex, resolveKoreanName } from "./service";
+import { getPlayerNameIndex, resolveKoreanName, resolvePlayerCode } from "./service";
 import { cleanPlayerName, hasHangul } from "../format";
 import { analyseSet } from "../match";
 import type { AnalysedSet } from "../match";
 
 export interface LiveSide {
   name: string;
+  memCode?: string | null;
   setsWon: number;
   /** Points in the latest set on the table. */
   points: number | null;
@@ -54,6 +55,8 @@ export interface LiveMatch {
   completedSets: number[][];
   /** "Team League" when the fixture came from the team terminal. */
   competition?: string;
+  /** Inferred circuit code from set targets or feed origin (`PBA1`, `LPBA1`, `TLG`). */
+  circuit?: "PBA1" | "LPBA1" | "TLG";
   venue?: string | null;
   /** The player (or doubles pair) on the table for each side, when published. */
   players?: (string | null)[];
@@ -100,16 +103,32 @@ function toLiveMatch(
     return acc;
   }, []);
 
+  const hasPbaTarget = analysed.some((set) => set.target === 15 || set.gameType?.toUpperCase() === "GP15");
+  const hasLpbaTarget =
+    !hasPbaTarget &&
+    analysed.some(
+      (set) =>
+        set.target === 11 ||
+        set.target === 9 ||
+        set.target === 25 ||
+        /^(?:GP11|GP9|GP25)$/i.test(set.gameType ?? ""),
+    );
+
   return {
     key: `match-${pstCode}`,
     pstCode,
     watchUrl,
-    sides: latest.sides.map((side, index) => ({
-      name: cleanPlayerName(side.name) || side.name,
-      setsWon: won[index] ?? 0,
-      points: side.points,
-      innings: side.innings,
-    })),
+    circuit: hasPbaTarget ? "PBA1" : hasLpbaTarget ? "LPBA1" : undefined,
+    sides: latest.sides.map((side, index) => {
+      const displayName = cleanPlayerName(side.name) || side.name;
+      return {
+        name: displayName,
+        memCode: resolvePlayerCode(displayName) ?? resolvePlayerCode(side.name),
+        setsWon: won[index] ?? 0,
+        points: side.points,
+        innings: side.innings,
+      };
+    }),
     latestSet: { setNo: latest.setNo, gameType: latest.gameType, target: latest.target },
     completedSets: analysed.slice(0, -1).map((set) => set.sides.map((side) => side.points)),
   };
@@ -298,7 +317,7 @@ async function teamPlayerNames(): Promise<Map<string, string>> {
 async function getTeamLive(): Promise<{ matches: LiveMatch[]; reachable: boolean }> {
   const html = await fetchTeamFragment("/mob/ko/live.asp", {
     method: "GET",
-    revalidate: 20,
+    revalidate: 10,
     timeoutMs: 10_000,
   });
   if (html === null) return { matches: [], reachable: false };

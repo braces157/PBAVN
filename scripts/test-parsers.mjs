@@ -19,7 +19,7 @@ import {
   parseTotals,
   parseLiveBoard,
 } from "../src/lib/pba/scoreboard-parse.ts";
-import { bracketRound, parseBracketRows } from "../src/lib/pba/bracket-parse.ts";
+import { bracketRound, mergeDatedBracketRows, parseBracketRows } from "../src/lib/pba/bracket-parse.ts";
 import { normaliseStamp, parseDatedBracketRows, roundName } from "../src/lib/pba/bracket-dated-parse.ts";
 import { parseLiveTourCards, parseUpcomingTourCards } from "../src/lib/pba/day-cards-parse.ts";
 import { parseLiveTeamFixtures } from "../src/lib/pba/team-live-parse.ts";
@@ -962,6 +962,25 @@ check("parseLiveTourCards extracts live tables, sets, averages and high runs fro
   assert.equal(cards[0].sides[1].name, "SW CHOI");
   assert.equal(cards[0].sides[1].sets, 1);
   assert.equal(cards[0].sides[1].points, 3);
+});
+
+check("mergeDatedBracketRows enriches English bracket rows with match dates and tables", () => {
+  const enRows = parseBracketRows(fixture("bracket-en-undated.html"), 4);
+  const koRows = parseDatedBracketRows(fixture("bracket-dated-ko.html"), 4);
+  assert.equal(enRows[0].scheduledAt, "17:54");
+  assert.equal(enRows[0].table, null);
+
+  const merged = mergeDatedBracketRows(enRows, koRows);
+  assert.equal(merged.length, 2);
+  assert.equal(merged[0].pstCode, "98883");
+  assert.equal(merged[0].scheduledAt, "2026-10-26 17:54");
+  assert.equal(merged[0].table, "T1");
+  assert.deepEqual(
+    merged[0].sides.map((s) => s.name),
+    ["Montes", "KH Cho"],
+  );
+  assert.equal(merged[1].scheduledAt, "2026-10-26 14:26");
+  assert.equal(merged[1].table, "T1");
 });
 
 console.log(`\n${passed}/${passed + failures.length} parser checks passed`);
