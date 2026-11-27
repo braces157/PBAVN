@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { IN_PLAY, getScorecard, getSetInnings } from "@/lib/pba/scoreboard";
-import { getTourTitleIndex, resolvePlayerCode } from "@/lib/pba/service";
+import { getTourTitleIndex, resolveMatchPlayerCodes } from "@/lib/pba/service";
 import {
   analyseSet,
   compareTotals,
@@ -122,18 +122,85 @@ export default async function MatchPage({
   }
 
   const summary = summariseMatch(analysed);
-  const rows = compareTotals(totals);
+  const baseRows = compareTotals(totals);
+  const liveRows =
+    context.live && analysed.length > 0 && analysed[0].sides.length === 2
+      ? [
+          {
+            label: "Sets won",
+            left: String(summary.setsWon[0] ?? 0),
+            right: String(summary.setsWon[1] ?? 0),
+            better:
+              (summary.setsWon[0] ?? 0) > (summary.setsWon[1] ?? 0)
+                ? ("left" as const)
+                : (summary.setsWon[1] ?? 0) > (summary.setsWon[0] ?? 0)
+                  ? ("right" as const)
+                  : ("none" as const),
+          },
+          {
+            label: "Points",
+            left: String(summary.totalPoints[0] ?? 0),
+            right: String(summary.totalPoints[1] ?? 0),
+            better:
+              (summary.totalPoints[0] ?? 0) > (summary.totalPoints[1] ?? 0)
+                ? ("left" as const)
+                : (summary.totalPoints[1] ?? 0) > (summary.totalPoints[0] ?? 0)
+                  ? ("right" as const)
+                  : ("none" as const),
+          },
+          {
+            label: "Innings",
+            left: String(summary.totalInnings[0] ?? 0),
+            right: String(summary.totalInnings[1] ?? 0),
+            better: "none" as const,
+          },
+          {
+            label: "Average",
+            left: summary.average[0] != null ? summary.average[0].toFixed(3) : "—",
+            right: summary.average[1] != null ? summary.average[1].toFixed(3) : "—",
+            better:
+              (summary.average[0] ?? 0) > (summary.average[1] ?? 0)
+                ? ("left" as const)
+                : (summary.average[1] ?? 0) > (summary.average[0] ?? 0)
+                  ? ("right" as const)
+                  : ("none" as const),
+          },
+          {
+            label: "High run",
+            left: (() => {
+              const hr = Math.max(0, ...analysed.map((s) => s.sides[0]?.highRun ?? 0));
+              return hr > 0 ? String(hr) : "—";
+            })(),
+            right: (() => {
+              const hr = Math.max(0, ...analysed.map((s) => s.sides[1]?.highRun ?? 0));
+              return hr > 0 ? String(hr) : "—";
+            })(),
+            better: (() => {
+              const l = Math.max(0, ...analysed.map((s) => s.sides[0]?.highRun ?? 0));
+              const r = Math.max(0, ...analysed.map((s) => s.sides[1]?.highRun ?? 0));
+              return l > r ? ("left" as const) : r > l ? ("right" as const) : ("none" as const);
+            })(),
+          },
+        ]
+      : baseRows;
+  const rows = liveRows.length > 0 ? liveRows : baseRows;
   const names = analysed[0].sides.map((side) => side.name);
-  const playerCodes = names.map((name) => resolvePlayerCode(name));
+  const playerCodes = await resolveMatchPlayerCodes(names);
   const covered = summary.coveredSets;
 
   return (
     <div className="wrap pb-10 pt-5">
       <nav className="mb-4 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground" aria-label="Breadcrumb">
         <div className="flex flex-wrap items-center gap-1.5">
-          <Link href="/schedule" className="transition-colors hover:text-foreground">
-            Schedule
-          </Link>
+          {context.live ? (
+            <Link href="/live" className="font-medium text-red-600 transition-colors hover:underline dark:text-red-400">
+              ← Live Arena
+            </Link>
+          ) : (
+            <Link href="/schedule" className="transition-colors hover:text-foreground">
+              Schedule
+            </Link>
+          )}
           {context.title ? (
             <>
               <span aria-hidden="true" className="text-border">/</span>

@@ -10,13 +10,38 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
+function normName(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFC")
+    .replace(/\s+/g, " ");
+}
+
+function initialsAlias(fullName: string): string | null {
+  const parts = normName(fullName).split(" ").filter(Boolean);
+  if (parts.length < 2) return null;
+  const surname = parts[parts.length - 1];
+  const given = parts
+    .slice(0, -1)
+    .flatMap((part) => part.split("-"))
+    .filter(Boolean);
+  if (given.length < 2) return null;
+  return `${given.map((p) => p[0]).join("")} ${surname}`;
+}
+
 function findLiveStatus(player: FollowedPlayer, liveMatches: LiveMatch[]) {
-  const needle = player.name.trim().toLowerCase();
-  const last = needle.split(/\s+/).pop() ?? "";
+  const needle = normName(player.name);
+  const alias = initialsAlias(player.name);
   for (const m of liveMatches) {
     const idx = m.sides.findIndex((s) => {
-      const n = s.name.trim().toLowerCase();
-      return n === needle || (last.length >= 3 && n.includes(last));
+      if (s.memCode && player.code && s.memCode === player.code) return true;
+      const n = normName(s.name);
+      if (n === needle) return true;
+      if (alias && n === alias) return true;
+      return false;
     });
     if (idx !== -1) {
       const opp = m.sides[idx === 0 ? 1 : 0];

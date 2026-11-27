@@ -158,7 +158,9 @@ export async function GET(request: Request) {
     pending = (async (): Promise<Rendered | null> => {
       const keepAlpha = isUpload && /\/(?:tournament|sponsor|team)\//i.test(src);
       const candidates = isPlayer
-        ? ancestorsOf(src)
+        ? width <= 128
+          ? [src, ...ancestorsOf(src).filter((c) => c !== src)]
+          : ancestorsOf(src)
         : [src.replace(/^\/resources\/upload(?=\/)/, "")];
 
       for (const candidate of candidates) {

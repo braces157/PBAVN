@@ -5,7 +5,10 @@ export function InningTable({ set }: { set: AnalysedSet }) {
   if (!set.hasTurns || set.sides.length < 2) return null;
 
   const [first, second] = set.sides;
-  const tone = ["text-carom-300", "text-[var(--live)]"];
+  const tone = [
+    "text-emerald-600 dark:text-emerald-400",
+    "text-amber-600 dark:text-amber-400",
+  ];
 
   const columns = [
     { key: "1P", label: "1P", hidden: true },

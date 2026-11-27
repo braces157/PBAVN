@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   return NextResponse.json(feed, {
     headers: {
       "Cache-Control": feed.reachable
-        ? "public, max-age=5, s-maxage=10, stale-while-revalidate=10"
+        ? "public, max-age=0, s-maxage=10, stale-while-revalidate=5"
         : "no-store",
     },
   });

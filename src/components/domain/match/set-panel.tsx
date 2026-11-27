@@ -8,6 +8,10 @@ const TONES = ["text-emerald-600 dark:text-emerald-400", "text-amber-600 dark:te
 
 export function SetPanel({ set }: { set: AnalysedSet }) {
   const winner = set.winner === null ? null : set.sides[set.winner];
+  const perfectQSide = set.sides.find(
+    (side) => side.won && side.innings === 1 && set.target !== null && side.points >= set.target,
+  );
+  const isDecider = (set.setNo === 5 || set.setNo === 7) && (set.target === 11 || set.target === 9);
 
   return (
     <section
@@ -16,14 +20,19 @@ export function SetPanel({ set }: { set: AnalysedSet }) {
       aria-labelledby={`set-${set.setNo}-title`}
     >
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-secondary/40 px-4 py-3">
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <h3 id={`set-${set.setNo}-title`} className="text-sm font-semibold text-foreground">
             Set {set.setNo}
           </h3>
           {set.gameType && (
             <span className="rounded-md border border-border bg-background px-2 py-0.5 font-mono text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
-              {set.target !== null ? `Race to ${set.target}` : set.gameType}
+              {set.target !== null ? `Race to ${set.target}${isDecider ? " · Decider" : ""}` : set.gameType}
             </span>
+          )}
+          {perfectQSide && (
+            <Chip tone="gold" title="Perfect Q: cleared the entire set in 1 single inning (₩10M–₩20M special award)">
+              ★ Perfect Q
+            </Chip>
           )}
           {set.playedOn && <span className="font-mono text-xs tabular-nums text-muted-foreground">{set.playedOn}</span>}
         </div>
@@ -79,7 +88,7 @@ export function SetPanel({ set }: { set: AnalysedSet }) {
               Inning sheet
             </p>
             <p className="text-xs text-muted-foreground">
-              1P &amp; 2P are points scored per visit; Tot is cumulative score.
+              1P &amp; 2P bank-shot counts (desktop); Run is inning score and Tot is cumulative score.
             </p>
           </div>
           <div className="mt-2 overflow-hidden rounded-lg border border-border">

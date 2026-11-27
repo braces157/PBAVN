@@ -130,34 +130,56 @@ async function HistorySection({
                   const own = match.sides.find((side) => side.memCode === memCode);
                   const opponent = match.sides.find((side) => side.memCode !== memCode);
                   if (!own) return null;
-                  const href = `/matches/${match.pstCode}?tour=${encodeURIComponent(match.tourCode)}&round=${encodeURIComponent(match.round)}`;
-                  return (
-                    <tr key={`${match.tourCode}-${match.pstCode}`} className="group">
-                      <td className="!text-left font-mono text-xs tabular-nums text-muted-foreground">
-                        {match.scheduledAt ?? "—"}
-                      </td>
-                      <td className="!text-left">
-                        <Link
-                          href={href}
-                          className="block max-w-[280px] truncate text-[13px] font-medium text-foreground hover:underline"
+                    const href = `/matches/${match.pstCode}?tour=${encodeURIComponent(match.tourCode)}&round=${encodeURIComponent(match.round)}`;
+                    const isShootout =
+                      own.sets !== null &&
+                      opponent?.sets !== null &&
+                      opponent?.sets !== undefined &&
+                      own.sets === opponent.sets &&
+                      own.sets === 2;
+                    const dateDisplay = (() => {
+                      const raw = match.scheduledAt?.trim() ?? "";
+                      if (/^\d{2,4}-\d{2}-\d{2}/.test(raw)) return `${raw} KST`;
+                      const tourDate = match.tourStartDate?.trim() ?? "";
+                      if (tourDate && raw) return `${tourDate.slice(0, 7)} · ${raw} KST`;
+                      if (tourDate) return tourDate;
+                      return raw || "—";
+                    })();
+                    return (
+                      <tr key={`${match.tourCode}-${match.pstCode}`} className="group">
+                        <td className="!text-left whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">
+                          {dateDisplay}
+                        </td>
+                        <td className="!text-left">
+                          <Link
+                            href={href}
+                            className="block max-w-[280px] truncate text-[13px] font-medium text-foreground hover:underline"
+                          >
+                            {match.tourTitle}
+                          </Link>
+                        </td>
+                        <td className="!text-left text-xs text-muted-foreground">{match.round || "—"}</td>
+                        <td className="!text-left text-[13px] font-medium text-foreground">
+                          <Link href={href} className="hover:underline">
+                            {opponent?.name ?? "—"}
+                          </Link>
+                        </td>
+                        <td
+                          className={`font-mono font-semibold ${own.won ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}
                         >
-                          {match.tourTitle}
-                        </Link>
-                      </td>
-                      <td className="!text-left text-xs text-muted-foreground">{match.round || "—"}</td>
-                      <td className="!text-left text-[13px] font-medium text-foreground">
-                        <Link href={href} className="hover:underline">
-                          {opponent?.name ?? "—"}
-                        </Link>
-                      </td>
-                      <td
-                        className={`font-mono font-semibold ${own.won ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}
-                      >
-                        {own.won ? "W" : "L"}
-                      </td>
-                      <td className="font-mono font-semibold tabular-nums text-foreground">
-                        {own.sets}–{opponent?.sets ?? "—"}
-                      </td>
+                          {own.won ? "W" : "L"}
+                        </td>
+                        <td className="whitespace-nowrap font-mono font-semibold tabular-nums text-foreground">
+                          {own.sets}–{opponent?.sets ?? "—"}
+                          {isShootout && (
+                            <span
+                              title="Decided by sudden-death shootout (2–2 tie)"
+                              className="ml-1.5 rounded bg-amber-500/15 px-1 py-0.5 text-[9.5px] font-semibold uppercase text-amber-700 dark:text-amber-300"
+                            >
+                              SO
+                            </span>
+                          )}
+                        </td>
                       <td className="font-mono tabular-nums text-muted-foreground">{average(own.average)}</td>
                       <td className="hidden font-mono tabular-nums text-muted-foreground sm:table-cell">
                         {own.highRun ?? "—"}

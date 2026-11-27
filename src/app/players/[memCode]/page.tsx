@@ -14,6 +14,7 @@ import { getRequestFailures } from "@/lib/pba/failures";
 import {
   getCurrentSeason,
   getPlayerCached,
+  getPlayerTeamClub,
   getSeasonCircuitRanks,
   getSeasonList,
   translateKoreanTourTitle,
@@ -102,15 +103,16 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
   const baseLine = normalizePlayerStat(seasonStat);
   const hasData = hasStatData(baseLine);
 
-  const [tourStats, championships, seasonRank, careerRank, circuitRanks, failures] = await trackFailures(async () => {
-    const [tourStats, championships, seasonRank, careerRank, circuitRanks] = await Promise.all([
+  const [tourStats, championships, seasonRank, careerRank, circuitRanks, teamClub, failures] = await trackFailures(async () => {
+    const [tourStats, championships, seasonRank, careerRank, circuitRanks, teamClub] = await Promise.all([
       getPlayerTourStats({ memCode, seasonCode, pbaType }),
       getPlayerChampionships(memCode),
       getPlayerSeasonRank({ memCode, seasonCode, pbaType }),
       getPlayerCareerRank(memCode),
       hasData ? getSeasonCircuitRanks(seasonCode, pbaType) : Promise.resolve(new Map()),
+      getPlayerTeamClub(memCode),
     ]);
-    return [tourStats, championships, seasonRank, careerRank, circuitRanks, getRequestFailures()] as const;
+    return [tourStats, championships, seasonRank, careerRank, circuitRanks, teamClub, getRequestFailures()] as const;
   });
 
   const computedRanks = circuitRanks.get(memCode);
@@ -183,14 +185,18 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
           <div className="grid gap-5 pb-7 pt-6 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-end sm:gap-7">
             <div className="relative w-fit">
               <div className="relative aspect-[4/5] w-[128px] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 sm:w-[152px]">
+                <div className="absolute inset-0">
+                  <InitialsPlate name={player.name} />
+                </div>
                 <SafeImage
                   path={player.photoPath}
                   src={player.photoLarge ?? player.photo}
                   width={320}
                   alt=""
                   loading="eager"
-                  className="h-full w-full object-cover object-top"
-                  fallback={<InitialsPlate name={player.name} />}
+                  revealOnLoad
+                  className="relative z-10 h-full w-full object-cover object-top"
+                  fallback={null}
                 />
               </div>
             </div>
@@ -199,6 +205,14 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
               <div className="flex flex-wrap items-center gap-1.5">
                 <HeroTag tone="accent">{league.name}</HeroTag>
                 <HeroTag>{player.gender === "F" ? "Women" : "Men"}</HeroTag>
+                {teamClub && (
+                  <Link
+                    href={`/teams/${encodeURIComponent(teamClub.teamCode)}?season=${encodeURIComponent(teamClub.seasonCode)}`}
+                    className="inline-flex items-center gap-1 rounded-md border border-blue-500/35 bg-blue-500/15 px-2 py-0.5 text-[11px] font-medium text-blue-200 transition-colors hover:bg-blue-500/25 hover:no-underline"
+                  >
+                    Team League · {teamClub.teamName}
+                  </Link>
+                )}
                 {championships.length > 0 && (
                   <HeroTag tone="gold">
                     <Trophy className="h-3 w-3" aria-hidden="true" />
@@ -280,11 +294,36 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                   <div className="grid gap-5 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                     <Panel title="Shot profile" meta="success rate · circuit rank">
                       <ul className="divide-y divide-border/60">
-                        <RateRow label="Bank shot" value={line.bankShotRate} rank={line.ranks.bankShotRate} />
-                        <RateRow label="First shot" value={line.firstShotRate} rank={line.ranks.firstShotRate} />
-                        <RateRow label="Attack success" value={line.attackRate} rank={line.ranks.attackRate} />
-                        <RateRow label="Long run" value={line.longRunRate} rank={line.ranks.longRunRate} />
-                        <RateRow label="Shootout" value={line.shootoutRate} rank={line.ranks.shootoutRate} />
+                        <RateRow
+                          label="Bank shot"
+                          hint="Share of total points scored via 2-point bank shots."
+                          value={line.bankShotRate}
+                          rank={line.ranks.bankShotRate}
+                        />
+                        <RateRow
+                          label="First shot"
+                          hint="Success rate on the opening break/first shot of an inning."
+                          value={line.firstShotRate}
+                          rank={line.ranks.firstShotRate}
+                        />
+                        <RateRow
+                          label="Attack success"
+                          hint="Percentage of all shot attempts scored."
+                          value={line.attackRate}
+                          rank={line.ranks.attackRate}
+                        />
+                        <RateRow
+                          label="Long run"
+                          hint="Frequency of high-scoring 5+ point runs."
+                          value={line.longRunRate}
+                          rank={line.ranks.longRunRate}
+                        />
+                        <RateRow
+                          label="Shootout"
+                          hint="Win rate in sudden-death 2–2 shootouts (R128/R64)."
+                          value={line.shootoutRate}
+                          rank={line.ranks.shootoutRate}
+                        />
                       </ul>
                     </Panel>
 
@@ -296,7 +335,16 @@ export default async function PlayerProfilePage({ params, searchParams }: PagePr
                           label="Innings / match"
                           value={line.matches ? (line.innings / line.matches).toFixed(1) : "—"}
                         />
-                        <VolumeCell label="Bank shots made" value={line.bankShots > 0 ? grouped(line.bankShots) : "—"} />
+                        <VolumeCell
+                          label="Bank shots made"
+                          value={
+                            line.bankShots > 0
+                              ? grouped(line.bankShots)
+                              : line.twoPoint > 0
+                                ? grouped(line.twoPoint)
+                                : "—"
+                          }
+                        />
                         <VolumeCell label="One-point scores" value={grouped(line.onePoint)} />
                         <VolumeCell label="Two-point scores" value={grouped(line.twoPoint)} />
                       </div>
@@ -618,11 +666,11 @@ function RecordBar({ label, wins, losses }: { label: string; wins: number; losse
   );
 }
 
-function RateRow({ label, value, rank }: { label: string; value: number; rank?: number }) {
+function RateRow({ label, hint, value, rank }: { label: string; hint?: string; value: number; rank?: number }) {
   const width = Math.max(0, Math.min(100, value || 0));
   const top = rank !== undefined && rank > 0 && rank <= 3;
   return (
-    <li className="grid grid-cols-[110px_minmax(0,1fr)_56px_44px] items-center gap-3 px-4 py-2.5">
+    <li className="grid grid-cols-[110px_minmax(0,1fr)_56px_44px] items-center gap-3 px-4 py-2.5" title={hint}>
       <span className="text-[13px] font-medium text-foreground">{label}</span>
       <span className="h-1.5 overflow-hidden rounded-full bg-secondary" aria-hidden="true">
         <span

@@ -7,7 +7,7 @@ import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
 import { siteUrl } from "@/lib/site";
 
-const THEME_INIT = `(function(){try{var t=localStorage.getItem("pba-theme");if(t!=="dark"&&t!=="light"){t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t;}catch(e){}})();`;
+const THEME_INIT = `(function(){var t=null;try{t=localStorage.getItem("pba-theme");}catch(e){}if(t!=="dark"&&t!=="light"){try{t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}catch(e){t="light";}}try{var r=document.documentElement;r.dataset.theme=t;r.style.colorScheme=t;}catch(e){}})();`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
@@ -55,7 +55,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      data-theme="light"
       suppressHydrationWarning
       className={`${GeistSans.variable} ${GeistMono.variable}`}
     >

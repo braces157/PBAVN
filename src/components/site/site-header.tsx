@@ -20,8 +20,10 @@ const NAV: NavItem[] = [
   { href: "/", label: "Matches" },
   { href: "/live", label: "Live", live: true },
   { href: "/schedule", label: "Schedule" },
+  { href: "/players", label: "Players" },
   { href: "/rankings", label: "Rankings" },
   { href: "/teams", label: "Team League" },
+  { href: "/compare", label: "Compare" },
   { href: "/records", label: "Stats" },
   { href: "/news", label: "News" },
 ];
@@ -33,9 +35,9 @@ let cachedMatches: LiveMatch[] = [];
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/" || pathname.startsWith("/matches/");
   if (href === "/teams") return pathname === "/teams" || pathname.startsWith("/teams/");
-  if (href === "/records") {
-    return pathname.startsWith("/records") || pathname.startsWith("/players") || pathname.startsWith("/compare");
-  }
+  if (href === "/players") return pathname === "/players" || pathname.startsWith("/players/");
+  if (href === "/compare") return pathname === "/compare" || pathname.startsWith("/compare/");
+  if (href === "/records") return pathname === "/records" || pathname.startsWith("/records/");
   if (href === "/live") return pathname === "/live";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -56,7 +58,7 @@ export function SiteHeader() {
         setLiveMatches(cachedMatches);
         return;
       }
-      fetch("/api/live", { signal: controller.signal })
+      fetch("/api/live", { cache: "no-store", signal: controller.signal })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (!controller.signal.aborted && data && Array.isArray(data.matches)) {
@@ -72,10 +74,15 @@ export function SiteHeader() {
     const interval = setInterval(() => {
       if (typeof document === "undefined" || !document.hidden) fetchLive(true);
     }, LIVE_POLL_MS);
+    const onVisibilityChange = () => {
+      if (!document.hidden) fetchLive(true);
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       controller.abort();
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [pathname]);
 
@@ -87,7 +94,7 @@ export function SiteHeader() {
         <div className="flex min-w-0 items-center gap-6">
           <LogoLink />
 
-          <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary navigation">
+          <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Primary navigation">
             {NAV.map((item) => {
               const active = isActive(pathname, item.href);
               return (
@@ -95,7 +102,7 @@ export function SiteHeader() {
                   key={item.href}
                   href={item.href}
                   aria-current={active ? "page" : undefined}
-                  className={`relative inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors ${
+                  className={`relative inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[13.5px] font-medium transition-colors ${
                     active
                       ? "text-foreground"
                       : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
@@ -136,9 +143,9 @@ export function SiteHeader() {
       </div>
 
       {/* Mobile horizontal navigation */}
-      <div className="border-t border-border bg-card lg:hidden">
+      <div className="relative border-t border-border bg-card lg:hidden">
         <nav
-          className="no-scrollbar mask-fade-r flex items-center gap-1 overflow-x-auto px-3 py-1.5 pr-8"
+          className="no-scrollbar mask-fade-r flex items-center gap-1 overflow-x-auto px-3 py-1.5 pr-10"
           aria-label="Mobile navigation"
         >
           {NAV.map((item) => {
@@ -148,7 +155,7 @@ export function SiteHeader() {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium whitespace-nowrap transition-colors ${
+                className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-md px-3 text-xs font-medium whitespace-nowrap transition-colors ${
                   active
                     ? "bg-secondary font-semibold text-foreground"
                     : "text-muted-foreground hover:text-foreground"

@@ -25,6 +25,29 @@ function shortRound(round: string): string {
     .replace(/^Semi-final$/i, "SF");
 }
 
+function formatLocalKickoff(clock: string | undefined): string | undefined {
+  if (!clock) return undefined;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(clock.trim());
+  if (!m) return undefined;
+  try {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const mo = String(now.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(now.getUTCDate()).padStart(2, "0");
+    const kstDate = new Date(`${y}-${mo}-${d}T${m[1].padStart(2, "0")}:${m[2]}:00+09:00`);
+    if (Number.isNaN(kstDate.getTime())) return undefined;
+    const local = new Intl.DateTimeFormat(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZoneName: "short",
+    }).format(kstDate);
+    return `${clock} KST (${local} local)`;
+  } catch {
+    return `${clock} KST`;
+  }
+}
+
 export function HomeFixturesCard({
   days,
   teamFallback,
@@ -118,6 +141,8 @@ export function HomeFixturesCard({
               const isLive = row.state === "live";
               const isFinal = row.state === "final";
               const isNext = row.state === "next";
+              const isShootout =
+                isFinal && row.homeScore === 2 && row.awayScore === 2;
               return (
                 <Link
                   key={row.key}
@@ -133,10 +158,23 @@ export function HomeFixturesCard({
                           Live
                         </span>
                       ) : isFinal ? (
-                        <span className="mono text-xs font-medium text-muted-foreground">FT</span>
+                        <span className="mono inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                          FT
+                          {isShootout && (
+                            <span
+                              title="Decided by sudden-death shootout (2–2 tie)"
+                              className="rounded bg-amber-500/15 px-1 py-0.5 text-[9.5px] font-semibold uppercase text-amber-700 dark:text-amber-300"
+                            >
+                              SO
+                            </span>
+                          )}
+                        </span>
                       ) : (
-                        <span className="mono text-xs font-semibold text-foreground">
-                          {row.clock || "KST"}
+                        <span
+                          className="mono whitespace-nowrap text-xs font-semibold text-foreground"
+                          title={formatLocalKickoff(row.clock)}
+                        >
+                          {row.clock ? `${row.clock} KST` : "Scheduled"}
                         </span>
                       )}
                       <span className={`text-[11px] font-medium ${circuitColor(row.circuit)}`}>

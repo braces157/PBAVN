@@ -86,11 +86,17 @@ export function LiveArena({
   }, []);
 
   useEffect(() => {
+    void refresh();
     const timer = setInterval(() => {
       if (typeof document === "undefined" || !document.hidden) void refresh();
     }, POLL_MS);
+    const onVisibilityChange = () => {
+      if (!document.hidden) void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       controllerRef.current?.abort();
     };
   }, [refresh]);
@@ -123,6 +129,24 @@ export function LiveArena({
   const nextBatch = nextClock
     ? upcoming.filter((item) => item.clock === nextClock).slice(0, 8)
     : upcoming.slice(0, 8);
+
+  const activeCircuitLabel =
+    active?.competition ||
+    (active?.circuit === "PBA1"
+      ? "PBA Tour"
+      : active?.circuit === "LPBA1"
+        ? "LPBA Tour"
+        : active?.latestSet.target === 15
+          ? "PBA Tour"
+          : active?.latestSet.target === 11
+            ? "LPBA Tour"
+            : /\bLPBA\b/i.test(eventTitle)
+              ? "LPBA Tour"
+              : "PBA Tour");
+  const h2hHref =
+    sideA?.memCode && sideB?.memCode
+      ? `/compare?a=${encodeURIComponent(sideA.memCode)}&b=${encodeURIComponent(sideB.memCode)}`
+      : null;
 
   return (
     <div>
@@ -268,10 +292,7 @@ export function LiveArena({
                 </span>
                 <span className="text-muted-foreground">/</span>
                 <span className="font-semibold text-[var(--pba)]">
-                  {active.competition ||
-                    (active.latestSet.target === 11 || /\bLPBA\b/i.test(eventTitle)
-                      ? "LPBA Tour"
-                      : "PBA Tour")}
+                  {activeCircuitLabel}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   Table {activeIdx + 1}
@@ -279,9 +300,14 @@ export function LiveArena({
                 </span>
               </div>
 
-              <div className="flex items-center gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-3 text-xs">
                 {active.latestSet.target && (
                   <span className="mono text-muted-foreground">Race to {active.latestSet.target}</span>
+                )}
+                {h2hHref && (
+                  <Link href={h2hHref} className="font-medium text-muted-foreground hover:text-foreground hover:underline">
+                    Compare H2H
+                  </Link>
                 )}
                 {active.pstCode && (
                   <Link
@@ -297,7 +323,16 @@ export function LiveArena({
             <div className="grid grid-cols-1 items-center gap-5 border-b border-border px-6 py-7 text-center sm:grid-cols-[1fr_auto_1fr] sm:text-left">
               <div className="flex min-w-0 flex-col items-center gap-1 sm:items-start">
                 <h2 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-                  {sideA?.name ?? "Player 1"}
+                  {sideA?.memCode ? (
+                    <Link
+                      href={`/players/${encodeURIComponent(sideA.memCode)}`}
+                      className="transition-colors hover:text-[var(--pba)] hover:underline"
+                    >
+                      {sideA.name}
+                    </Link>
+                  ) : (
+                    sideA?.name ?? "Player 1"
+                  )}
                 </h2>
                 <span className="mono text-xs text-muted-foreground">
                   Sets won: <strong className="text-foreground">{setsA}</strong>
@@ -334,7 +369,16 @@ export function LiveArena({
 
               <div className="flex min-w-0 flex-col items-center gap-1 sm:items-end sm:text-right">
                 <h2 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-                  {sideB?.name ?? "Player 2"}
+                  {sideB?.memCode ? (
+                    <Link
+                      href={`/players/${encodeURIComponent(sideB.memCode)}`}
+                      className="transition-colors hover:text-[var(--pba)] hover:underline"
+                    >
+                      {sideB.name}
+                    </Link>
+                  ) : (
+                    sideB?.name ?? "Player 2"
+                  )}
                 </h2>
                 <span className="mono text-xs text-muted-foreground">
                   Sets won: <strong className="text-foreground">{setsB}</strong>
@@ -364,7 +408,18 @@ export function LiveArena({
                     const pts = side?.points ?? 0;
                     return (
                       <tr key={idx}>
-                        <td className="font-medium text-foreground">{side?.name ?? `Player ${idx + 1}`}</td>
+                        <td className="font-medium text-foreground">
+                          {side?.memCode ? (
+                            <Link
+                              href={`/players/${encodeURIComponent(side.memCode)}`}
+                              className="transition-colors hover:text-[var(--pba)] hover:underline"
+                            >
+                              {side.name}
+                            </Link>
+                          ) : (
+                            side?.name ?? `Player ${idx + 1}`
+                          )}
+                        </td>
                         {active.completedSets.map((pair, sIdx) => (
                           <td key={sIdx} className="mono text-right">{pair[idx] ?? "—"}</td>
                         ))}

@@ -60,7 +60,7 @@ export function FilterRow({
               href={buildHref(option.value)}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-all hover:no-underline",
+                "inline-flex min-h-[32px] shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition-all hover:no-underline sm:min-h-0 sm:py-1",
                 isActive
                   ? "bg-card text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground",

@@ -92,6 +92,91 @@ export default function AboutPage() {
           </div>
         </section>
 
+        <section id="rules" className="mt-10 scroll-mt-20">
+          <SectionHeading
+            eyebrow="Fan guide"
+            title="How PBA 3-Cushion Works"
+            description="Key differences between PBA/LPBA/Team League and traditional UMB 3-cushion billiards."
+          />
+
+          <div className="mt-4 grid gap-3.5 md:grid-cols-2 lg:grid-cols-3">
+            <div className="rounded-xl border border-border bg-card p-5">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                Core scoring
+              </p>
+              <h3 className="mt-1 text-base font-semibold text-foreground">2-Point Bank Shots &amp; No Equalizer</h3>
+              <ul className="mt-2.5 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+                <li><strong className="text-foreground">1 pt:</strong> Standard 3-cushion carom (object ball first).</li>
+                <li><strong className="text-foreground">2 pts (Bank Shot):</strong> Cue ball hits a cushion before the first object ball — no penalty on a miss.</li>
+                <li><strong className="text-foreground">No equalizing inning:</strong> The set ends the instant a player reaches the target score, making the opening break (<strong className="text-foreground">Lag / Break</strong>) a real edge.</li>
+                <li><strong className="text-foreground">Shot clock:</strong> 35 seconds per shot with limited timeouts per set.</li>
+              </ul>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-5">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--pba)]">
+                PBA &amp; LPBA Tours
+              </p>
+              <h3 className="mt-1 text-base font-semibold text-foreground">Round Formats &amp; Shootouts</h3>
+              <ul className="mt-2.5 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+                <li><strong className="text-foreground">PBA R128 &amp; R64:</strong> Best of 4 sets (15 pts). Tied <strong className="text-foreground">2–2</strong> goes to a sudden-death <strong className="text-foreground">Shootout (SO)</strong> from the break formation.</li>
+                <li><strong className="text-foreground">PBA R32–QF / SF–Final:</strong> Best of 5 (15/11 pts) and Best of 7 (15/11 pts).</li>
+                <li><strong className="text-foreground">LPBA PPQ / PQ / R64:</strong> Single-game <strong className="text-foreground">25-point / 50-minute</strong> format (ties broken by HR1 → HR2 → Banking lag).</li>
+                <li><strong className="text-foreground">LPBA R32+:</strong> Set format to 11 pts (deciding set 9 pts); Final is Best of 7.</li>
+              </ul>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-5">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                PBA Team League
+              </p>
+              <h3 className="mt-1 text-base font-semibold text-foreground">7-Set Order &amp; 3–2–1 Points</h3>
+              <ul className="mt-2.5 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+                <li><strong className="text-foreground">Fixed 7-set order (first to 4):</strong> S1 Men&apos;s Doubles (11) · S2 Women&apos;s Doubles (9) · S3 Men&apos;s Singles (15) · S4 Mixed Doubles (9) · S5 Men&apos;s Singles (11) · S6 Women&apos;s Singles (9) · S7 Men&apos;s Singles (11).</li>
+                <li><strong className="text-foreground">Match points:</strong> 4–0 / 4–1 / 4–2 = <strong className="text-foreground">3 pts</strong> (loser 0). 4–3 = <strong className="text-foreground">2 pts</strong> (loser <strong className="text-foreground">1 pt</strong>).</li>
+                <li><strong className="text-foreground">Postseason:</strong> Each round winner clinches a playoff berth; duplicate winners open Wild Card spots by Overall standings.</li>
+              </ul>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-5">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                Season stakes
+              </p>
+              <h3 className="mt-1 text-base font-semibold text-foreground">World Championship &amp; Q-School</h3>
+              <ul className="mt-2.5 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+                <li><strong className="text-foreground">World Championship (Top 32 Prize Money):</strong> Season finale major with 8 groups of 4 → R16 knockout (₩200M PBA champion prize).</li>
+                <li><strong className="text-foreground">Division 1 Survival (Top ~60 Points):</strong> Top ~60 retain their PBA1 tour card; lower finishers are relegated to <strong className="text-foreground">Q-School</strong>.</li>
+                <li><strong className="text-foreground">Dream Tour Promotion:</strong> Top 20 in Dream Tour earn direct promotion to PBA1.</li>
+              </ul>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-5">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                Special awards
+              </p>
+              <h3 className="mt-1 text-base font-semibold text-foreground">Perfect Q &amp; Welcome Top Ranking</h3>
+              <ul className="mt-2.5 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+                <li><strong className="text-foreground">Perfect Q (퍼펙트큐):</strong> Clearing an entire set in 1 single inning (15 pts in 1 inn for PBA / 11 pts for LPBA — pays ₩10M in regular tours, ₩20M at World Championship).</li>
+                <li><strong className="text-foreground">Welcome Top Ranking:</strong> Awarded to the highest single-match average in each tournament (₩4M).</li>
+              </ul>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-5">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Glossary
+              </p>
+              <h3 className="mt-1 text-base font-semibold text-foreground">Reading the Abbreviations</h3>
+              <dl className="mt-2.5 space-y-1 text-xs text-muted-foreground">
+                <div><dt className="inline font-mono font-semibold text-foreground">AVG</dt> — <dd className="inline">Points scored per inning.</dd></div>
+                <div><dt className="inline font-mono font-semibold text-foreground">HR</dt> — <dd className="inline">High run (longest consecutive point streak).</dd></div>
+                <div><dt className="inline font-mono font-semibold text-foreground">1P / 2P / BS%</dt> — <dd className="inline">1-pt shots, 2-pt bank shots, and share of points from bank shots.</dd></div>
+                <div><dt className="inline font-mono font-semibold text-foreground">GP9 / GP11 / GP15</dt> — <dd className="inline">Set race target (9, 11, or 15 points).</dd></div>
+                <div><dt className="inline font-mono font-semibold text-foreground">SO / KST</dt> — <dd className="inline">Sudden-death Shootout / Korea Standard Time (UTC+9).</dd></div>
+              </dl>
+            </div>
+          </div>
+        </section>
+
         <section id="data" className="mt-10 scroll-mt-20">
           <SectionHeading
             eyebrow="Data provenance"
@@ -116,10 +201,11 @@ export default function AboutPage() {
               </p>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
-              <div className="border-b border-border bg-secondary/40 px-4 py-3">
-                <p className="text-xs font-semibold text-foreground">Endpoints consumed</p>
-              </div>
+            <details className="overflow-hidden rounded-xl border border-border bg-card">
+              <summary className="flex cursor-pointer items-center justify-between border-b border-border bg-secondary/40 px-4 py-3 text-xs font-semibold text-foreground">
+                <span>Upstream endpoints consumed ({ENDPOINTS.length})</span>
+                <span className="font-normal text-muted-foreground">Click to expand</span>
+              </summary>
               <div className="max-h-[400px] overflow-y-auto">
                 <table className="stat-table">
                   <tbody>
@@ -136,7 +222,7 @@ export default function AboutPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </details>
           </div>
         </section>
 

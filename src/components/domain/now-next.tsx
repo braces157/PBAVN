@@ -89,10 +89,36 @@ export function NowNextStrip({
 export function LiveIdle({
   href = "/live",
   unavailable = false,
+  status = "live",
 }: {
   href?: string;
   unavailable?: boolean;
+  status?: "live" | "upcoming" | "completed";
 }) {
+  if (status === "completed") {
+    return (
+      <div className="bg-card px-4 py-3.5">
+        <p className="flex items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+          Tournament status
+        </p>
+        <p className="mt-2 text-sm font-medium leading-snug text-foreground">
+          Tournament concluded
+        </p>
+        <p className="mt-1 text-xs leading-snug text-muted-foreground">
+          All published rounds and scorecards for this event are final.
+        </p>
+        <Link
+          href={href}
+          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-foreground transition-colors hover:text-muted-foreground hover:no-underline"
+        >
+          Live match centre
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-card px-4 py-3.5">
       <p className="flex items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -100,15 +126,21 @@ export function LiveIdle({
           className={cn("inline-block h-1.5 w-1.5 rounded-full", unavailable ? "bg-rose-500" : "bg-muted-foreground/60")}
           aria-hidden="true"
         />
-        {unavailable ? "Feed unreachable" : "On table"}
+        {unavailable ? "Feed unreachable" : status === "upcoming" ? "Upcoming event" : "On table"}
       </p>
       <p className="mt-2 text-sm font-medium leading-snug text-foreground">
-        {unavailable ? "Scoring board did not answer" : "No match is being scored right now"}
+        {unavailable
+          ? "Scoring board did not answer"
+          : status === "upcoming"
+            ? "Play has not started yet"
+            : "Between sessions — no table in play"}
       </p>
       <p className="mt-1 text-xs leading-snug text-muted-foreground">
         {unavailable
           ? "The live feed could not be reached for this render. Check the match centre directly."
-          : "The association's scoreboard reports an idle table."}
+          : status === "upcoming"
+            ? "Live tables will appear here once the first session begins."
+            : "The association's scoring terminal reports no active table right now."}
       </p>
       <Link
         href={href}
